@@ -3,8 +3,19 @@ name = "alembic"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "alembic"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "incant"
+path = "src/main.rs"
+
 [dependencies]
 color-eyre = "0.6.3"
+ctor = "0.2.9"
+dll-syringe = "0.15.2"
 widestring = "1.1.0"
 
 [dependencies.windows]

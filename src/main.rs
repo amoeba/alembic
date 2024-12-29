@@ -1,34 +1,10 @@
-use std::io::Error;
-
-use widestring::U16CString;
-use windows::{
-    core::PCWSTR,
-    Win32::{Foundation::HWND, UI::WindowsAndMessaging::*},
-};
+use dll_syringe::{process::OwnedProcess, Syringe};
 
 fn main() {
-    println!("Hello, world!");
+    println!("Hello from main!");
 
-    unsafe {
-        let result = show_message_box("Test", "Hello World");
-        match result {
-            Ok(()) => println!("Good result"),
-            Err(e) => println!("Err: {e:?}"),
-        }
-    };
-}
-
-unsafe fn show_message_box(title: &str, message: &str) -> Result<(), Error> {
-    let lptext = U16CString::from_str(title).unwrap();
-    let lpcaption = U16CString::from_str(&message).unwrap();
-    let result = MessageBoxW(
-        HWND::default(),
-        PCWSTR(lptext.as_ptr()),
-        PCWSTR(lpcaption.as_ptr()),
-        MB_OK,
-    );
-
-    println!("got result of {result:?}");
-
-    Ok(())
+    let target_process = OwnedProcess::find_first_by_name("Notepad").unwrap();
+    let syringe = Syringe::for_process(target_process);
+    let injected_payload = syringe.inject("target/debug/alembic.dll").unwrap();
+    syringe.eject(injected_payload).unwrap();
 }
