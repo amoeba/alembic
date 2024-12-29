@@ -1,6 +1,6 @@
 use std::io::Error;
 
-use widestring::{U16CString, U16String};
+use widestring::U16CString;
 use windows::{
     core::PCWSTR,
     Win32::{Foundation::HWND, UI::WindowsAndMessaging::*},
