@@ -3,18 +3,62 @@ use std::error::Error;
 use std::ffi::c_int;
 use std::mem;
 use std::os::raw::c_void;
-use widestring::{U16CString, U16String};
-use windows::core::{w, PCWSTR};
-use windows::Win32::Foundation::{BOOL, HANDLE};
+use windows::core::PCSTR;
+use windows::Win32::Foundation::BOOL;
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::Storage::FileSystem::{
+    CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
+};
+use windows::Win32::System::Console::STD_ERROR_HANDLE;
+
+use windows::Win32::System::Console::{AllocConsole, SetStdHandle, STD_OUTPUT_HANDLE};
+
 use windows::Win32::System::SystemServices::{
     DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
-use windows::Win32::UI::WindowsAndMessaging::*;
 
 // Chorizite has this as
 // private static int RecvFromImpl(nint s, byte* buf, int len, int flags, byte* from, int fromlen) {
 static_detour! {
   static RecvFromImplHook: unsafe extern "system" fn(*mut c_void, *mut u8, c_int, c_int, *mut u8, c_int) -> c_int;
+}
+
+unsafe fn allocate_console() -> windows::core::Result<()> {
+    unsafe {
+        // Allocate a new console
+        AllocConsole()?;
+
+        // Redirect stdout
+        let stdout_handle = CreateFileA(
+            PCSTR("CONOUT$\0".as_ptr()),
+            FILE_GENERIC_WRITE.0,
+            FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            HANDLE::default(),
+        )?;
+
+        SetStdHandle(STD_OUTPUT_HANDLE, stdout_handle)?;
+
+        // Redirect stderr
+        let stderr_handle = CreateFileA(
+            PCSTR("CONOUT$\0".as_ptr()),
+            FILE_GENERIC_WRITE.0,
+            FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            HANDLE::default(),
+        )?;
+
+        SetStdHandle(STD_ERROR_HANDLE, stderr_handle)?;
+    }
+
+    println!("Console allocated and streams redirected successfully!");
+    eprintln!("This is an error message test.");
+
+    Ok(())
 }
 
 pub fn is_executable_address(address: *const ()) -> bool {
@@ -25,14 +69,14 @@ pub fn is_executable_address(address: *const ()) -> bool {
 }
 
 unsafe fn main() -> Result<(), Box<dyn Error>> {
+    allocate_console()?;
+
     let address: i32 = 0x007935AC;
 
     if is_executable_address(address as *const ()) {
-        println!("hook target address IS executable");
-        MessageBoxW(None, w!("main: addr is exe"), w!("Alembic"), MB_OK);
+        println!("hook target address 0x{address:x} IS executable");
     } else {
-        println!("hook target address NOT executable");
-        MessageBoxW(None, w!("main: addr is not exe"), w!("Alembic"), MB_OK);
+        println!("hook target address 0x{address:x} NOT executable");
     }
 
     RecvFromImplHook
@@ -73,30 +117,21 @@ fn my_recv_from_impl_hook(
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {
         DLL_PROCESS_ATTACH => {
-            println!("attaching");
-            MessageBoxW(None, w!("ATTACH"), w!("Alembic"), MB_OK);
+            println!("In DllMain, attaching because reason is DLL_PROCESS_ATTACH");
 
             unsafe {
                 match main() {
                     Ok(_) => {
-                        MessageBoxW(
-                            None,
-                            w!("In Attach, main() ran with success"),
-                            w!("Alembic"),
-                            MB_OK,
-                        );
+                        println!("main ran successfully")
                     }
                     Err(error) => {
-                        let lptext =
-                            U16String::from_str(format!("Attach failed: {error:?}").as_str());
-                        MessageBoxW(None, PCWSTR(lptext.as_ptr()), w!("Alembic"), MB_OK);
+                        eprintln!("main ran with error {error:?}");
                     }
                 }
             }
         }
         DLL_PROCESS_DETACH => {
-            println!("detaching");
-            MessageBoxW(None, w!("DETACH"), w!("Alembic"), MB_OK);
+            println!("In Dllmain, detaching because reason is DLL_PROCESS_DETACH");
         }
         DLL_THREAD_ATTACH => {}
         DLL_THREAD_DETACH => {}
