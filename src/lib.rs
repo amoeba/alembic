@@ -17,8 +17,23 @@ static_detour! {
   static RecvFromImplHook: unsafe extern "system" fn(*mut c_void, *mut u8, c_int, c_int, *mut u8, c_int) -> c_int;
 }
 
+pub fn is_executable_address(address: *const ()) -> bool {
+    region::query(address as *const _)
+        .unwrap()
+        .protection()
+        .contains(region::Protection::EXECUTE)
+}
+
 unsafe fn main() -> Result<(), Box<dyn Error>> {
-    let address = 0x007935AC;
+    let address: i32 = 0x007935AC;
+
+    if is_executable_address(address as *const ()) {
+        println!("hook target address IS executable");
+        MessageBoxW(None, w!("main: addr is exe"), w!("Alembic"), MB_OK);
+    } else {
+        println!("hook target address NOT executable");
+        MessageBoxW(None, w!("main: addr is not exe"), w!("Alembic"), MB_OK);
+    }
 
     RecvFromImplHook
         .initialize(mem::transmute(address), my_recv_from_impl_hook)?
@@ -34,7 +49,7 @@ fn my_recv_from_impl_hook(
     from: *mut u8,
     fromlen: c_int,
 ) -> c_int {
-    println!("RecvFromImpl called with:");
+    println!("my_recv_from_impl_hook called with args:");
     println!("  Socket: {:?}", s);
     println!("  Buffer length: {}", len);
     println!("  Flags: {}", flags);

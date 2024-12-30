@@ -30,24 +30,34 @@ fn main() {
     }
 
     let syringe = Syringe::for_process(target_process);
-    let injected_payload: Option<
-        dll_syringe::process::ProcessModule<dll_syringe::process::BorrowedProcess<'_>>,
-    >;
 
     println!("About to inject");
 
-    match syringe.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll") {
+    let injected_payload = match syringe.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")
+    {
         Ok(value) => {
             println!("DLL injected successfully!");
-            injected_payload = Some(value);
-            rx.recv().expect("Could not receive from channel.");
-            println!("Got it! Ejecting and exiting...");
-            syringe.eject(injected_payload.unwrap()).unwrap();
-            println!("Done with eject. Should exit in a sec.");
+            Some(value)
         }
         Err(error) => {
-            println!("DLL did not inject successfully :(: {error:?}");
+            println!("DLL did not inject successfully: {error:?}");
+            None
         }
+    };
+
+    // Block until Ctrl+C
+    rx.recv().expect("Could not receive from channel.");
+    println!("ctrl+c received...");
+
+    // Attempt to eject
+    if let Some(payload) = injected_payload {
+        println!("Ejecting...");
+        match syringe.eject(payload) {
+            Ok(_) => {
+                println!("Ejected successfully.")
+            }
+            Err(error) => println!("Eject failed: {error:?}"),
+        };
     }
 
     println!("Exiting.");
