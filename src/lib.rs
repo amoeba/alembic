@@ -1,50 +1,57 @@
 use retour::static_detour;
 use std::error::Error;
 use std::ffi::c_int;
+use std::mem;
 use std::os::raw::c_void;
-use std::{ffi::CString, iter, mem};
-use windows::core::{w, PCSTR, PCWSTR};
-use windows::Win32::Foundation::{BOOL, HANDLE, HWND};
-use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+use widestring::{U16CString, U16String};
+use windows::core::{w, PCWSTR};
+use windows::Win32::Foundation::{BOOL, HANDLE};
 use windows::Win32::System::SystemServices::{
     DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
+use windows::Win32::UI::WindowsAndMessaging::*;
 
+// Chorizite has this as
+// private static int RecvFromImpl(nint s, byte* buf, int len, int flags, byte* from, int fromlen) {
 static_detour! {
-  static MessageBoxWHook: unsafe extern "system" fn(HWND, PCWSTR, PCWSTR, u32) -> c_int;
+  static RecvFromImplHook: unsafe extern "system" fn(*mut c_void, *mut u8, c_int, c_int, *mut u8, c_int) -> c_int;
 }
 
-type FnMessageBoxW = unsafe extern "system" fn(HWND, PCWSTR, PCWSTR, u32) -> c_int;
-
 unsafe fn main() -> Result<(), Box<dyn Error>> {
-    let address = get_module_symbol_address("user32.dll", "MessageBoxW")
-        .expect("could not find 'MessageBoxW' address");
-    let target: FnMessageBoxW = mem::transmute(address);
+    let address = 0x007935AC;
 
-    MessageBoxWHook
-        .initialize(target, messageboxw_detour)?
+    RecvFromImplHook
+        .initialize(mem::transmute(address), my_recv_from_impl_hook)?
         .enable()?;
     Ok(())
 }
 
-fn messageboxw_detour(hwnd: HWND, text: PCWSTR, _caption: PCWSTR, msgbox_style: u32) -> c_int {
-    let replaced_caption = w!("Detoured!");
-    unsafe { MessageBoxWHook.call(hwnd, text, replaced_caption, msgbox_style) }
-}
+fn my_recv_from_impl_hook(
+    s: *mut c_void,
+    buf: *mut u8,
+    len: c_int,
+    flags: c_int,
+    from: *mut u8,
+    fromlen: c_int,
+) -> c_int {
+    println!("RecvFromImpl called with:");
+    println!("  Socket: {:?}", s);
+    println!("  Buffer length: {}", len);
+    println!("  Flags: {}", flags);
+    println!("  From length: {}", fromlen);
 
-fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
-    let module = module
-        .encode_utf16()
-        .chain(iter::once(0))
-        .collect::<Vec<u16>>();
-    let symbol = CString::new(symbol).unwrap();
-    unsafe {
-        let handle = GetModuleHandleW(PCWSTR(module.as_ptr() as _)).unwrap();
-        match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
-            Some(func) => Some(func as usize),
-            None => None,
-        }
-    }
+    // Call the original function
+    let result = unsafe { RecvFromImplHook.call(s, buf, len, flags, from, fromlen) };
+
+    // If the call was successful, print the received data
+    // if result > 0 {
+    //     let received_data = std::slice::from_raw_parts(buf, result as usize);
+    //     println!("Received data: {:?}", received_data);
+    // }
+
+    println!("RecvFromImpl returned: {}", result);
+
+    result
 }
 
 #[no_mangle]
@@ -52,10 +59,29 @@ unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c
     match reason {
         DLL_PROCESS_ATTACH => {
             println!("attaching");
-            unsafe { main().unwrap() }
+            MessageBoxW(None, w!("ATTACH"), w!("Alembic"), MB_OK);
+
+            unsafe {
+                match main() {
+                    Ok(_) => {
+                        MessageBoxW(
+                            None,
+                            w!("In Attach, main() ran with success"),
+                            w!("Alembic"),
+                            MB_OK,
+                        );
+                    }
+                    Err(error) => {
+                        let lptext =
+                            U16String::from_str(format!("Attach failed: {error:?}").as_str());
+                        MessageBoxW(None, PCWSTR(lptext.as_ptr()), w!("Alembic"), MB_OK);
+                    }
+                }
+            }
         }
         DLL_PROCESS_DETACH => {
             println!("detaching");
+            MessageBoxW(None, w!("DETACH"), w!("Alembic"), MB_OK);
         }
         DLL_THREAD_ATTACH => {}
         DLL_THREAD_DETACH => {}
