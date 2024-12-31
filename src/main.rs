@@ -1,4 +1,4 @@
-use std::{ffi::OsString, os::windows::ffi::OsStrExt, sync::mpsc::channel};
+use std::{ffi::OsString, os::windows::ffi::OsStrExt, sync::mpsc::channel, thread, time::Duration};
 
 use dll_syringe::{process::OwnedProcess, Syringe};
 use windows::{
@@ -64,7 +64,6 @@ fn main() {
     }
 
     println!("Process is launched. Starting injection process...");
-
     let target = OwnedProcess::from_pid(process_info.dwProcessId).unwrap();
     let syringe = Syringe::for_process(target);
 
