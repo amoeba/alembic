@@ -1,4 +1,4 @@
-use std::{ffi::OsString, os::windows::ffi::OsStrExt, sync::mpsc::channel, thread, time::Duration};
+use std::{ffi::OsString, os::windows::ffi::OsStrExt, sync::mpsc::channel};
 
 use dll_syringe::{process::OwnedProcess, Syringe};
 use windows::{
@@ -62,29 +62,40 @@ fn main() {
             }
         }
     }
-    thread::sleep(Duration::from_millis(1000));
+
     println!("Process is launched. Starting injection process...");
 
     let target = OwnedProcess::from_pid(process_info.dwProcessId).unwrap();
     let syringe = Syringe::for_process(target);
 
     println!("About to inject");
-    let injected_payload = syringe
-        .inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")
-        .unwrap();
 
-    let remote_add =
-        unsafe { syringe.get_payload_procedure::<fn(i32, i32) -> i32>(injected_payload, "add") }
-            .unwrap()
-            .unwrap();
-    let result = remote_add.call(&2, &4).unwrap();
-    println!("{}", result); // prints 6
+    let injected_payload = match syringe.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")
+    {
+        Ok(value) => {
+            println!("DLL injected successfully!");
+            Some(value)
+        }
+        Err(error) => {
+            println!("DLL did not inject successfully: {error:?}");
+            None
+        }
+    };
 
     // Block until Ctrl+C
     rx.recv().expect("Could not receive from channel.");
     println!("ctrl+c received...");
 
-    syringe.eject(injected_payload).unwrap();
+    // Attempt to eject
+    if let Some(payload) = injected_payload {
+        println!("Ejecting...");
+        match syringe.eject(payload) {
+            Ok(_) => {
+                println!("Ejected successfully.")
+            }
+            Err(error) => println!("Eject failed: {error:?}"),
+        };
+    }
 
     println!("Exiting.");
 }
