@@ -61,11 +61,51 @@ unsafe fn allocate_console() -> windows::core::Result<()> {
 
 type fn_LoadLibraryA = extern "system" fn(PCSTR) -> HMODULE;
 
+fn print_dbg_address(addr: isize, friendly_name: &str) {
+    let q = region::query(addr as *const ()).unwrap();
+
+    if q.is_executable() {
+        println!("{friendly_name} is executable")
+    } else {
+        println!("{friendly_name} is NOT executable")
+    }
+}
+
 static hook_LoadLibraryA: Lazy<GenericDetour<fn_LoadLibraryA>> = Lazy::new(|| {
     unsafe { allocate_console().unwrap() };
 
     let library_handle = unsafe { LoadLibraryA(PCSTR(b"kernel32.dll\0".as_ptr() as _)) }.unwrap();
     let address = unsafe { GetProcAddress(library_handle, PCSTR(b"LoadLibraryA\0".as_ptr() as _)) };
+
+    print_dbg_address(address.expect("msg") as isize, "LoadLibraryA");
+    print_dbg_address(0x007935A4 as isize, "SendToImpl");
+    print_dbg_address(0x007935AC as isize, "RecvFromImpl");
+    print_dbg_address(0x00675920 as isize, "CLBlockAllocator_OpenDataFile_Impl");
+
+    println!("About to try reprotecting recv");
+    let protect;
+    unsafe {
+        protect = region::protect_with_handle(
+            0x00793000 as *const (),
+            0x00078000,
+            region::Protection::READ_WRITE_EXECUTE,
+        );
+    }
+
+    match protect {
+        Ok(_) => {
+            println!("Reprotect was successfull.");
+        }
+        Err(error) => {
+            println!("Reprotect failed with error: {error:?}")
+        }
+    }
+
+    print_dbg_address(address.expect("msg") as isize, "LoadLibraryA");
+    print_dbg_address(0x007935A4 as isize, "SendToImpl");
+    print_dbg_address(0x007935AC as isize, "RecvFromImpl");
+    print_dbg_address(0x00675920 as isize, "CLBlockAllocator_OpenDataFile_Impl");
+
     let ori: fn_LoadLibraryA = unsafe { std::mem::transmute(address) };
     return unsafe { GenericDetour::new(ori, our_LoadLibraryA).unwrap() };
 });
