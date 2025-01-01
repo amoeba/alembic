@@ -1,5 +1,6 @@
 #![cfg(windows)]
 #![allow(non_upper_case_globals, non_snake_case, non_camel_case_types)]
+pub mod client;
 
 use std::{
     ffi::{c_void, CStr},
@@ -7,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use client::StringInfo;
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::{
@@ -264,6 +266,65 @@ static hook_ResetTooltip_Impl: Lazy<GenericDetour<fn_ResetTooltip_Impl>> = Lazy:
     return unsafe { GenericDetour::new(ori, our_ResetTooltip_Impl).unwrap() };
 });
 
+// 0x0045DF70
+// private static int UIElementManager_StartTooltip_Impl(UIElementManager* This, StringInfo* strInfo, UIElement* el, int a, uint b, int c) {
+// public unsafe struct StringInfo {
+//     public PStringBase<byte> m_strToken;
+//     public UInt32 m_stringID;
+//     public UInt32 m_tableID;
+//     public HashTable<UInt32, StringInfoData> m_variables;
+//     public PStringBase<UInt16> m_LiteralValue;
+//     public byte m_Override;
+//     public PStringBase<byte> m_strEnglish;
+//     public PStringBase<byte> m_strComment;
+
+//     public override string ToString() {
+//         return $"m_strToken:{m_strToken.ToString()} m_strEnglish:{m_strEnglish.ToString()} m_strComment:{m_strComment.ToString()} m_LiteralValue:{m_LiteralValue.ToString()} m_stringID:{m_stringID:X8} m_tableID:{m_tableID:X8} m_Override:{m_Override}";
+//     }
+// };
+type fn_StartTooltip_Impl = extern "thiscall" fn(
+    This: *mut c_void,
+    strInfo: *mut c_void,
+    el: *mut c_void,
+    a: isize,
+    b: u32,
+    c: isize,
+) -> i32;
+extern "thiscall" fn our_StartTooltip_Impl(
+    This: *mut c_void,
+    strInfo: *mut c_void,
+    el: *mut c_void,
+    a: isize,
+    b: u32,
+    c: isize,
+) -> i32 {
+    println!("our_StartTooltip_Impl");
+    // TODO: Figure out how to cast the strInfo pointer as a StringInfo
+    println!("{strInfo:?}");
+    unsafe { print_first_bytes(strInfo, 4) };
+
+    // TODO: Test this
+    let string_info = unsafe { StringInfo::from_ptr(strInfo) };
+
+    let ret_val = hook_StartTooltip_Impl.call(This, strInfo, el, a, b, c);
+
+    ret_val
+}
+static hook_StartTooltip_Impl: Lazy<GenericDetour<fn_StartTooltip_Impl>> = Lazy::new(|| {
+    println!("hook_StartTooltip_Impl");
+    let address = 0x0045DF70 as isize;
+    let ori: fn_StartTooltip_Impl = unsafe { std::mem::transmute(address) };
+    return unsafe { GenericDetour::new(ori, our_StartTooltip_Impl).unwrap() };
+});
+
+unsafe fn print_first_bytes(ptr: *mut c_void, num_bytes: usize) {
+    let bytes = std::slice::from_raw_parts(ptr as *const u8, num_bytes);
+    for byte in bytes {
+        print!("{:02X} ", byte);
+    }
+    println!();
+}
+
 fn init_hooks() {
     unsafe {
         allocate_console().unwrap();
@@ -273,6 +334,10 @@ fn init_hooks() {
 
     unsafe {
         hook_ResetTooltip_Impl.enable().unwrap();
+    }
+
+    unsafe {
+        hook_StartTooltip_Impl.enable().unwrap();
     }
 }
 
