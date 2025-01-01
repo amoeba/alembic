@@ -305,6 +305,7 @@ extern "thiscall" fn our_StartTooltip_Impl(
 
     // TODO: Test this
     let string_info = unsafe { StringInfo::from_ptr(strInfo) };
+    println!("string_info: {string_info}");
 
     let ret_val = hook_StartTooltip_Impl.call(This, strInfo, el, a, b, c);
 
