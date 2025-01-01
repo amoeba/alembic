@@ -11,6 +11,8 @@ use windows::{
     },
 };
 
+use crate::inject::InjectionKit;
+
 fn launch() -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
     let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
     let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
@@ -49,6 +51,7 @@ fn launch() -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
                 if resume_result == u32::MAX {
                     println!("Failed to resume thread. Last error: {:?}", GetLastError());
                 }
+
                 let _ = CloseHandle(process_info.hThread);
                 let _ = CloseHandle(process_info.hProcess);
 
@@ -80,9 +83,8 @@ fn find_or_launch() -> Result<OwnedProcess, Box<dyn Error>> {
 
 pub fn attach_or_launch_injected() -> Result<(), Box<dyn Error>> {
     let target = find_or_launch()?;
-    let syringe = Syringe::for_process(target);
-
-    syringe.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")?;
+    let mut kit = InjectionKit::new(Syringe::for_process(target));
+    kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
 
     Ok(())
 }
