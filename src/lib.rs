@@ -258,23 +258,30 @@ extern "thiscall" fn our_ResetTooltip_Impl(This: *mut c_void) -> *mut c_void {
     ret_val
 }
 static hook_ResetTooltip_Impl: Lazy<GenericDetour<fn_ResetTooltip_Impl>> = Lazy::new(|| {
-    unsafe {
-        allocate_console().unwrap();
-    }
     println!("hook_ResetTooltip_Impl");
     let address = 0x0045C440 as isize;
     let ori: fn_ResetTooltip_Impl = unsafe { std::mem::transmute(address) };
     return unsafe { GenericDetour::new(ori, our_ResetTooltip_Impl).unwrap() };
 });
 
+fn init_hooks() {
+    unsafe {
+        allocate_console().unwrap();
+    }
+
+    println!("in init_hooks, initializing hooks now");
+
+    unsafe {
+        hook_ResetTooltip_Impl.enable().unwrap();
+    }
+}
+
 #[no_mangle]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {
         DLL_PROCESS_ATTACH => {
-            println!("attaching");
-            unsafe {
-                hook_ResetTooltip_Impl.enable().unwrap();
-            }
+            println!("In DllMain, reason=DLL_PROCESS_ATTACH. initializing hooks now.");
+            init_hooks();
         }
         DLL_PROCESS_DETACH => {
             println!("detaching");
