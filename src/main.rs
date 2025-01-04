@@ -1,20 +1,9 @@
 pub mod inject;
 pub mod launch;
 
-use std::error::Error;
-use std::{ffi::OsString, os::windows::ffi::OsStrExt, sync::mpsc::channel};
+use std::sync::mpsc::channel;
 
-use dll_syringe::{process::OwnedProcess, Syringe};
 use launch::attach_or_launch_injected;
-use windows::{
-    core::PWSTR,
-    Win32::{
-        Foundation::{CloseHandle, GetLastError},
-        System::Threading::{
-            CreateProcessW, ResumeThread, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOW,
-        },
-    },
-};
 
 fn main() {
     let (tx, rx) = channel();

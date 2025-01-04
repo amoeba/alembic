@@ -3,24 +3,25 @@
 pub mod client;
 
 use std::{
-    ffi::{c_void, CStr},
-    thread,
+    error::Error,
+    ffi::{c_int, c_void, CStr, CString},
+    iter, mem, thread,
     time::Duration,
 };
 
 use client::StringInfo;
 use once_cell::sync::Lazy;
-use retour::GenericDetour;
+use retour::{static_detour, GenericDetour};
 use windows::{
-    core::PCSTR,
+    core::{w, PCSTR, PCWSTR},
     Win32::{
-        Foundation::{BOOL, HANDLE, HMODULE},
+        Foundation::{BOOL, HANDLE, HMODULE, HWND, LPARAM, LRESULT, WPARAM},
         Storage::FileSystem::{
             CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
         },
         System::{
             Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
-            LibraryLoader::{GetProcAddress, LoadLibraryA},
+            LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryA},
             SystemServices::{
                 DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
             },
@@ -326,6 +327,53 @@ unsafe fn print_first_bytes(ptr: *mut c_void, num_bytes: usize) {
     println!();
 }
 
+static_detour! {
+  static DefWindowProcWHook: unsafe extern "system" fn(HWND, isize, WPARAM, LPARAM) -> LRESULT;
+}
+
+// A type alias for `MessageBoxW` (makes the transmute easy on the eyes)
+// LRESULT DefWindowProcW(
+//     [in] HWND   hWnd,
+//     [in] UINT   Msg,
+//     [in] WPARAM wParam,
+//     [in] LPARAM lParam
+//   );
+type FnDefWindowProcW = unsafe extern "system" fn(HWND, isize, WPARAM, LPARAM) -> LRESULT;
+
+fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
+    let module = module
+        .encode_utf16()
+        .chain(iter::once(0))
+        .collect::<Vec<u16>>();
+    let symbol = CString::new(symbol).unwrap();
+    unsafe {
+        let handle = GetModuleHandleW(PCWSTR(module.as_ptr() as _)).unwrap();
+        match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
+            Some(func) => Some(func as usize),
+            None => None,
+        }
+    }
+}
+
+fn defwindowproc_detour(hWnd: HWND, Msg: isize, wParam: WPARAM, lParam: LPARAM) -> LRESULT {
+    println!("inside and hWnd is {hWnd:?}");
+    unsafe { DefWindowProcWHook.call(hWnd, Msg, wParam, lParam) }
+}
+
+unsafe fn init_message_box_detour() -> Result<(), Box<dyn Error>> {
+    let address = get_module_symbol_address("user32.dll", "DefWindowProcW")
+        .expect("could not find 'MessageBoxW' address");
+
+    println!("Address for DefWindowProcW is {address:}");
+    let target: FnDefWindowProcW = mem::transmute(address);
+
+    DefWindowProcWHook
+        .initialize(target, defwindowproc_detour)?
+        .enable()?;
+
+    Ok(())
+}
+
 fn init_hooks() {
     unsafe {
         allocate_console().unwrap();
@@ -340,6 +388,8 @@ fn init_hooks() {
     unsafe {
         hook_StartTooltip_Impl.enable().unwrap();
     }
+
+    unsafe { init_message_box_detour().unwrap() };
 }
 
 #[no_mangle]
