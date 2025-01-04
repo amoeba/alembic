@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use client::StringInfo;
+use client::{PSRefBuffer, PStringBase};
 use once_cell::sync::Lazy;
 use retour::{static_detour, GenericDetour};
 use windows::{
@@ -306,8 +306,8 @@ extern "thiscall" fn our_StartTooltip_Impl(
     unsafe { print_first_bytes(strInfo, 4) };
 
     // TODO: Test this
-    let string_info = unsafe { StringInfo::from_ptr(strInfo) };
-    println!("string_info: {string_info}");
+    // let string_info = unsafe { StringInfo::from_ptr(strInfo) };
+    // println!("string_info: {string_info}");
 
     let ret_val = hook_StartTooltip_Impl.call(This, strInfo, el, a, b, c);
 
@@ -329,8 +329,29 @@ extern "thiscall" fn our_OnChatCommand_Impl(
     text: *mut c_void,
     chatWindowId: isize,
 ) -> isize {
-    println!("fn_OnChatCommand_Impl");
-    println!("{text:?}");
+    println!("fn_OnChatCommand_Impl: text pointer is {text:?}");
+
+    let pstring = unsafe { PStringBase::from_mut_ptr(text as *mut PSRefBuffer<u16>) };
+    println!("pstring pointer is {pstring}");
+    let actual = pstring.to_string();
+    println!("actual is {actual}");
+    // if let Some(buffer) = pstring.get_buffer() {
+    //     println!("Raw m_data: {:?}", buffer.m_data);
+
+    //     for (i, &value) in buffer.m_data.iter().enumerate() {
+    //         // Reinterpret the i32 as four u8 bytes
+    //         let bytes = value.to_ne_bytes(); // Convert to native-endian bytes
+    //         println!(
+    //             "m_data[{}]: {:02X} {:02X} {:02X} {:02X}",
+    //             i, bytes[0], bytes[1], bytes[2], bytes[3]
+    //         );
+    //     }
+    // }
+
+    // println!("pstring.m_charbuffer pointer is {pstring}");
+
+    // let actual = pstring.to_string();
+    // println!("{actual}");
 
     let ret_val = hook_OnChatCommand_Impl.call(This, text, chatWindowId);
 
