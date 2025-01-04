@@ -26,6 +26,7 @@ use windows::{
                 DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
             },
         },
+        UI::WindowsAndMessaging::{SendMessageW, WM_SETTEXT},
     },
 };
 
@@ -319,6 +320,29 @@ static hook_StartTooltip_Impl: Lazy<GenericDetour<fn_StartTooltip_Impl>> = Lazy:
     return unsafe { GenericDetour::new(ori, our_StartTooltip_Impl).unwrap() };
 });
 
+// 0x005821A0
+// private static int ClientCommunicationSystem_OnChatCommand_Impl(ClientCommunicationSystem* This, PStringBase<ushort>* text, int chatWindowId) {
+type fn_OnChatCommand_Impl =
+    extern "thiscall" fn(This: *mut c_void, text: *mut c_void, chatWindowId: isize) -> isize;
+extern "thiscall" fn our_OnChatCommand_Impl(
+    This: *mut c_void,
+    text: *mut c_void,
+    chatWindowId: isize,
+) -> isize {
+    println!("fn_OnChatCommand_Impl");
+    println!("{text:?}");
+
+    let ret_val = hook_OnChatCommand_Impl.call(This, text, chatWindowId);
+
+    ret_val
+}
+static hook_OnChatCommand_Impl: Lazy<GenericDetour<fn_OnChatCommand_Impl>> = Lazy::new(|| {
+    println!("hook_OnChatCommand_Impl");
+    let address = 0x005821A0 as isize;
+    let ori: fn_OnChatCommand_Impl = unsafe { std::mem::transmute(address) };
+    return unsafe { GenericDetour::new(ori, our_OnChatCommand_Impl).unwrap() };
+});
+
 unsafe fn print_first_bytes(ptr: *mut c_void, num_bytes: usize) {
     let bytes = std::slice::from_raw_parts(ptr as *const u8, num_bytes);
     for byte in bytes {
@@ -354,9 +378,17 @@ fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
         }
     }
 }
+static mut window_handle: HWND = HWND(std::ptr::null_mut());
 
 fn defwindowproc_detour(hWnd: HWND, Msg: isize, wParam: WPARAM, lParam: LPARAM) -> LRESULT {
     println!("inside and hWnd is {hWnd:?}");
+
+    if unsafe { window_handle } == HWND(std::ptr::null_mut()) {
+        print!("initial seeing of this");
+        unsafe { window_handle = hWnd };
+        //set_window_title(hWnd, "Hello!");
+    }
+
     unsafe { DefWindowProcWHook.call(hWnd, Msg, wParam, lParam) }
 }
 
@@ -374,6 +406,27 @@ unsafe fn init_message_box_detour() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn set_window_title(hWnd: HWND, title: &str) {
+    let message = title
+        .encode_utf16()
+        .chain(iter::once(0))
+        .collect::<Vec<u16>>();
+
+    unsafe {
+        SendMessageW(
+            hWnd,
+            WM_SETTEXT,
+            WPARAM(0),
+            LPARAM(message.as_ptr() as isize),
+        );
+    }
+}
+
+#[no_mangle]
+extern "system" fn get_handle() -> HWND {
+    unsafe { window_handle }
+}
+
 fn init_hooks() {
     unsafe {
         allocate_console().unwrap();
@@ -389,7 +442,12 @@ fn init_hooks() {
         hook_StartTooltip_Impl.enable().unwrap();
     }
 
-    unsafe { init_message_box_detour().unwrap() };
+    unsafe {
+        hook_OnChatCommand_Impl.enable().unwrap();
+    }
+
+    // this doesn't work well, don't do this
+    //unsafe { init_message_box_detour().unwrap() };
 }
 
 #[no_mangle]
