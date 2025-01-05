@@ -87,7 +87,7 @@ impl<'a> Launcher {
         Ok(())
     }
 
-    pub fn find_or_launch(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn find_or_launch(&mut self) -> Result<(), anyhow::Error> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
             return Ok(());
@@ -97,15 +97,14 @@ impl<'a> Launcher {
 
         match self.launch() {
             Ok(process_info) => {
-                // self.client =
-                // OwnedProcess::from_pid(process_info.dwProcessId).map_err(|e| e.into());
-                Ok(())
+                self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap())
             }
             Err(error) => {
-                println!("Error on launch: {error:?}");
-                Err(error.into())
+                bail!("Error on launch: {error:?}");
             }
         }
+
+        Ok(())
     }
 
     pub fn attach_injected(&self) -> Result<(), Box<dyn Error>> {
@@ -127,6 +126,17 @@ impl<'a> Launcher {
                 let _ = kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
             }
             None => todo!(),
+        }
+
+        Ok(())
+    }
+
+    pub fn eject(&mut self) -> Result<(), anyhow::Error> {
+        match self.injector.as_mut() {
+            Some(injector) => {
+                injector.eject()?;
+            }
+            None => bail!("Eject called with no active injector."),
         }
 
         Ok(())

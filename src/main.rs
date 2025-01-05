@@ -16,14 +16,16 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut launcher = Launcher::new();
 
-    launcher.find_or_launch();
-    launcher.inject();
+    launcher.find_or_launch()?;
+    launcher.inject()?;
 
     // Block until Ctrl+C
     rx.recv().expect("Could not receive from channel.");
     println!("ctrl+c received...");
 
     // TODO: Eject
+    // TODO: Not working quite right
+    // launcher.eject();
 
     println!("Exiting.");
 
