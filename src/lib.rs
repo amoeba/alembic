@@ -20,7 +20,9 @@ use windows::{
             CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
         },
         System::{
-            Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
+            Console::{
+                AllocConsole, FreeConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE,
+            },
             LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryA},
             SystemServices::{
                 DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
@@ -322,6 +324,8 @@ static hook_StartTooltip_Impl: Lazy<GenericDetour<fn_StartTooltip_Impl>> = Lazy:
 
 // 0x005821A0
 // private static int ClientCommunicationSystem_OnChatCommand_Impl(ClientCommunicationSystem* This, PStringBase<ushort>* text, int chatWindowId) {
+// From IDA
+// ClientCommunicationSystem::OnChatCommand(PStringBase<ushort> const &,ulong)
 type fn_OnChatCommand_Impl =
     extern "thiscall" fn(This: *mut c_void, text: *mut c_void, chatWindowId: isize) -> isize;
 extern "thiscall" fn our_OnChatCommand_Impl(
@@ -448,27 +452,47 @@ extern "system" fn get_handle() -> HWND {
     unsafe { window_handle }
 }
 
-fn init_hooks() {
+fn on_attach() -> Result<(), anyhow::Error> {
     unsafe {
-        allocate_console().unwrap();
+        match allocate_console() {
+            Ok(_) => println!("Call to FreeConsole succeeded"),
+            Err(error) => println!("Call to FreeConsole failed: {error:?}"),
+        }
     }
 
     println!("in init_hooks, initializing hooks now");
 
-    unsafe {
-        hook_ResetTooltip_Impl.enable().unwrap();
-    }
+    // unsafe {
+    //     hook_ResetTooltip_Impl.enable().unwrap();
+    // }
 
     unsafe {
         hook_StartTooltip_Impl.enable().unwrap();
     }
 
-    unsafe {
-        hook_OnChatCommand_Impl.enable().unwrap();
-    }
+    // unsafe {
+    //     hook_OnChatCommand_Impl.enable().unwrap();
+    // }
 
     // this doesn't work well, don't do this
     //unsafe { init_message_box_detour().unwrap() };
+
+    Ok(())
+}
+
+fn on_detach() -> Result<(), anyhow::Error> {
+    unsafe {
+        match FreeConsole() {
+            Ok(_) => println!("Call to FreeConsole succeeded"),
+            Err(error) => println!("Call to FreeConsole failed: {error:?}"),
+        }
+    }
+
+    unsafe {
+        hook_StartTooltip_Impl.disable().unwrap();
+    }
+
+    Ok(())
 }
 
 #[no_mangle]
@@ -476,10 +500,11 @@ unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c
     match reason {
         DLL_PROCESS_ATTACH => {
             println!("In DllMain, reason=DLL_PROCESS_ATTACH. initializing hooks now.");
-            init_hooks();
+            let _ = on_attach();
         }
         DLL_PROCESS_DETACH => {
-            println!("detaching");
+            println!("In DllMain, reason=DLL_PROCESS_DETACH. removing hooks now.");
+            let _ = on_detach();
         }
         DLL_THREAD_ATTACH => {}
         DLL_THREAD_DETACH => {}
