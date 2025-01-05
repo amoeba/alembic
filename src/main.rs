@@ -3,7 +3,6 @@ pub mod launch;
 
 use std::sync::mpsc::channel;
 
-use anyhow::{bail, Error};
 use launch::Launcher;
 
 fn main() -> Result<(), anyhow::Error> {
@@ -31,9 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
     rx.recv().expect("Could not receive from channel.");
     println!("ctrl+c received...");
 
-    // TODO: Eject
-    // TODO: Not working quite right
-    launcher.eject();
+    launcher.eject()?;
 
     println!("Exiting.");
 

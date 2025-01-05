@@ -1,10 +1,15 @@
 #![cfg(windows)]
-#![allow(non_upper_case_globals, non_snake_case, non_camel_case_types)]
+#![allow(
+    dead_code,
+    non_upper_case_globals,
+    non_snake_case,
+    non_camel_case_types
+)]
 pub mod client;
 
 use std::{
     error::Error,
-    ffi::{c_int, c_void, CStr, CString},
+    ffi::{c_void, CStr, CString},
     iter, mem, thread,
     time::Duration,
 };
@@ -13,7 +18,7 @@ use client::{PSRefBuffer, PStringBase};
 use once_cell::sync::Lazy;
 use retour::{static_detour, GenericDetour};
 use windows::{
-    core::{w, PCSTR, PCWSTR},
+    core::{PCSTR, PCWSTR},
     Win32::{
         Foundation::{BOOL, HANDLE, HMODULE, HWND, LPARAM, LRESULT, WPARAM},
         Storage::FileSystem::{
@@ -181,7 +186,7 @@ static hook_RecvFrom: Lazy<GenericDetour<fn_RecvFromImpl>> = Lazy::new(|| {
 });
 
 extern "system" fn our_LoadLibraryA(lpFileName: PCSTR) -> HMODULE {
-    let file_name = unsafe { CStr::from_ptr(lpFileName.as_ptr() as _) };
+    let _file_name = unsafe { CStr::from_ptr(lpFileName.as_ptr() as _) };
     // println!("our_LoadLibraryA lpFileName = {:?}", file_name);
     unsafe { hook_LoadLibraryA.disable().unwrap() };
     let ret_val = hook_LoadLibraryA.call(lpFileName);
@@ -263,6 +268,7 @@ extern "thiscall" fn our_ResetTooltip_Impl(This: *mut c_void) -> *mut c_void {
 
     ret_val
 }
+
 static hook_ResetTooltip_Impl: Lazy<GenericDetour<fn_ResetTooltip_Impl>> = Lazy::new(|| {
     println!("hook_ResetTooltip_Impl");
     let address = 0x0045C440 as isize;
@@ -361,6 +367,7 @@ extern "thiscall" fn our_OnChatCommand_Impl(
 
     ret_val
 }
+
 static hook_OnChatCommand_Impl: Lazy<GenericDetour<fn_OnChatCommand_Impl>> = Lazy::new(|| {
     println!("hook_OnChatCommand_Impl");
     let address = 0x005821A0 as isize;

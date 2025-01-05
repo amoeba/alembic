@@ -1,7 +1,7 @@
-use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt, thread, time::Duration};
+use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt};
 
 use anyhow::bail;
-use dll_syringe::{process::OwnedProcess, Syringe};
+use dll_syringe::process::OwnedProcess;
 use windows::{
     core::PWSTR,
     Win32::{
@@ -79,6 +79,7 @@ impl<'a> Launcher {
         }
     }
 
+    #[allow(dead_code)]
     fn find(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
