@@ -13,6 +13,58 @@ use windows::{
     },
 };
 
+use crate::print_vec;
+
+// wsock32.dll::send_to
+type fn_WinSock_SendTo = extern "system" fn(
+    s: *mut c_void,
+    buf: *mut u8,
+    len: i32,
+    flags: i32,
+    to: *mut u8,
+    tolen: *mut i32,
+) -> i32;
+
+pub static hook_SendTo_New: Lazy<GenericDetour<fn_WinSock_SendTo>> = Lazy::new(|| {
+    let library_handle = unsafe { LoadLibraryA(PCSTR(b"wsock32.dll\0".as_ptr() as _)) }.unwrap();
+    let address = unsafe { GetProcAddress(library_handle, PCSTR(b"sendto\0".as_ptr() as _)) };
+
+    println!("hook_SendTo address is {address:?}");
+
+    let ori: fn_WinSock_SendTo = unsafe { std::mem::transmute(address) };
+
+    return unsafe { GenericDetour::new(ori, our_WinSock_SendTo).unwrap() };
+});
+
+extern "system" fn our_WinSock_SendTo(
+    s: *mut c_void,
+    buf: *mut u8,
+    len: i32,
+    flags: i32,
+    to: *mut u8,
+    tolen: *mut i32,
+) -> i32 {
+    let bytes_sent = hook_SendTo_New.call(s, buf, len, flags, to, tolen);
+
+    if bytes_sent > 0 {
+        let result = panic::catch_unwind(|| {
+            let bytes = unsafe { slice::from_raw_parts(buf, bytes_sent as usize) };
+            let bytes_vec = bytes.to_vec();
+
+            print_vec(&bytes_vec);
+
+            // Handle the received packet data
+            // standalone_loader::backend::handle_s2c_packet_data(bytes_vec);
+        });
+
+        if let Err(e) = result {
+            eprintln!("SendTo Error: {:?}", e);
+        }
+    }
+
+    return bytes_sent;
+}
+
 // wsock32.dll::recv_from
 type fn_WinSock_RecvFrom = extern "system" fn(
     s: *mut c_void,
@@ -50,13 +102,12 @@ extern "system" fn our_WinSock_RecvFrom(
             let bytes = unsafe { slice::from_raw_parts(buf, bytes_read as usize) };
             let bytes_vec = bytes.to_vec();
 
-            println!("bytes_vec is {bytes_vec:?}");
+            print_vec(&bytes_vec);
 
             // Handle the received packet data
             // standalone_loader::backend::handle_s2c_packet_data(bytes_vec);
         });
 
-        // Log any errors that occurred
         if let Err(e) = result {
             eprintln!("RecvFrom Error: {:?}", e);
         }

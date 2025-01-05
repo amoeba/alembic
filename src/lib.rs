@@ -12,9 +12,7 @@ use std::{
     iter,
 };
 
-use hooks::{
-    hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_ResetTooltip_Impl, hook_StartTooltip_Impl,
-};
+use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
 pub(crate) use windows::{
     core::{PCSTR, PCWSTR},
     Win32::{
@@ -97,6 +95,16 @@ fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
     }
 }
 
+fn print_vec(v: &Vec<u8>) {
+    for (i, byte) in v.iter().enumerate() {
+        print!("{byte:02X} ");
+
+        if (i + 1) % 16 == 0 {
+            println!();
+        }
+    }
+}
+
 fn on_attach() -> Result<(), anyhow::Error> {
     unsafe {
         match allocate_console() {
@@ -107,14 +115,6 @@ fn on_attach() -> Result<(), anyhow::Error> {
 
     println!("in init_hooks, initializing hooks now");
 
-    // unsafe {
-    //     hook_RecvFrom.enable().unwrap();
-    // }
-
-    unsafe {
-        hook_ResetTooltip_Impl.enable().unwrap();
-    }
-
     unsafe {
         hook_StartTooltip_Impl.enable().unwrap();
     }
@@ -124,6 +124,7 @@ fn on_attach() -> Result<(), anyhow::Error> {
     }
 
     unsafe { hook_RecvFrom_New.enable().unwrap() }
+    unsafe { hook_SendTo_New.enable().unwrap() }
 
     // this doesn't work well, don't do this
     //unsafe { init_message_box_detour().unwrap() };
