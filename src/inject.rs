@@ -1,29 +1,34 @@
-use std::sync::Arc;
+use dll_syringe::{
+    error::EjectError, process::BorrowedProcessModule, process::OwnedProcess, Syringe,
+};
 
-use dll_syringe::{error::EjectError, process::BorrowedProcessModule, Syringe};
-
-pub struct InjectionKit<'a> {
-    syringe: Arc<Syringe>,
-    payload: Option<BorrowedProcessModule<'a>>,
+pub struct InjectionKit {
+    syringe: Syringe,                                // Owns the Syringe
+    payload: Option<BorrowedProcessModule<'static>>, // Stores the injected payload
 }
 
-impl<'a> InjectionKit<'a> {
-    pub fn new(syringe: Syringe) -> Self {
+impl InjectionKit {
+    pub fn new(target_process: OwnedProcess) -> Self {
+        let syringe = Syringe::for_process(target_process);
+
         InjectionKit {
-            syringe: Arc::new(syringe),
+            syringe,
             payload: None,
         }
     }
 
-    pub fn inject(&'a mut self, assembly_path: &str) {
-        self.payload = match self.syringe.inject(assembly_path) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        }
+    pub fn inject(&mut self, dll_path: &str) -> Result<(), anyhow::Error> {
+        let payload = self.syringe.inject(dll_path)?;
+        self.payload = Some(unsafe { std::mem::transmute(payload) });
+
+        Ok(())
     }
 
-    pub fn eject(&self) -> Result<(), EjectError> {
-        self.syringe
-            .eject(self.payload.expect("Eject called without payload."))
+    pub fn eject(&mut self) -> Result<(), EjectError> {
+        if let Some(payload) = self.payload.take() {
+            self.syringe.eject(payload)?;
+        }
+
+        Ok(())
     }
 }

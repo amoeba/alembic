@@ -3,9 +3,10 @@ pub mod launch;
 
 use std::sync::mpsc::channel;
 
+use anyhow::{bail, Error};
 use launch::Launcher;
 
-fn main() {
+fn main() -> Result<(), anyhow::Error> {
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel."))
         .expect("Error setting Ctrl-C handler");
@@ -13,7 +14,7 @@ fn main() {
     // TODO: Pull config from somewhere
     // TODO: Make following code use that config
 
-    let launcher = Launcher::new();
+    let mut launcher = Launcher::new();
 
     launcher.find_or_launch();
     launcher.inject();
@@ -25,4 +26,6 @@ fn main() {
     // TODO: Eject
 
     println!("Exiting.");
+
+    Ok(())
 }

@@ -14,12 +14,12 @@ use windows::{
 
 use crate::inject::InjectionKit;
 
-pub struct Launcher<'a> {
+pub struct Launcher {
     client: Option<OwnedProcess>,
-    injector: Option<InjectionKit<'a>>,
+    injector: Option<InjectionKit>,
 }
 
-impl<'a> Launcher<'a> {
+impl<'a> Launcher {
     pub fn new() -> Self {
         Launcher {
             client: None,
@@ -97,8 +97,8 @@ impl<'a> Launcher<'a> {
 
         match self.launch() {
             Ok(process_info) => {
-                self.client =
-                    OwnedProcess::from_pid(process_info.dwProcessId).map_err(|e| e.into());
+                // self.client =
+                // OwnedProcess::from_pid(process_info.dwProcessId).map_err(|e| e.into());
                 Ok(())
             }
             Err(error) => {
@@ -117,18 +117,14 @@ impl<'a> Launcher<'a> {
     }
 
     pub fn inject(&mut self) -> Result<(), anyhow::Error> {
-        match self.client.as_ref() {
-            Some(client) => {
-                self.injector = Some(InjectionKit::new(Syringe::for_process(
-                    client.try_clone().unwrap(),
-                )));
-            }
-            None => bail!("No client set. Not injecting."),
-        }
+        self.injector = match &self.client {
+            Some(client) => Some(InjectionKit::new(client.try_clone().unwrap())),
+            None => bail!("Whoops"),
+        };
 
         match self.injector.as_mut() {
             Some(kit) => {
-                kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
+                let _ = kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
             }
             None => todo!(),
         }
