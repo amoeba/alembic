@@ -341,27 +341,8 @@ extern "thiscall" fn our_OnChatCommand_Impl(
 ) -> isize {
     println!("fn_OnChatCommand_Impl: text pointer is {text:?}");
 
-    let pstring = unsafe { PStringBase::from_mut_ptr(text as *mut PSRefBuffer<u16>) };
-    println!("pstring pointer is {pstring}");
-    let actual = pstring.to_string();
-    println!("actual is {actual}");
-    // if let Some(buffer) = pstring.get_buffer() {
-    //     println!("Raw m_data: {:?}", buffer.m_data);
-
-    //     for (i, &value) in buffer.m_data.iter().enumerate() {
-    //         // Reinterpret the i32 as four u8 bytes
-    //         let bytes = value.to_ne_bytes(); // Convert to native-endian bytes
-    //         println!(
-    //             "m_data[{}]: {:02X} {:02X} {:02X} {:02X}",
-    //             i, bytes[0], bytes[1], bytes[2], bytes[3]
-    //         );
-    //     }
-    // }
-
-    // println!("pstring.m_charbuffer pointer is {pstring}");
-
-    // let actual = pstring.to_string();
-    // println!("{actual}");
+    let pstring = unsafe { PStringBase::from_mut_ptr(text as *mut PSRefBuffer) };
+    println!("pstring to_string is {pstring}");
 
     let ret_val = hook_OnChatCommand_Impl.call(This, text, chatWindowId);
 
@@ -473,13 +454,13 @@ fn on_attach() -> Result<(), anyhow::Error> {
     //     hook_ResetTooltip_Impl.enable().unwrap();
     // }
 
-    unsafe {
-        hook_StartTooltip_Impl.enable().unwrap();
-    }
-
     // unsafe {
-    //     hook_OnChatCommand_Impl.enable().unwrap();
+    //     hook_StartTooltip_Impl.enable().unwrap();
     // }
+
+    unsafe {
+        hook_OnChatCommand_Impl.enable().unwrap();
+    }
 
     // this doesn't work well, don't do this
     //unsafe { init_message_box_detour().unwrap() };
@@ -495,8 +476,12 @@ fn on_detach() -> Result<(), anyhow::Error> {
         }
     }
 
+    // unsafe {
+    //     hook_StartTooltip_Impl.disable().unwrap();
+    // }
+
     unsafe {
-        hook_StartTooltip_Impl.disable().unwrap();
+        hook_OnChatCommand_Impl.disable().unwrap();
     }
 
     Ok(())
