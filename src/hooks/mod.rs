@@ -1,6 +1,8 @@
-use std::ffi::{c_void, CStr};
+use std::{
+    ffi::{c_void, CStr},
+    panic, slice,
+};
 
-use client::{PSRefBuffer, PStringBase};
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::{
@@ -11,14 +13,62 @@ use windows::{
     },
 };
 
-use crate::{allocate_console, client, print_dbg_address};
+// wsock32.dll::recv_from
+type fn_WinSock_RecvFrom = extern "system" fn(
+    s: *mut c_void,
+    buf: *mut u8,
+    len: i32,
+    flags: i32,
+    from: *mut u8,
+    fromlen: *mut i32,
+) -> i32;
+
+pub static hook_RecvFrom_New: Lazy<GenericDetour<fn_WinSock_RecvFrom>> = Lazy::new(|| {
+    let library_handle = unsafe { LoadLibraryA(PCSTR(b"wsock32.dll\0".as_ptr() as _)) }.unwrap();
+    let address = unsafe { GetProcAddress(library_handle, PCSTR(b"recvfrom\0".as_ptr() as _)) };
+
+    println!("hook_RecvFrom address is {address:?}");
+
+    let ori: fn_WinSock_RecvFrom = unsafe { std::mem::transmute(address) };
+
+    return unsafe { GenericDetour::new(ori, our_WinSock_RecvFrom).unwrap() };
+});
+
+extern "system" fn our_WinSock_RecvFrom(
+    s: *mut c_void,
+    buf: *mut u8,
+    len: i32,
+    flags: i32,
+    from: *mut u8,
+    fromlen: *mut i32,
+) -> i32 {
+    let bytes_read = hook_RecvFrom_New.call(s, buf, len, flags, from, fromlen);
+
+    if bytes_read > 0 {
+        let result = panic::catch_unwind(|| {
+            // Convert the buffer to a slice
+            let bytes = unsafe { slice::from_raw_parts(buf, bytes_read as usize) };
+            let bytes_vec = bytes.to_vec();
+
+            println!("bytes_vec is {bytes_vec:?}");
+
+            // Handle the received packet data
+            // standalone_loader::backend::handle_s2c_packet_data(bytes_vec);
+        });
+
+        // Log any errors that occurred
+        if let Err(e) = result {
+            eprintln!("RecvFrom Error: {:?}", e);
+        }
+    }
+
+    return bytes_read;
+}
 
 // LoadLibraryA
 type fn_LoadLibraryA = extern "system" fn(PCSTR) -> HMODULE;
 
 static hook_LoadLibraryA: Lazy<GenericDetour<fn_LoadLibraryA>> = Lazy::new(|| {
-    unsafe { allocate_console().unwrap() };
-
     let library_handle = unsafe { LoadLibraryA(PCSTR(b"kernel32.dll\0".as_ptr() as _)) }.unwrap();
     let address = unsafe { GetProcAddress(library_handle, PCSTR(b"LoadLibraryA\0".as_ptr() as _)) };
 
@@ -39,79 +89,6 @@ extern "system" fn our_LoadLibraryA(lpFileName: PCSTR) -> HMODULE {
     return ret_val;
 }
 
-// RecvFrom
-// Address: 0x007935AC
-type fn_RecvFromImpl = extern "stdcall" fn(
-    s: *mut c_void,
-    buf: *mut u8,
-    len: i32,
-    flags: i32,
-    from: *mut u8,
-    fromlen: i32,
-) -> i32;
-
-extern "stdcall" fn our_RecvFromImpl(
-    s: *mut c_void,
-    buf: *mut u8,
-    len: i32,
-    flags: i32,
-    from: *mut u8,
-    fromlen: i32,
-) -> i32 {
-    println!("inside our_RecvFromImpl");
-    unsafe { hook_RecvFrom.disable().unwrap() };
-    let ret_val = hook_RecvFrom.call(s, buf, len, flags, from, fromlen);
-    println!("done calling original fn of our_RecvFromImpl");
-    unsafe { hook_RecvFrom.enable().unwrap() };
-
-    return ret_val;
-}
-pub static hook_RecvFrom: Lazy<GenericDetour<fn_RecvFromImpl>> = Lazy::new(|| {
-    let address = 0x007935AC as isize;
-
-    print_dbg_address(0x007935AC as isize, "RecvFromImpl");
-    println!("About to try reprotecting recv");
-    let protect;
-    unsafe {
-        protect = region::protect_with_handle(
-            0x00793000 as *const (),
-            0x00078000,
-            region::Protection::READ_WRITE_EXECUTE,
-        );
-    }
-
-    match protect {
-        Ok(_) => {
-            println!("Reprotect was successfull.");
-        }
-        Err(error) => {
-            println!("Reprotect failed with error: {error:?}")
-        }
-    }
-
-    print_dbg_address(0x007935AC as isize, "RecvFromImpl");
-
-    let ori: fn_RecvFromImpl = unsafe { std::mem::transmute(address) };
-    return unsafe { GenericDetour::new(ori, our_RecvFromImpl).unwrap() };
-});
-// ResetTooltip
-// Address: 0x0045C440
-type fn_ResetTooltip_Impl = extern "thiscall" fn(This: *mut c_void) -> *mut c_void;
-
-extern "thiscall" fn our_ResetTooltip_Impl(This: *mut c_void) -> *mut c_void {
-    println!("our_ResetTooltip_Impl");
-    let ret_val = hook_ResetTooltip_Impl.call(This);
-
-    ret_val
-}
-
-static hook_ResetTooltip_Impl: Lazy<GenericDetour<fn_ResetTooltip_Impl>> = Lazy::new(|| {
-    println!("hook_ResetTooltip_Impl");
-    let address = 0x0045C440 as isize;
-    let ori: fn_ResetTooltip_Impl = unsafe { std::mem::transmute(address) };
-    return unsafe { GenericDetour::new(ori, our_ResetTooltip_Impl).unwrap() };
-});
-
 // StartTooltip
 // Address: 0x0045DF70
 type fn_StartTooltip_Impl = extern "thiscall" fn(
@@ -122,6 +99,7 @@ type fn_StartTooltip_Impl = extern "thiscall" fn(
     b: u32,
     c: isize,
 ) -> i32;
+
 extern "thiscall" fn our_StartTooltip_Impl(
     This: *mut c_void,
     strInfo: *mut c_void,
@@ -137,7 +115,8 @@ extern "thiscall" fn our_StartTooltip_Impl(
 
     ret_val
 }
-static hook_StartTooltip_Impl: Lazy<GenericDetour<fn_StartTooltip_Impl>> = Lazy::new(|| {
+
+pub static hook_StartTooltip_Impl: Lazy<GenericDetour<fn_StartTooltip_Impl>> = Lazy::new(|| {
     println!("hook_StartTooltip_Impl");
     let address = 0x0045DF70 as isize;
     let ori: fn_StartTooltip_Impl = unsafe { std::mem::transmute(address) };
@@ -155,9 +134,11 @@ extern "thiscall" fn our_OnChatCommand_Impl(
     text: *mut c_void,
     chatWindowId: isize,
 ) -> isize {
-    println!("fn_OnChatCommand_Impl: text pointer is {text:?}");
+    println!("our_OnChatCommand_Impl");
 
-    let pstring = unsafe { PStringBase::from_mut_ptr(text as *mut PSRefBuffer) };
+    let pstring = unsafe {
+        crate::client::PStringBase::from_mut_ptr(text as *mut crate::client::PSRefBuffer)
+    };
     println!("pstring to_string is {pstring}");
 
     let ret_val = hook_OnChatCommand_Impl.call(This, text, chatWindowId);
@@ -167,6 +148,7 @@ extern "thiscall" fn our_OnChatCommand_Impl(
 
 pub static hook_OnChatCommand_Impl: Lazy<GenericDetour<fn_OnChatCommand_Impl>> = Lazy::new(|| {
     println!("hook_OnChatCommand_Impl");
+
     let address = 0x005821A0 as isize;
     let ori: fn_OnChatCommand_Impl = unsafe { std::mem::transmute(address) };
     return unsafe { GenericDetour::new(ori, our_OnChatCommand_Impl).unwrap() };

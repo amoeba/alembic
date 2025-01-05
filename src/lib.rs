@@ -12,7 +12,9 @@ use std::{
     iter,
 };
 
-use hooks::hook_OnChatCommand_Impl;
+use hooks::{
+    hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_ResetTooltip_Impl, hook_StartTooltip_Impl,
+};
 pub(crate) use windows::{
     core::{PCSTR, PCWSTR},
     Win32::{
@@ -109,17 +111,19 @@ fn on_attach() -> Result<(), anyhow::Error> {
     //     hook_RecvFrom.enable().unwrap();
     // }
 
-    // unsafe {
-    //     hook_ResetTooltip_Impl.enable().unwrap();
-    // }
+    unsafe {
+        hook_ResetTooltip_Impl.enable().unwrap();
+    }
 
-    // unsafe {
-    //     hook_StartTooltip_Impl.enable().unwrap();
-    // }
+    unsafe {
+        hook_StartTooltip_Impl.enable().unwrap();
+    }
 
     unsafe {
         hook_OnChatCommand_Impl.enable().unwrap();
     }
+
+    unsafe { hook_RecvFrom_New.enable().unwrap() }
 
     // this doesn't work well, don't do this
     //unsafe { init_message_box_detour().unwrap() };
@@ -135,9 +139,9 @@ fn on_detach() -> Result<(), anyhow::Error> {
         }
     }
 
-    // unsafe {
-    //     hook_StartTooltip_Impl.disable().unwrap();
-    // }
+    unsafe {
+        hook_StartTooltip_Impl.disable().unwrap();
+    }
 
     unsafe {
         hook_OnChatCommand_Impl.disable().unwrap();
