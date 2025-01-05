@@ -15,19 +15,14 @@ fn main() {
 
     let launcher = Launcher::new();
 
-    match launcher.attach_or_launch_injected() {
-        Ok(kit) => {
-            rx.recv().expect("Could not receive from channel.");
-            println!("ctrl+c received...");
-            // kit.eject();
-        }
-        Err(error) => {
-            println!("Error in attach_or_launch_injected: {error}. Exiting now.");
-            return;
-        }
-    }
+    launcher.find_or_launch();
+    launcher.inject();
 
     // Block until Ctrl+C
+    rx.recv().expect("Could not receive from channel.");
+    println!("ctrl+c received...");
+
+    // TODO: Eject
 
     println!("Exiting.");
 }

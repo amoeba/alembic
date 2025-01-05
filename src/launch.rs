@@ -1,5 +1,6 @@
 use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt, thread, time::Duration};
 
+use anyhow::bail;
 use dll_syringe::{process::OwnedProcess, Syringe};
 use windows::{
     core::PWSTR,
@@ -13,13 +14,17 @@ use windows::{
 
 use crate::inject::InjectionKit;
 
-pub struct Launcher {
+pub struct Launcher<'a> {
     client: Option<OwnedProcess>,
+    injector: Option<InjectionKit<'a>>,
 }
 
-impl Launcher {
+impl<'a> Launcher<'a> {
     pub fn new() -> Self {
-        Launcher { client: None }
+        Launcher {
+            client: None,
+            injector: None,
+        }
     }
 
     fn launch(&self) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
@@ -74,16 +79,27 @@ impl Launcher {
         }
     }
 
-    fn find_or_launch(&self) -> Result<OwnedProcess, Box<dyn Error>> {
+    fn find(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
-            return Ok(target);
+            self.client = Some(target);
+        }
+
+        Ok(())
+    }
+
+    pub fn find_or_launch(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
+            self.client = Some(target);
+            return Ok(());
         }
 
         println!("Couldn't find existing client to inject into. Launching instead.");
 
         match self.launch() {
             Ok(process_info) => {
-                OwnedProcess::from_pid(process_info.dwProcessId).map_err(|e| e.into())
+                self.client =
+                    OwnedProcess::from_pid(process_info.dwProcessId).map_err(|e| e.into());
+                Ok(())
             }
             Err(error) => {
                 println!("Error on launch: {error:?}");
@@ -92,14 +108,37 @@ impl Launcher {
         }
     }
 
-    pub fn attach_or_launch_injected(&self) -> Result<(), Box<dyn Error>> {
-        let target = self.find_or_launch()?;
+    pub fn attach_injected(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
 
-        // debugging
-        thread::sleep(Duration::from_secs(5));
+    pub fn launch_injected(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
 
-        let mut kit = InjectionKit::new(Syringe::for_process(target));
-        kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
+    pub fn inject(&mut self) -> Result<(), anyhow::Error> {
+        match self.client.as_ref() {
+            Some(client) => {
+                self.injector = Some(InjectionKit::new(Syringe::for_process(
+                    client.try_clone().unwrap(),
+                )));
+            }
+            None => bail!("No client set. Not injecting."),
+        }
+
+        match self.injector.as_mut() {
+            Some(kit) => {
+                kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
+            }
+            None => todo!(),
+        }
+
+        Ok(())
+    }
+
+    pub fn attach_or_launch_injected(&mut self) -> Result<(), Box<dyn Error>> {
+        self.find_or_launch()?;
+        self.inject()?;
 
         Ok(())
     }
