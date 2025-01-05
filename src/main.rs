@@ -3,7 +3,7 @@ pub mod launch;
 
 use std::sync::mpsc::channel;
 
-use launch::attach_or_launch_injected;
+use launch::Launcher;
 
 fn main() {
     let (tx, rx) = channel();
@@ -13,11 +13,13 @@ fn main() {
     // TODO: Pull config from somewhere
     // TODO: Make following code use that config
 
-    match attach_or_launch_injected() {
-        Ok(payload) => {
+    let launcher = Launcher::new();
+
+    match launcher.attach_or_launch_injected() {
+        Ok(kit) => {
             rx.recv().expect("Could not receive from channel.");
             println!("ctrl+c received...");
-            // syringe.eject(payload);
+            // kit.eject();
         }
         Err(error) => {
             println!("Error in attach_or_launch_injected: {error}. Exiting now.");
