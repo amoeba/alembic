@@ -149,20 +149,19 @@ pub enum GuiMessage {
     AppendLog(String),
 }
 
-// Very WIP!
-static mut RUNTIME: Option<Runtime> = None;
-static INIT: Once = Once::new();
-
+// Create and manage a Tokio async runtime in this thread
+static mut rt: Option<Runtime> = None;
+static rt_init: Once = Once::new();
 fn ensure_runtime() -> &'static Runtime {
     unsafe {
-        INIT.call_once(|| {
-            RUNTIME = Some(Runtime::new().expect("Failed to create Tokio runtime"));
+        rt_init.call_once(|| {
+            rt = Some(Runtime::new().expect("Failed to create Tokio runtime"));
         });
-        RUNTIME.as_ref().unwrap()
+        rt.as_ref().unwrap()
     }
 }
 
-fn client_wip() -> anyhow::Result<()> {
+fn ensure_client() -> anyhow::Result<()> {
     println!("inside client_wip, start");
 
     let runtime = ensure_runtime();
@@ -220,13 +219,16 @@ fn client_wip() -> anyhow::Result<()> {
 }
 
 fn on_attach() -> Result<(), anyhow::Error> {
-    ensure_runtime();
-
     unsafe {
         match allocate_console() {
             Ok(_) => println!("Call to FreeConsole succeeded"),
             Err(error) => println!("Call to FreeConsole failed: {error:?}"),
         }
+    }
+
+    match ensure_client() {
+        Ok(_) => println!("Client started without error"),
+        Err(error) => println!("Client started with error: {error}"),
     }
 
     println!("in init_hooks, initializing hooks now");
@@ -244,13 +246,6 @@ fn on_attach() -> Result<(), anyhow::Error> {
 
     // this doesn't work well, don't do this
     //unsafe { init_message_box_detour().unwrap() };
-
-    println!("About to call client_wip!");
-    match client_wip() {
-        Ok(_) => println!("client_wip was successful"),
-        Err(error) => println!("client_wip errored: {error:?}"),
-    }
-    println!("Done calling client_wip!");
 
     Ok(())
 }
