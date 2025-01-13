@@ -1,21 +1,104 @@
 mod inject;
 mod launch;
+mod rpc;
 
-use eframe::egui::{self, Ui};
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    sync::Arc,
+    thread,
+    time::Duration,
+};
 
+use eframe::egui::{self, ScrollArea, TextStyle, Ui};
+
+use futures::{future, StreamExt};
 use launch::Launcher;
+use rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
+use tarpc::{
+    server::{self, Channel},
+    tokio_serde::formats::Json,
+};
+use tokio::sync::{
+    mpsc::{channel, error::TryRecvError, Receiver},
+    Mutex,
+};
 
 fn main() -> eframe::Result {
     env_logger::init();
+
+    // Channel: GUI
+    let (gui_tx, gui_rx) = channel::<GuiMessage>(32);
+    let gui_rx_ref = Arc::new(Mutex::new(gui_rx));
+    let gui_tx_ref = Arc::new(Mutex::new(gui_tx));
+
+    // Channel: Painting
+    let (paint_tx, paint_rx) = channel::<PaintMessage>(32);
+    let paint_rx_ref = Arc::new(Mutex::new(paint_rx));
+    let paint_tx_ref = Arc::new(Mutex::new(paint_tx));
+
+    // tarpc
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    runtime.spawn(async move {
+        let addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
+
+        let listener = tarpc::serde_transport::tcp::listen(&addr, Json::default)
+            .await
+            .expect("whoops!");
+        listener
+            // Ignore accept errors.
+            .filter_map(|r| future::ready(r.ok()))
+            .map(server::BaseChannel::with_defaults)
+            .map(|channel| {
+                let server = HelloServer {
+                    paint_tx: Arc::clone(&paint_tx_ref),
+                    gui_tx: Arc::clone(&gui_tx_ref),
+                };
+                channel.execute(server.serve()).for_each(spawn)
+            })
+            .buffer_unordered(10)
+            .for_each(|_| async {})
+            .await;
+    });
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
         ..Default::default()
     };
+
+    let app = Application::new(Arc::clone(&gui_rx_ref));
+
+    // Pass a cloned paint_rx into the app so we can handle repaints
+    let app_paint_rx = Arc::clone(&paint_rx_ref);
+
     eframe::run_native(
-        "Alembic",
+        "Application",
         options,
-        Box::new(|cc| Ok(Box::<MyApp>::default())),
+        Box::new(|cc| {
+            let frame = cc.egui_ctx.clone();
+
+            thread::spawn(move || {
+                loop {
+                    match app_paint_rx.try_lock().unwrap().try_recv() {
+                        Ok(msg) => match msg {
+                            PaintMessage::RequestRepaint => {
+                                println!("Repaint request received!");
+                                frame.request_repaint();
+                            }
+                        },
+                        Err(TryRecvError::Empty) => {}
+                        Err(TryRecvError::Disconnected) => {
+                            println!("Channel disconnected");
+                            break;
+                        }
+                    }
+
+                    // ? 60FPS
+                    thread::sleep(Duration::from_millis(16));
+                }
+            });
+
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -27,10 +110,30 @@ fn try_launch() -> anyhow::Result<()> {
     Ok(())
 }
 
-struct Panels {}
+#[derive(PartialEq)]
+enum Tab {
+    Main,
+    Developer,
+}
 
-impl Panels {
-    fn main(ui: &mut Ui) {
+struct Application {
+    current_tab: Tab,
+    string: String,
+    logs: Vec<String>,
+    gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
+}
+
+impl Application {
+    pub fn new(gui_rx: Arc<Mutex<Receiver<GuiMessage>>>) -> Self {
+        Self {
+            current_tab: Tab::Main,
+            string: "Unset".to_string(),
+            logs: vec![],
+            gui_rx,
+        }
+    }
+
+    fn main(self: &mut Self, ui: &mut Ui) {
         if ui.add(egui::Button::new("Test")).clicked() {
             println!("clicked");
 
@@ -41,33 +144,62 @@ impl Panels {
         }
     }
 
-    fn developer(ui: &mut Ui) {
-        if ui.add(egui::Button::new("Developer!")).clicked() {
-            println!("clicked");
-        }
+    fn developer(self: &mut Self, ui: &mut Ui) {
+        ui.heading("Debugging");
+        ui.horizontal(|ui| {
+            let string_label = ui.label("String: ");
+            ui.text_edit_singleline(&mut self.string)
+                .labelled_by(string_label.id);
+        });
+
+        let text_style = TextStyle::Body;
+        let row_height = ui.text_style_height(&text_style);
+        let total_rows = self.logs.len();
+
+        ui.heading("Logs");
+        ui.vertical(|ui| {
+            ScrollArea::vertical().auto_shrink(false).show_rows(
+                ui,
+                row_height,
+                total_rows,
+                |ui, row_range| {
+                    for row in row_range {
+                        let text = format!("{}", self.logs[row]);
+                        ui.label(text);
+                    }
+                },
+            );
+        });
     }
 }
 
-#[derive(PartialEq)]
-enum Tab {
-    Main,
-    Developer,
-}
-
-struct MyApp {
-    current_tab: Tab,
-}
-
-impl Default for MyApp {
-    fn default() -> Self {
-        Self {
-            current_tab: Tab::Main,
-        }
-    }
-}
-
-impl eframe::App for MyApp {
+impl eframe::App for Application {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Handle channel
+        loop {
+            match self.gui_rx.try_lock().unwrap().try_recv() {
+                Ok(msg) => match msg {
+                    GuiMessage::Hello(_) => {
+                        println!("GUI got Hello");
+                    }
+                    GuiMessage::UpdateString(value) => {
+                        println!("GUI got UpdateString with value {value}");
+                        self.string = value.to_string();
+                    }
+                    GuiMessage::AppendLog(value) => {
+                        println!("GUI got AppendLog with value {value}");
+                        self.logs.push(value);
+                    }
+                },
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    println!("Channel disconnected");
+                    break;
+                }
+            }
+        }
+
+        // Handle UI
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -93,8 +225,8 @@ impl eframe::App for MyApp {
             ui.separator();
 
             match self.current_tab {
-                Tab::Main => Panels::main(ui),
-                Tab::Developer => Panels::developer(ui),
+                Tab::Main => self.main(ui),
+                Tab::Developer => self.developer(ui),
             }
         });
     }

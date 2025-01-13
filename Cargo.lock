@@ -157,6 +157,7 @@ dependencies = [
  "dll-syringe",
  "eframe",
  "env_logger",
+ "futures",
  "log",
  "once_cell",
  "region",
