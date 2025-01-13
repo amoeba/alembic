@@ -177,6 +177,9 @@ pub static hook_StartTooltip_Impl: Lazy<GenericDetour<fn_StartTooltip_Impl>> = L
 // OnChatCommand
 //
 // Address: 0x005821A0
+// Note: Only this breakpoint gets hit
+//----- (00581320) --------------------------------------------------------
+// bool __thiscall ClientCommunicationSystem::OnChatCommand(ClientCommunicationSystem *this, const PStringBase<unsigned short> *i_strLine, unsigned int i_idCommandSource)
 type fn_OnChatCommand_Impl =
     extern "thiscall" fn(This: *mut c_void, text: *mut c_void, chatWindowId: isize) -> isize;
 
