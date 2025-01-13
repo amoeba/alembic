@@ -14,24 +14,16 @@ fn main() -> eframe::Result {
     )
 }
 
-struct Panels {
-    some_state: bool,
-}
-
-impl Default for Panels {
-    fn default() -> Self {
-        Self { some_state: false }
-    }
-}
+struct Panels {}
 
 impl Panels {
-    fn Main(ui: &mut Ui) {
+    fn main(ui: &mut Ui) {
         if ui.add(egui::Button::new("Test")).clicked() {
             println!("clicked");
         }
     }
 
-    fn Developer(ui: &mut Ui) {
+    fn developer(ui: &mut Ui) {
         if ui.add(egui::Button::new("Developer!")).clicked() {
             println!("clicked");
         }
@@ -83,8 +75,8 @@ impl eframe::App for MyApp {
             ui.separator();
 
             match self.current_tab {
-                Tab::Main => Panels::Main(ui),
-                Tab::Developer => Panels::Developer(ui),
+                Tab::Main => Panels::main(ui),
+                Tab::Developer => Panels::developer(ui),
             }
         });
     }
