@@ -1,3 +1,4 @@
+mod backend;
 mod inject;
 mod launch;
 mod rpc;
@@ -6,9 +7,10 @@ use std::{
     net::{IpAddr, Ipv4Addr},
     sync::Arc,
     thread,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use backend::{Backend, LogEntry, PacketInfo};
 use eframe::egui::{self, ScrollArea, TextStyle, Ui};
 use futures::{future, StreamExt};
 use tarpc::{
@@ -129,21 +131,12 @@ enum DeveloperNetworkTab {
     Outgoing,
 }
 
-struct PacketInfo {
-    index: usize,
-    timestamp: u64,
-    data: Vec<u8>,
-}
-
 struct Application {
+    backend: Backend,
     current_tab: Tab,
     current_developer_tab: DeveloperTab,
     current_developer_network_tab: DeveloperNetworkTab,
     string: String,
-    logs: Vec<String>,
-    packets: Vec<PacketInfo>,
-    incoming_packet_count: usize,
-    outgoing_packet_count: usize,
     selected_incoming_packet: Option<usize>,
     selected_outgoing_packet: Option<usize>,
     gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
@@ -152,14 +145,11 @@ struct Application {
 impl Application {
     pub fn new(gui_rx: Arc<Mutex<Receiver<GuiMessage>>>) -> Self {
         Self {
+            backend: Backend::new(),
             current_tab: Tab::Main,
             current_developer_tab: DeveloperTab::Main,
             current_developer_network_tab: DeveloperNetworkTab::Incoming,
             string: "Unset".to_string(),
-            logs: vec![],
-            packets: vec![],
-            incoming_packet_count: 0,
-            outgoing_packet_count: 0,
             selected_incoming_packet: None,
             selected_outgoing_packet: None,
             gui_rx,
@@ -230,7 +220,7 @@ impl Application {
     }
 
     fn developer_logs(&self, ui: &mut Ui) {
-        let n_logs = self.logs.len();
+        let n_logs = self.backend.logs.len();
         let text_style = TextStyle::Body;
         let total_rows = ui.text_style_height(&text_style);
 
@@ -242,7 +232,7 @@ impl Application {
                 n_logs,
                 |ui, row_range| {
                     for row in row_range {
-                        let text = format!("{}", self.logs[row]);
+                        let text = format!("{}", self.backend.logs[row].message);
                         ui.label(text);
                     }
                 },
@@ -254,7 +244,7 @@ impl Application {
         ui.columns(2, |columns| {
             columns[0].vertical(|ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    for (index, item) in self.packets.iter().enumerate() {
+                    for (index, item) in self.backend.packets_incoming.iter().enumerate() {
                         if ui.button(item.timestamp.to_string()).clicked() {
                             self.selected_incoming_packet = Some(index);
                         }
@@ -264,7 +254,7 @@ impl Application {
 
             columns[1].vertical(|ui| {
                 if let Some(index) = self.selected_incoming_packet {
-                    ui.label(format!("{:?}", self.packets[index].data));
+                    ui.label(format!("{:?}", self.backend.packets_incoming[index].data));
                 } else {
                     ui.label("Select an item from the left panel");
                 }
@@ -292,7 +282,7 @@ impl Application {
     fn developer_network_outgoing(&self, ui: &mut Ui) {
         let text_style = TextStyle::Body;
         let row_height = ui.text_style_height(&text_style);
-        let total_rows = self.packets.len();
+        let total_rows = self.backend.packets_outgoing.len();
 
         ui.heading("Outgoing Packets");
     }
@@ -313,19 +303,27 @@ impl eframe::App for Application {
                     }
                     GuiMessage::AppendLog(value) => {
                         println!("GUI got AppendLog with value {value}");
-                        self.logs.push(value);
+                        let log = LogEntry {
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
+                            message: value,
+                        };
+                        self.backend.logs.push(log);
                     }
                     GuiMessage::SendTo(vec) => {
                         println!("Gui got a packet data");
+                        self.backend.packet_count_incoming += 1;
                         let packet = PacketInfo {
-                            index: 0,
+                            index: self.backend.packet_count_incoming,
                             timestamp: SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_secs(),
                             data: vec,
                         };
-                        self.packets.push(packet);
+                        self.backend.packets_incoming.push(packet);
                     }
                 },
                 Err(TryRecvError::Empty) => break,
