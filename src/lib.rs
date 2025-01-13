@@ -14,16 +14,23 @@ mod win;
 use std::{
     ffi::c_void,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::Once,
+    sync::{Arc, Once},
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use futures::channel;
 use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
 use rpc::WorldClient;
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 
-use tokio::runtime::Runtime;
+use tokio::{
+    runtime::Runtime,
+    sync::{
+        mpsc::{self, error::TryRecvError},
+        Mutex,
+    },
+};
 use win::allocate_console;
 pub(crate) use windows::Win32::{
     Foundation::{BOOL, HANDLE},
@@ -48,7 +55,35 @@ fn ensure_runtime() -> &'static Runtime {
     }
 }
 
+// TODO: Figure out if this should be a new enum or if we should re-use
+pub enum Message {
+    SomeAction(String),
+}
+static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<Message>>>> = None;
+static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<Message>>>> = None;
+static channel_init: Once = Once::new();
+#[allow(static_mut_refs)]
+fn ensure_channel() -> (
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<Message>>>,
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<Message>>>,
+) {
+    unsafe {
+        channel_init.call_once(|| {
+            let (tx, rx): (
+                mpsc::UnboundedSender<Message>,
+                mpsc::UnboundedReceiver<Message>,
+            ) = mpsc::unbounded_channel();
+
+            dll_tx = Some(Arc::new(Mutex::new(tx)));
+            dll_rx = Some(Arc::new(Mutex::new(rx)));
+        });
+
+        (dll_tx.as_ref().unwrap(), dll_rx.as_ref().unwrap())
+    }
+}
 fn ensure_client() -> anyhow::Result<()> {
+    let (tx, rx) = ensure_channel();
+
     println!("inside client_wip, start");
 
     let runtime = ensure_runtime();
@@ -68,29 +103,26 @@ fn ensure_client() -> anyhow::Result<()> {
 
         let mut max = 100;
         loop {
-            // Say hello
-            match client
-                .hello(context::current(), "Hello from the client".to_string())
-                .await
-            {
-                Ok(resp) => println!("resp is {resp}"),
-                Err(error) => println!("error is {error:?}"),
+            match rx.try_lock().unwrap().try_recv() {
+                Ok(msg) => match msg {
+                    Message::SomeAction(value) => {
+                        match client
+                            .append_log(context::current(), value.to_string())
+                            .await
+                        {
+                            Ok(resp) => println!("resp is {resp}"),
+                            Err(error) => println!("error is {error:?}"),
+                        }
+                    }
+                },
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    println!("Channel disconnected");
+                    break;
+                }
             }
 
-            let current_timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Time went backwards")
-                .as_millis();
-
-            match client
-                .append_log(context::current(), current_timestamp.to_string())
-                .await
-            {
-                Ok(resp) => println!("resp is {resp}"),
-                Err(error) => println!("error is {error:?}"),
-            }
-
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(1));
 
             max = max - 1;
 
@@ -117,6 +149,8 @@ fn on_attach() -> Result<(), anyhow::Error> {
         Ok(_) => println!("Client started without error"),
         Err(error) => println!("Client started with error: {error}"),
     }
+
+    ensure_channel();
 
     println!("in init_hooks, initializing hooks now");
 

@@ -1,6 +1,7 @@
 use std::{
     ffi::{c_void, CStr},
     panic, slice,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use once_cell::sync::Lazy;
@@ -13,7 +14,7 @@ use windows::{
     },
 };
 
-use crate::util::print_vec;
+use crate::{ensure_channel, util::print_vec};
 
 // wsock32.dll::send_to
 type fn_WinSock_SendTo = extern "system" fn(
@@ -53,6 +54,18 @@ extern "system" fn our_WinSock_SendTo(
 
             print_vec(&bytes_vec);
 
+            // TODO: Probably want to spawn a thread??????
+            let current_timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_millis();
+
+            let (tx, rx) = ensure_channel();
+            tx.try_lock()
+                .unwrap()
+                .send(crate::Message::SomeAction(current_timestamp.to_string()))
+
+            // TODO: Envision this API
             // Handle the received packet data
             // standalone_loader::backend::handle_s2c_packet_data(bytes_vec);
         });
