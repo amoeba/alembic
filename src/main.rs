@@ -1,5 +1,5 @@
-pub mod inject;
-pub mod launch;
+mod inject;
+mod launch;
 
 use std::sync::mpsc::channel;
 
@@ -16,15 +16,6 @@ fn main() -> Result<(), anyhow::Error> {
     let mut launcher = Launcher::new();
     launcher.find_or_launch()?;
     launcher.inject()?;
-
-    // Old syringe code for testing eject
-    // let target_process =
-    //     dll_syringe::process::OwnedProcess::find_first_by_name("acclient.exe").unwrap();
-    // let syringe = dll_syringe::Syringe::for_process(target_process);
-    // let injected_payload = syringe
-    //     .inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")
-    //     .unwrap();
-    // syringe.eject(injected_payload).unwrap();
 
     // Block until Ctrl+C
     rx.recv().expect("Could not receive from channel.");

@@ -4,8 +4,8 @@
     non_snake_case,
     non_camel_case_types
 )]
-pub mod client;
-pub mod hooks;
+mod client;
+mod hooks;
 
 use std::{
     ffi::{c_void, CString},
@@ -126,8 +126,8 @@ impl AsyncRuntime {
     where
         F: std::future::Future<Output = ()> + Send + 'static,
     {
-        let rt = self.runtime.clone();
-        rt.spawn(future);
+        let runtime = self.runtime.clone();
+        runtime.spawn(future);
     }
 
     fn shutdown(self) {

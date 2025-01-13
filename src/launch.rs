@@ -1,5 +1,6 @@
 use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt};
 
+use crate::inject::InjectionKit;
 use anyhow::bail;
 use dll_syringe::process::OwnedProcess;
 use windows::{
@@ -11,9 +12,6 @@ use windows::{
         },
     },
 };
-
-use crate::inject::InjectionKit;
-
 pub struct Launcher {
     client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
@@ -119,14 +117,14 @@ impl<'a> Launcher {
     pub fn inject(&mut self) -> Result<(), anyhow::Error> {
         self.injector = match &self.client {
             Some(client) => Some(InjectionKit::new(client.try_clone().unwrap())),
-            None => bail!("Whoops"),
+            None => panic!("Could not create InjectionKit."),
         };
 
         match self.injector.as_mut() {
             Some(kit) => {
-                let _ = kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll");
+                kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")?;
             }
-            None => todo!(),
+            None => panic!("Could not get access to underlying injector to inject DLL."),
         }
 
         Ok(())

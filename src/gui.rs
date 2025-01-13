@@ -1,4 +1,9 @@
+mod inject;
+mod launch;
+
 use eframe::egui::{self, Ui};
+
+use launch::Launcher;
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -14,12 +19,25 @@ fn main() -> eframe::Result {
     )
 }
 
+fn try_launch() -> anyhow::Result<()> {
+    let mut launcher = Launcher::new();
+    launcher.find_or_launch()?;
+    launcher.inject()?;
+
+    Ok(())
+}
+
 struct Panels {}
 
 impl Panels {
     fn main(ui: &mut Ui) {
         if ui.add(egui::Button::new("Test")).clicked() {
             println!("clicked");
+
+            match try_launch() {
+                Ok(_) => println!("Launch success"),
+                Err(error) => println!("Launch failure: {error}"),
+            }
         }
     }
 
