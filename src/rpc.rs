@@ -92,6 +92,7 @@ impl World for HelloServer {
     }
 
     async fn handle_sendto(self, context: tarpc::context::Context, value: Vec<u8>) -> usize {
+        let _ = context;
         println!("rpc handle_sendto");
         let len = value.len();
 

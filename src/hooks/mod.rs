@@ -1,7 +1,6 @@
 use std::{
     ffi::{c_void, CStr},
     panic, slice,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use once_cell::sync::Lazy;
