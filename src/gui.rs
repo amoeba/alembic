@@ -1,4 +1,4 @@
-use eframe::egui::{self, Context, Ui};
+use eframe::egui::{self, Ui};
 
 fn main() -> eframe::Result {
     env_logger::init();
