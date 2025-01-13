@@ -10,10 +10,7 @@ use std::{
 };
 
 use eframe::egui::{self, ScrollArea, TextStyle, Ui};
-
 use futures::{future, StreamExt};
-use launch::Launcher;
-use rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
@@ -22,6 +19,9 @@ use tokio::sync::{
     mpsc::{channel, error::TryRecvError, Receiver},
     Mutex,
 };
+
+use launch::Launcher;
+use rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
 
 fn main() -> eframe::Result {
     env_logger::init();

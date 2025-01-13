@@ -16,6 +16,7 @@ pub struct HelloServer {
     pub gui_tx: Arc<Mutex<Sender<GuiMessage>>>,
 }
 
+#[allow(dead_code)]
 pub enum GuiMessage {
     Hello(String),
     UpdateString(String),

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt};
 
 use crate::inject::InjectionKit;
@@ -77,7 +78,6 @@ impl<'a> Launcher {
         }
     }
 
-    #[allow(dead_code)]
     fn find(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);

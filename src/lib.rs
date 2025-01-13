@@ -4,154 +4,41 @@
     non_snake_case,
     non_camel_case_types
 )]
+mod async_runtime;
 mod client;
 mod hooks;
+mod rpc;
+mod util;
+mod win;
 
 use std::{
-    ffi::{c_void, CString},
-    iter,
+    ffi::c_void,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::{Arc, Once},
+    sync::Once,
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
+use rpc::WorldClient;
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 
 use tokio::runtime::Runtime;
-pub(crate) use windows::{
-    core::{PCSTR, PCWSTR},
-    Win32::{
-        Foundation::{BOOL, HANDLE},
-        Storage::FileSystem::{
-            CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
-        },
-        System::{
-            Console::{
-                AllocConsole, FreeConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE,
-            },
-            LibraryLoader::{GetModuleHandleW, GetProcAddress},
-            SystemServices::{
-                DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
-            },
+use win::allocate_console;
+pub(crate) use windows::Win32::{
+    Foundation::{BOOL, HANDLE},
+    System::{
+        Console::FreeConsole,
+        SystemServices::{
+            DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
         },
     },
 };
 
-unsafe fn allocate_console() -> windows::core::Result<()> {
-    unsafe {
-        // Allocate a new console
-        AllocConsole()?;
-
-        // Redirect stdout
-        let stdout_handle = CreateFileA(
-            PCSTR("CONOUT$\0".as_ptr()),
-            FILE_GENERIC_WRITE.0,
-            FILE_SHARE_WRITE,
-            None,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            HANDLE::default(),
-        )?;
-
-        SetStdHandle(STD_OUTPUT_HANDLE, stdout_handle)?;
-
-        // Redirect stderr
-        let stderr_handle = CreateFileA(
-            PCSTR("CONOUT$\0".as_ptr()),
-            FILE_GENERIC_WRITE.0,
-            FILE_SHARE_WRITE,
-            None,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            HANDLE::default(),
-        )?;
-
-        SetStdHandle(STD_ERROR_HANDLE, stderr_handle)?;
-    }
-
-    println!("Console allocated and streams redirected successfully!");
-    eprintln!("This is an error message test.");
-
-    Ok(())
-}
-
-fn print_dbg_address(addr: isize, friendly_name: &str) {
-    let q = region::query(addr as *const ()).unwrap();
-
-    if q.is_executable() {
-        println!("{friendly_name} is executable")
-    } else {
-        println!("{friendly_name} is NOT executable")
-    }
-}
-
-fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
-    let module = module
-        .encode_utf16()
-        .chain(iter::once(0))
-        .collect::<Vec<u16>>();
-    let symbol = CString::new(symbol).unwrap();
-    unsafe {
-        let handle = GetModuleHandleW(PCWSTR(module.as_ptr() as _)).unwrap();
-        match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
-            Some(func) => Some(func as usize),
-            None => None,
-        }
-    }
-}
-
-fn print_vec(v: &Vec<u8>) {
-    for (i, byte) in v.iter().enumerate() {
-        print!("{byte:02X} ");
-
-        if (i + 1) % 16 == 0 {
-            println!();
-        }
-    }
-}
-
-struct AsyncRuntime {
-    runtime: Arc<Runtime>,
-}
-
-impl AsyncRuntime {
-    fn new() -> anyhow::Result<Self> {
-        let runtime = Arc::new(Runtime::new()?);
-        Ok(Self { runtime })
-    }
-
-    fn spawn<F>(&self, future: F)
-    where
-        F: std::future::Future<Output = ()> + Send + 'static,
-    {
-        let runtime = self.runtime.clone();
-        runtime.spawn(future);
-    }
-
-    fn shutdown(self) {
-        // Drop the Arc, which will shut down the runtime if it's the last reference
-        drop(self.runtime);
-    }
-}
-
-#[tarpc::service]
-pub trait World {
-    async fn hello(name: String) -> String;
-    async fn update_string(value: String) -> String;
-    async fn append_log(value: String) -> String;
-}
-
-pub enum GuiMessage {
-    Hello(String),
-    UpdateString(String),
-    AppendLog(String),
-}
-
 // Create and manage a Tokio async runtime in this thread
 static mut rt: Option<Runtime> = None;
 static rt_init: Once = Once::new();
+#[allow(static_mut_refs)]
 fn ensure_runtime() -> &'static Runtime {
     unsafe {
         rt_init.call_once(|| {
