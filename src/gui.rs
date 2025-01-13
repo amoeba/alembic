@@ -11,7 +11,7 @@ use std::{
 };
 
 use backend::{Backend, LogEntry, PacketInfo};
-use eframe::egui::{self, ScrollArea, TextStyle, Ui};
+use eframe::egui::{self, Align, FontId, Layout, RichText, ScrollArea, TextStyle, Ui};
 use futures::{future, StreamExt};
 use tarpc::{
     server::{self, Channel},
@@ -102,6 +102,14 @@ fn main() -> eframe::Result {
             Ok(Box::new(app))
         }),
     )
+}
+
+// TODO: Factor out into common UI lib
+fn centered_text(ui: &mut Ui, text: &str) {
+    ui.with_layout(
+        Layout::centered_and_justified(egui::Direction::TopDown),
+        |ui| ui.label(text),
+    );
 }
 
 fn try_launch() -> anyhow::Result<()> {
@@ -220,71 +228,77 @@ impl Application {
     }
 
     fn developer_logs(&self, ui: &mut Ui) {
-        let n_logs = self.backend.logs.len();
-        let text_style = TextStyle::Body;
-        let total_rows = ui.text_style_height(&text_style);
+        if self.backend.logs.len() <= 0 {
+            centered_text(ui, "No logs yet.");
+        } else {
+            let n_logs = self.backend.logs.len();
+            let text_style = TextStyle::Body;
+            let total_rows = ui.text_style_height(&text_style);
 
-        ui.heading("Logs");
-        ui.vertical(|ui| {
-            ScrollArea::vertical().auto_shrink(false).show_rows(
-                ui,
-                total_rows,
-                n_logs,
-                |ui, row_range| {
-                    for row in row_range {
-                        let text = format!("{}", self.backend.logs[row].message);
-                        ui.label(text);
-                    }
-                },
-            );
-        });
+            ui.vertical(|ui| {
+                ScrollArea::vertical().auto_shrink(false).show_rows(
+                    ui,
+                    total_rows,
+                    n_logs,
+                    |ui, row_range| {
+                        for row in row_range {
+                            let text = format!("{}", self.backend.logs[row].message);
+                            ui.label(text);
+                        }
+                    },
+                );
+            });
+        }
     }
 
     fn developer_network_incoming(&mut self, ui: &mut Ui) {
-        ui.columns(2, |columns| {
-            columns[0].vertical(|ui| {
-                ScrollArea::vertical().show(ui, |ui| {
-                    for (index, item) in self.backend.packets_incoming.iter().enumerate() {
-                        if ui.button(item.timestamp.to_string()).clicked() {
-                            self.selected_incoming_packet = Some(index);
+        if self.backend.packets_incoming.len() <= 0 {
+            centered_text(ui, "No incoming packets yet.");
+        } else {
+            // TODO: Use show_rows() here too
+            ui.columns(2, |columns| {
+                columns[0].vertical(|ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        for (index, item) in self.backend.packets_incoming.iter().enumerate() {
+                            if ui.button(item.timestamp.to_string()).clicked() {
+                                self.selected_incoming_packet = Some(index);
+                            }
                         }
+                    });
+                });
+
+                columns[1].vertical(|ui| {
+                    if let Some(index) = self.selected_incoming_packet {
+                        ui.label(format!("{:?}", self.backend.packets_incoming[index].data));
                     }
                 });
             });
-
-            columns[1].vertical(|ui| {
-                if let Some(index) = self.selected_incoming_packet {
-                    ui.label(format!("{:?}", self.backend.packets_incoming[index].data));
-                } else {
-                    ui.label("Select an item from the left panel");
-                }
-            });
-        });
-
-        // let text_style = TextStyle::Body;
-        // let row_height = ui.text_style_height(&text_style);
-        // let total_rows = self.packets.len();
-        // ui.add(SidePanel::left("network_incoming_left")).show(|ui| {
-        //     ScrollArea::vertical().auto_shrink(false).show_rows(
-        //         ui,
-        //         row_height,
-        //         total_rows,
-        //         |ui, row_range| {
-        //             for row in row_range {
-        //                 let text = format!("{:?}", self.packets[row]);
-        //                 ui.label(text);
-        //             }
-        //         },
-        //     );
-        // });
+        }
     }
 
-    fn developer_network_outgoing(&self, ui: &mut Ui) {
-        let text_style = TextStyle::Body;
-        let row_height = ui.text_style_height(&text_style);
-        let total_rows = self.backend.packets_outgoing.len();
+    fn developer_network_outgoing(&mut self, ui: &mut Ui) {
+        if self.backend.packets_outgoing.len() <= 0 {
+            centered_text(ui, "No outgoing packets yet.");
+        } else {
+            // TODO: Use show_rows() here too
+            ui.columns(2, |columns| {
+                columns[0].vertical(|ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        for (index, item) in self.backend.packets_outgoing.iter().enumerate() {
+                            if ui.button(item.timestamp.to_string()).clicked() {
+                                self.selected_outgoing_packet = Some(index);
+                            }
+                        }
+                    });
+                });
 
-        ui.heading("Outgoing Packets");
+                columns[1].vertical(|ui| {
+                    if let Some(index) = self.selected_outgoing_packet {
+                        ui.label(format!("{:?}", self.backend.packets_outgoing[index].data));
+                    }
+                });
+            });
+        }
     }
 }
 
@@ -314,9 +328,8 @@ impl eframe::App for Application {
                     }
                     GuiMessage::SendTo(vec) => {
                         println!("Gui got a packet data");
-                        self.backend.packet_count_incoming += 1;
                         let packet = PacketInfo {
-                            index: self.backend.packet_count_incoming,
+                            index: self.backend.packets_incoming.len(),
                             timestamp: SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
