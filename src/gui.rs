@@ -6,7 +6,7 @@ use std::{
     net::{IpAddr, Ipv4Addr},
     sync::Arc,
     thread,
-    time::Duration,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use eframe::egui::{self, ScrollArea, TextStyle, Ui};
@@ -129,13 +129,23 @@ enum DeveloperNetworkTab {
     Outgoing,
 }
 
+struct PacketInfo {
+    index: usize,
+    timestamp: u64,
+    data: Vec<u8>,
+}
+
 struct Application {
     current_tab: Tab,
     current_developer_tab: DeveloperTab,
     current_developer_network_tab: DeveloperNetworkTab,
     string: String,
     logs: Vec<String>,
-    packets: Vec<Vec<u8>>,
+    packets: Vec<PacketInfo>,
+    incoming_packet_count: usize,
+    outgoing_packet_count: usize,
+    selected_incoming_packet: Option<usize>,
+    selected_outgoing_packet: Option<usize>,
     gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
 }
 
@@ -148,6 +158,10 @@ impl Application {
             string: "Unset".to_string(),
             logs: vec![],
             packets: vec![],
+            incoming_packet_count: 0,
+            outgoing_packet_count: 0,
+            selected_incoming_packet: None,
+            selected_outgoing_packet: None,
             gui_rx,
         }
     }
@@ -236,25 +250,43 @@ impl Application {
         });
     }
 
-    fn developer_network_incoming(&self, ui: &mut Ui) {
-        let text_style = TextStyle::Body;
-        let row_height = ui.text_style_height(&text_style);
-        let total_rows = self.packets.len();
-
-        ui.heading("Incoming Packets");
-        ui.vertical(|ui| {
-            ScrollArea::vertical().auto_shrink(false).show_rows(
-                ui,
-                row_height,
-                total_rows,
-                |ui, row_range| {
-                    for row in row_range {
-                        let text = format!("{:?}", self.packets[row]);
-                        ui.label(text);
+    fn developer_network_incoming(&mut self, ui: &mut Ui) {
+        ui.columns(2, |columns| {
+            columns[0].vertical(|ui| {
+                ScrollArea::vertical().show(ui, |ui| {
+                    for (index, item) in self.packets.iter().enumerate() {
+                        if ui.button(item.timestamp.to_string()).clicked() {
+                            self.selected_incoming_packet = Some(index);
+                        }
                     }
-                },
-            );
+                });
+            });
+
+            columns[1].vertical(|ui| {
+                if let Some(index) = self.selected_incoming_packet {
+                    ui.label(format!("{:?}", self.packets[index].data));
+                } else {
+                    ui.label("Select an item from the left panel");
+                }
+            });
         });
+
+        // let text_style = TextStyle::Body;
+        // let row_height = ui.text_style_height(&text_style);
+        // let total_rows = self.packets.len();
+        // ui.add(SidePanel::left("network_incoming_left")).show(|ui| {
+        //     ScrollArea::vertical().auto_shrink(false).show_rows(
+        //         ui,
+        //         row_height,
+        //         total_rows,
+        //         |ui, row_range| {
+        //             for row in row_range {
+        //                 let text = format!("{:?}", self.packets[row]);
+        //                 ui.label(text);
+        //             }
+        //         },
+        //     );
+        // });
     }
 
     fn developer_network_outgoing(&self, ui: &mut Ui) {
@@ -263,19 +295,6 @@ impl Application {
         let total_rows = self.packets.len();
 
         ui.heading("Outgoing Packets");
-        ui.vertical(|ui| {
-            ScrollArea::vertical().auto_shrink(false).show_rows(
-                ui,
-                row_height,
-                total_rows,
-                |ui, row_range| {
-                    for row in row_range {
-                        let text = format!("{:?}", self.packets[row]);
-                        ui.label(text);
-                    }
-                },
-            );
-        });
     }
 }
 
@@ -298,7 +317,15 @@ impl eframe::App for Application {
                     }
                     GuiMessage::SendTo(vec) => {
                         println!("Gui got a packet data");
-                        self.packets.push(vec);
+                        let packet = PacketInfo {
+                            index: 0,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
+                            data: vec,
+                        };
+                        self.packets.push(packet);
                     }
                 },
                 Err(TryRecvError::Empty) => break,
