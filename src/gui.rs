@@ -71,7 +71,7 @@ fn main() -> eframe::Result {
     let app_paint_rx = Arc::clone(&paint_rx_ref);
 
     eframe::run_native(
-        "Application",
+        "Alembic",
         options,
         Box::new(|cc| {
             let frame = cc.egui_ctx.clone();
