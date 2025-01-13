@@ -54,16 +54,10 @@ extern "system" fn our_WinSock_SendTo(
 
             print_vec(&bytes_vec);
 
-            // TODO: Probably want to spawn a thread??????
-            let current_timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Time went backwards")
-                .as_millis();
-
-            let (tx, rx) = ensure_channel();
+            let (tx, _rx) = ensure_channel();
             tx.try_lock()
                 .unwrap()
-                .send(crate::Message::SomeAction(current_timestamp.to_string()))
+                .send(crate::rpc::GuiMessage::SendTo(bytes_vec.clone()))
 
             // TODO: Envision this API
             // Handle the received packet data

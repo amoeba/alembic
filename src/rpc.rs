@@ -8,6 +8,7 @@ pub trait World {
     async fn hello(name: String) -> String;
     async fn update_string(value: String) -> String;
     async fn append_log(value: String) -> String;
+    async fn handle_sendto(value: Vec<u8>) -> usize;
 }
 
 #[derive(Clone)]
@@ -21,6 +22,7 @@ pub enum GuiMessage {
     Hello(String),
     UpdateString(String),
     AppendLog(String),
+    SendTo(Vec<u8>),
 }
 
 pub enum PaintMessage {
@@ -87,6 +89,35 @@ impl World for HelloServer {
         }
 
         value
+    }
+
+    async fn handle_sendto(self, context: tarpc::context::Context, value: Vec<u8>) -> usize {
+        println!("rpc handle_sendto");
+        let len = value.len();
+
+        match self
+            .gui_tx
+            .lock()
+            .await
+            .send(GuiMessage::SendTo(value))
+            .await
+        {
+            Ok(()) => println!("sendto sent"),
+            Err(error) => println!("tx error: {error}"),
+        }
+
+        match self
+            .paint_tx
+            .lock()
+            .await
+            .send(PaintMessage::RequestRepaint)
+            .await
+        {
+            Ok(()) => println!("Repaint Requested"),
+            Err(error) => println!("tx error: {error}"),
+        }
+
+        len
     }
 }
 

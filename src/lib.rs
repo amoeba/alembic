@@ -16,12 +16,11 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{Arc, Once},
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
-use futures::channel;
 use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
-use rpc::WorldClient;
+use rpc::{GuiMessage, WorldClient};
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 
 use tokio::{
@@ -55,23 +54,19 @@ fn ensure_runtime() -> &'static Runtime {
     }
 }
 
-// TODO: Figure out if this should be a new enum or if we should re-use
-pub enum Message {
-    SomeAction(String),
-}
-static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<Message>>>> = None;
-static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<Message>>>> = None;
+static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<GuiMessage>>>> = None;
+static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<GuiMessage>>>> = None;
 static channel_init: Once = Once::new();
 #[allow(static_mut_refs)]
 fn ensure_channel() -> (
-    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<Message>>>,
-    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<Message>>>,
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<GuiMessage>>>,
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<GuiMessage>>>,
 ) {
     unsafe {
         channel_init.call_once(|| {
             let (tx, rx): (
-                mpsc::UnboundedSender<Message>,
-                mpsc::UnboundedReceiver<Message>,
+                mpsc::UnboundedSender<GuiMessage>,
+                mpsc::UnboundedReceiver<GuiMessage>,
             ) = mpsc::unbounded_channel();
 
             dll_tx = Some(Arc::new(Mutex::new(tx)));
@@ -82,7 +77,7 @@ fn ensure_channel() -> (
     }
 }
 fn ensure_client() -> anyhow::Result<()> {
-    let (tx, rx) = ensure_channel();
+    let (_tx, rx) = ensure_channel();
 
     println!("inside client_wip, start");
 
@@ -99,21 +94,18 @@ fn ensure_client() -> anyhow::Result<()> {
         )
         .spawn();
 
-        println!("Saying hello on a loop");
-
-        let mut max = 100;
         loop {
             match rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
-                    Message::SomeAction(value) => {
-                        match client
-                            .append_log(context::current(), value.to_string())
-                            .await
-                        {
+                    GuiMessage::SendTo(value) => {
+                        match client.handle_sendto(context::current(), value).await {
                             Ok(resp) => println!("resp is {resp}"),
                             Err(error) => println!("error is {error:?}"),
                         }
                     }
+                    GuiMessage::Hello(_) => todo!(),
+                    GuiMessage::UpdateString(_) => todo!(),
+                    GuiMessage::AppendLog(_) => todo!(),
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
@@ -122,13 +114,7 @@ fn ensure_client() -> anyhow::Result<()> {
                 }
             }
 
-            thread::sleep(Duration::from_secs(1));
-
-            max = max - 1;
-
-            if max < 0 {
-                break;
-            }
+            thread::sleep(Duration::from_millis(16));
         }
     });
 

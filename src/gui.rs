@@ -120,6 +120,7 @@ struct Application {
     current_tab: Tab,
     string: String,
     logs: Vec<String>,
+    packets: Vec<Vec<u8>>,
     gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
 }
 
@@ -129,6 +130,7 @@ impl Application {
             current_tab: Tab::Main,
             string: "Unset".to_string(),
             logs: vec![],
+            packets: vec![],
             gui_rx,
         }
     }
@@ -154,14 +156,31 @@ impl Application {
 
         let text_style = TextStyle::Body;
         let row_height = ui.text_style_height(&text_style);
-        let total_rows = self.logs.len();
+        let n_packets = self.packets.len();
+
+        ui.heading("Packets");
+        ui.vertical(|ui| {
+            ScrollArea::vertical().auto_shrink(false).show_rows(
+                ui,
+                row_height,
+                n_packets,
+                |ui, row_range| {
+                    for row in row_range {
+                        let text = format!("{:?}", self.packets[row]);
+                        ui.label(text);
+                    }
+                },
+            );
+        });
+
+        let n_logs = self.logs.len();
 
         ui.heading("Logs");
         ui.vertical(|ui| {
             ScrollArea::vertical().auto_shrink(false).show_rows(
                 ui,
                 row_height,
-                total_rows,
+                n_logs,
                 |ui, row_range| {
                     for row in row_range {
                         let text = format!("{}", self.logs[row]);
@@ -189,6 +208,10 @@ impl eframe::App for Application {
                     GuiMessage::AppendLog(value) => {
                         println!("GUI got AppendLog with value {value}");
                         self.logs.push(value);
+                    }
+                    GuiMessage::SendTo(vec) => {
+                        println!("Gui got a packet data");
+                        self.packets.push(vec);
                     }
                 },
                 Err(TryRecvError::Empty) => break,
