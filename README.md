@@ -54,3 +54,9 @@ This will start the desktop GUI which you can then use to launch a game client a
 ## Contributing
 
 I can use all the help I can get, please feel issues or reach out to me directly before sending in pull requests though.
+
+Some possible ways to contribute are:
+
+- I was learning Rust while I wrote most of this so if you see things that could be improved, please let me know
+- File issues with ideas
+- Implement more hooks or client functions
