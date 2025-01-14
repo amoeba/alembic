@@ -76,6 +76,7 @@ pub struct AlembicSettings {
     pub general: General,
     pub client: Client,
 }
+
 impl AlembicSettings {
     pub fn new() -> AlembicSettings {
         AlembicSettings {
