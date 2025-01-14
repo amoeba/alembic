@@ -15,7 +15,6 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1.0.95"
 env_logger = "0.11.6"
-libalembic = { version = "0.1.0", path = "crates/libalembic" }
 log = "0.4.22"
 tarpc = { version = "0.35.0", features = ["serde-transport-json", "tcp"] }
 tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread"] }
