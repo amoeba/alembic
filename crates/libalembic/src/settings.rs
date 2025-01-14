@@ -59,6 +59,11 @@ impl SettingsManager {
         f(&mut settings);
         Self::save()
     }
+
+    pub fn to_string() -> Result<String, toml::ser::Error> {
+        let settings = SETTINGS.settings.read().unwrap();
+        toml::to_string_pretty(&*settings)
+    }
 }
 
 #[derive(Serialize, Deserialize)]

@@ -2,7 +2,10 @@
 use libalembic::launch::Launcher;
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
-fn main() -> Result<(), anyhow::Error> {
+fn main() -> anyhow::Result<()> {
+    use libalembic::settings::SettingsManager;
+    let _settings = SettingsManager::to_string()?;
+
     use std::sync::mpsc::channel;
 
     let (tx, rx) = channel();
@@ -28,14 +31,10 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-fn main() -> Result<(), anyhow::Error> {
+fn main() -> anyhow::Result<()> {
+    use anyhow::bail;
     use libalembic::settings::SettingsManager;
+    let _settings = SettingsManager::to_string()?;
 
-    let version = SettingsManager::get(|s| s.general.version.clone());
-    let path = SettingsManager::get(|s| s.client.path.clone());
-    println!("Settings version is {version}");
-    println!("Settings path is {path}");
-    println!("CLI only works on Windows.");
-
-    Ok(())
+    bail!("The CLI only works on Windows.");
 }
