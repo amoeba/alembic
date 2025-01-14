@@ -1,8 +1,10 @@
+#[allow(unused)]
 pub struct LogEntry {
     pub timestamp: u64,
     pub message: String,
 }
 
+#[allow(unused)]
 pub struct PacketInfo {
     pub index: usize,
     pub timestamp: u64,
