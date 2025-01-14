@@ -9,7 +9,7 @@ use std::{
 };
 
 use backend::{Backend, LogEntry, PacketInfo};
-use eframe::egui::{self, Layout, ScrollArea, TextStyle, Ui};
+use eframe::egui::{self, Align, Align2, Layout, ScrollArea, TextStyle, Ui};
 use futures::{future, StreamExt};
 use libalembic::rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
 use tarpc::{
@@ -94,6 +94,7 @@ fn main() -> eframe::Result {
                     thread::sleep(Duration::from_millis(16));
                 }
             });
+            egui_extras::install_image_loaders(&cc.egui_ctx);
 
             Ok(Box::new(app))
         }),
@@ -148,6 +149,7 @@ struct Application {
     selected_incoming_packet: Option<usize>,
     selected_outgoing_packet: Option<usize>,
     gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
+    show_about: bool,
 }
 
 impl Application {
@@ -161,6 +163,7 @@ impl Application {
             selected_incoming_packet: None,
             selected_outgoing_packet: None,
             gui_rx,
+            show_about: false,
         }
     }
 
@@ -360,6 +363,7 @@ impl eframe::App for Application {
                 ui.menu_button("Help", |ui: &mut egui::Ui| {
                     if ui.add(egui::Button::new("About")).clicked() {
                         ui.close_menu();
+                        self.show_about = true;
                     }
                 });
             });
@@ -378,5 +382,36 @@ impl eframe::App for Application {
                 Tab::Developer => self.developer(ui),
             }
         });
+
+        if self.show_about {
+            egui::Window::new("About")
+                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                .collapsible(false)
+                .resizable(false)
+                .title_bar(false)
+                .show(ctx, |ui| {
+                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                        ui.add(
+                            egui::Image::new(egui::include_image!("../assets/logo.png"))
+                                .max_width(128.0),
+                        );
+                        ui.heading("Alembic");
+                        ui.add_space(16.0);
+                        ui.label("Version 0.1.0");
+                        ui.add_space(16.0);
+                        ui.label("Copyright © 2025 Bryce Mecum");
+                        ui.add_space(16.0);
+                        use egui::special_emojis::GITHUB;
+                        ui.hyperlink_to(
+                            format!("{GITHUB} alembic on GitHub"),
+                            "https://github.com/amoeba/alembic",
+                        );
+                        ui.add_space(16.0);
+                        if ui.button("Okay").clicked() {
+                            self.show_about = false;
+                        }
+                    });
+                });
+        }
     }
 }
