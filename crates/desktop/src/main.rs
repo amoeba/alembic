@@ -351,8 +351,9 @@ impl eframe::App for Application {
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.add(egui::Button::new("Testing")).clicked() {
+                    if ui.add(egui::Button::new("Exit")).clicked() {
                         ui.close_menu();
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
 
