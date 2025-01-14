@@ -15,11 +15,15 @@ full = []
 
 [dependencies]
 anyhow = { workspace = true }
+config = { version = "0.15.5", features = ["toml"] }
 ctor = "0.2.9"
+directories = "6.0.0"
 once_cell = "1.20.2"
 region = "3.0.2"
+serde = { version = "1.0.217", features = ["derive"] }
 tarpc = { workspace = true }
 tokio = { workspace = true }
+toml = "0.8.19"
 
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
 dll-syringe = "0.15.2"
