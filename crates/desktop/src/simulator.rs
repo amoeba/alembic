@@ -3,6 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use libalembic::rpc::WorldClient;
 use tarpc::{client, context, tokio_serde::formats::Json};
 
+#[allow(unused)]
 #[tokio::main]
 async fn main() {
     let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
