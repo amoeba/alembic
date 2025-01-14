@@ -1,3 +1,5 @@
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
+
 use windows::{
     core::PCSTR,
     Win32::{
@@ -7,6 +9,11 @@ use windows::{
         },
         System::Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
     },
+};
+
+use windows::{
+    core::{PCSTR, PCWSTR},
+    Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress},
 };
 
 pub unsafe fn allocate_console() -> windows::core::Result<()> {
@@ -45,4 +52,19 @@ pub unsafe fn allocate_console() -> windows::core::Result<()> {
     eprintln!("This is an error message test.");
 
     Ok(())
+}
+
+pub fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
+    let module = module
+        .encode_utf16()
+        .chain(iter::once(0))
+        .collect::<Vec<u16>>();
+    let symbol = CString::new(symbol).unwrap();
+    unsafe {
+        let handle = GetModuleHandleW(PCWSTR(module.as_ptr() as _)).unwrap();
+        match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
+            Some(func) => Some(func as usize),
+            None => None,
+        }
+    }
 }

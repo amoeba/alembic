@@ -1,3 +1,5 @@
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
+
 use std::{
     ffi::{c_void, CStr},
     panic, slice,
@@ -13,7 +15,11 @@ use windows::{
     },
 };
 
-use crate::{ensure_channel, util::print_vec};
+use crate::{
+    acclient::{PSRefBuffer, PStringBase},
+    ensure_channel,
+    util::print_vec,
+};
 
 // wsock32.dll::send_to
 type fn_WinSock_SendTo = extern "system" fn(
@@ -196,9 +202,7 @@ extern "thiscall" fn our_OnChatCommand_Impl(
 ) -> isize {
     println!("our_OnChatCommand_Impl");
 
-    let pstring = unsafe {
-        crate::client::PStringBase::from_mut_ptr(text as *mut crate::client::PSRefBuffer)
-    };
+    let pstring = unsafe { PStringBase::from_mut_ptr(text as *mut PSRefBuffer) };
     println!("pstring to_string is {pstring}");
 
     let ret_val = hook_OnChatCommand_Impl.call(This, text, chatWindowId);

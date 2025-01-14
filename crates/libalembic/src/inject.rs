@@ -1,3 +1,5 @@
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
+
 use dll_syringe::{
     error::EjectError, process::BorrowedProcessModule, process::OwnedProcess, Syringe,
 };

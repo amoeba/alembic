@@ -1,52 +1,21 @@
-[package]
+[workspace.package]
 name = "alembic"
 version = "0.1.0"
 edition = "2021"
+authors = ["Bryce Mecum <brycemecum@gmail.com>"]
+description = "WIP"
+license = "MIT"
+repository = "https://github.com/amoeba/alembic"
+readme = "README.md"
 
-[build]
-target = ["i686-pc-windows-msvc"]
+[workspace]
+members = ["crates/cli", "crates/libalembic", "crates/desktop", "crates/dll"]
+resolver = "2"
 
-[lib]
-name = "alembic"
-path = "src/lib.rs"
-crate-type = ["cdylib"]
-
-[[bin]]
-name = "incant"
-path = "src/main.rs"
-
-[[bin]]
-name = "app"
-path = "src/gui.rs"
-
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0.95"
-ctor = "0.2.9"
-ctrlc = { version = "3.4.5", features = ["termination"] }
-dll-syringe = "0.15.2"
-eframe = "0.30.0"
 env_logger = "0.11.6"
-futures = "0.3.31"
+libalembic = { version = "0.1.0", path = "crates/libalembic" }
 log = "0.4.22"
-once_cell = "1.20.2"
-region = "3.0.2"
-retour = { version = "0.3", features = ["static-detour", "thiscall-abi"] }
 tarpc = { version = "0.35.0", features = ["serde-transport-json", "tcp"] }
 tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread"] }
-widestring = "1.1.0"
-win_dbg_logger = "0.1.0"
-
-[dependencies.windows]
-version = "0.58.0"
-features = [
-    "Win32_Foundation",
-    "Win32_Security",
-    "Win32_System_SystemServices",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_System_LibraryLoader",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Console",
-    "Win32_System_Memory",
-    "Win32_System_Threading",
-    "Win32_System_ProcessStatus",
-]

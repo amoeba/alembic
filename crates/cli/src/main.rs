@@ -1,9 +1,6 @@
-mod inject;
-mod launch;
-
 use std::sync::mpsc::channel;
 
-use launch::Launcher;
+use libalembic::launch::Launcher;
 
 fn main() -> Result<(), anyhow::Error> {
     let (tx, rx) = channel();

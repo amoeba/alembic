@@ -1,4 +1,6 @@
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
 #![allow(dead_code)]
+
 use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt};
 
 use crate::inject::InjectionKit;

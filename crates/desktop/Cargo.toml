@@ -1,0 +1,20 @@
+[package]
+name = "desktop"
+description = "Desktop application for Alembic"
+edition = "2021"
+
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+eframe = "0.30.0"
+env_logger = { workspace = true }
+futures = "0.3.31"
+libalembic = { path = "../libalembic" }
+log = { workspace = true }
+tarpc = { workspace = true }
+tokio = { workspace = true }

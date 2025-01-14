@@ -1,7 +1,4 @@
 mod backend;
-mod inject;
-mod launch;
-mod rpc;
 
 use std::{
     net::{IpAddr, Ipv4Addr},
@@ -11,8 +8,9 @@ use std::{
 };
 
 use backend::{Backend, LogEntry, PacketInfo};
-use eframe::egui::{self, Align, FontId, Layout, RichText, ScrollArea, TextStyle, Ui};
+use eframe::egui::{self, Layout, ScrollArea, TextStyle, Ui};
 use futures::{future, StreamExt};
+use libalembic::rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
@@ -21,9 +19,6 @@ use tokio::sync::{
     mpsc::{channel, error::TryRecvError, Receiver},
     Mutex,
 };
-
-use launch::Launcher;
-use rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -111,13 +106,17 @@ fn centered_text(ui: &mut Ui, text: &str) {
         |ui| ui.label(text),
     );
 }
-
-fn try_launch() -> anyhow::Result<()> {
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+fn try_launch() -> Option<anyhow::Result<()>> {
     let mut launcher = Launcher::new();
     launcher.find_or_launch()?;
     launcher.inject()?;
 
-    Ok(())
+    Some(Ok(()))
+}
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+fn try_launch() -> Option<anyhow::Result<()>> {
+    Some(Ok(()))
 }
 
 #[derive(PartialEq)]
@@ -169,8 +168,8 @@ impl Application {
             println!("clicked");
 
             match try_launch() {
-                Ok(_) => println!("Launch success"),
-                Err(error) => println!("Launch failure: {error}"),
+                Some(_) => todo!(),
+                None => todo!(),
             }
         }
     }

@@ -1,0 +1,15 @@
+[package]
+name = "cli"
+description = "CLI for Alembic"
+edition = "2021"
+
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+ctrlc = { version = "3.4.5", features = ["termination"] }
+libalembic = { path = "../libalembic" }
