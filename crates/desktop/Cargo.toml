@@ -9,6 +9,14 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 
+[[bin]]
+name = "desktop"
+path = "src/main.rs"
+
+[[bin]]
+name = "simulator"
+path = "src/simulator.rs"
+
 [dependencies]
 anyhow = { workspace = true }
 eframe = "0.30.0"

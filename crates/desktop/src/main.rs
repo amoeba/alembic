@@ -1,4 +1,5 @@
 mod backend;
+mod simulator;
 
 use std::{
     net::{IpAddr, Ipv4Addr},
