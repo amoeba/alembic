@@ -922,6 +922,8 @@ dependencies = [
 name = "dll"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "libalembic",
  "tarpc",
  "tokio",
 ]

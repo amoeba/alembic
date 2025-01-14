@@ -1,7 +1,9 @@
 use std::sync::mpsc::channel;
 
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 use libalembic::launch::Launcher;
 
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() -> Result<(), anyhow::Error> {
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel."))
@@ -21,6 +23,13 @@ fn main() -> Result<(), anyhow::Error> {
     launcher.eject()?;
 
     println!("Exiting.");
+
+    Ok(())
+}
+
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+fn main() -> Result<(), anyhow::Error> {
+    println!("CLI only works on Windows.");
 
     Ok(())
 }

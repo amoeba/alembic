@@ -1,3 +1,4 @@
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
 #![allow(
     dead_code,
     non_upper_case_globals,
@@ -13,8 +14,7 @@ use std::{
     time::Duration,
 };
 
-use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
-use rpc::{GuiMessage, WorldClient};
+use libalembic::rpc::{GuiMessage, WorldClient};
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 
 use tokio::{

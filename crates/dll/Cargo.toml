@@ -9,5 +9,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = { workspace = true }
+libalembic = { path = "../libalembic" }
 tarpc = { workspace = true }
 tokio = { workspace = true }
