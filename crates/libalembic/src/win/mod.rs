@@ -1,5 +1,7 @@
 #![cfg(all(target_os = "windows", target_env = "msvc"))]
 
+use std::{ffi::CString, iter};
+
 use windows::{
     core::PCSTR,
     Win32::{
@@ -12,7 +14,7 @@ use windows::{
 };
 
 use windows::{
-    core::{PCSTR, PCWSTR},
+    core::PCWSTR,
     Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress},
 };
 

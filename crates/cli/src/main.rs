@@ -1,9 +1,6 @@
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
-use libalembic::launch::Launcher;
-
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() -> anyhow::Result<()> {
-    use libalembic::settings::SettingsManager;
+    use libalembic::{launch::Launcher, settings::SettingsManager};
     let _settings = SettingsManager::to_string()?;
 
     use std::sync::mpsc::channel;

@@ -17,6 +17,7 @@ use tarpc::{
     tokio_serde::formats::Json,
 };
 use tokio::sync::{
+    broadcast::error,
     mpsc::{channel, error::TryRecvError, Receiver},
     Mutex,
 };
@@ -109,16 +110,19 @@ fn centered_text(ui: &mut Ui, text: &str) {
     );
 }
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
-fn try_launch() -> Option<anyhow::Result<()>> {
+fn try_launch() -> anyhow::Result<()> {
+    use libalembic::launch::Launcher;
+
     let mut launcher = Launcher::new();
     launcher.find_or_launch()?;
     launcher.inject()?;
 
-    Some(Ok(()))
+    Ok(())
 }
+
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-fn try_launch() -> Option<anyhow::Result<()>> {
-    Some(Ok(()))
+fn try_launch() -> anyhow::Result<()> {
+    Ok(())
 }
 
 #[derive(PartialEq)]
@@ -168,13 +172,15 @@ impl Application {
     }
 
     fn main(self: &mut Self, ui: &mut Ui) {
-        if ui.add(egui::Button::new("Test")).clicked() {
-            println!("clicked");
+        if ui.add(egui::Button::new("Launch")).clicked() {
+            println!("Launch clicked.");
 
             match try_launch() {
-                Some(_) => todo!(),
-                None => todo!(),
+                Ok(_) => println!("Launch succeeded."),
+                Err(error) => println!("Launch failed with error: {error}"),
             }
+
+            println!("Launch completed.");
         }
     }
 

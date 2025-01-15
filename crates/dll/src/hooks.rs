@@ -1,10 +1,15 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
+#![cfg(all(target_arch = "x86", target_os = "windows", target_env = "msvc"))]
 
 use std::{
     ffi::{c_void, CStr},
     panic, slice,
 };
 
+use libalembic::{
+    acclient::{PSRefBuffer, PStringBase},
+    rpc::GuiMessage,
+    util::print_vec,
+};
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::{
@@ -15,11 +20,7 @@ use windows::{
     },
 };
 
-use crate::{
-    acclient::{PSRefBuffer, PStringBase},
-    ensure_channel,
-    util::print_vec,
-};
+use crate::ensure_channel;
 
 // wsock32.dll::send_to
 type fn_WinSock_SendTo = extern "system" fn(
@@ -62,7 +63,7 @@ extern "system" fn our_WinSock_SendTo(
             let (tx, _rx) = ensure_channel();
             tx.try_lock()
                 .unwrap()
-                .send(crate::rpc::GuiMessage::SendTo(bytes_vec.clone()))
+                .send(GuiMessage::SendTo(bytes_vec.clone()))
 
             // TODO: Envision this API
             // Handle the received packet data

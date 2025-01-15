@@ -1,7 +1,7 @@
 #![cfg(all(target_os = "windows", target_env = "msvc"))]
 #![allow(dead_code)]
 
-use std::{error::Error, ffi::OsString, os::windows::ffi::OsStrExt};
+use std::{error::Error, ffi::OsString, fs, os::windows::ffi::OsStrExt};
 
 use crate::inject::InjectionKit;
 use anyhow::bail;
@@ -15,6 +15,7 @@ use windows::{
         },
     },
 };
+
 pub struct Launcher {
     client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
@@ -122,9 +123,15 @@ impl<'a> Launcher {
             None => panic!("Could not create InjectionKit."),
         };
 
+        let dll_path = "target\\i686-pc-windows-msvc\\debug\\alembic.dll";
+
+        if !fs::exists(dll_path)? {
+            bail!("Can't find DLL to inject at path {dll_path}. Bailing.");
+        }
+
         match self.injector.as_mut() {
             Some(kit) => {
-                kit.inject("target\\i686-pc-windows-msvc\\debug\\alembic.dll")?;
+                kit.inject(dll_path)?;
             }
             None => panic!("Could not get access to underlying injector to inject DLL."),
         }

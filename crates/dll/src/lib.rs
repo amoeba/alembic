@@ -1,10 +1,12 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
+#![cfg(all(target_arch = "x86", target_os = "windows", target_env = "msvc"))]
 #![allow(
     dead_code,
     non_upper_case_globals,
     non_snake_case,
     non_camel_case_types
 )]
+
+mod hooks;
 
 use std::{
     ffi::c_void,
@@ -14,7 +16,11 @@ use std::{
     time::Duration,
 };
 
-use libalembic::rpc::{GuiMessage, WorldClient};
+use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
+use libalembic::{
+    rpc::{GuiMessage, WorldClient},
+    win::allocate_console,
+};
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 
 use tokio::{
@@ -24,7 +30,6 @@ use tokio::{
         Mutex,
     },
 };
-use win::allocate_console;
 pub(crate) use windows::Win32::{
     Foundation::{BOOL, HANDLE},
     System::{
@@ -52,7 +57,7 @@ static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<GuiMessage>>>> = None;
 static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<GuiMessage>>>> = None;
 static channel_init: Once = Once::new();
 #[allow(static_mut_refs)]
-fn ensure_channel() -> (
+pub fn ensure_channel() -> (
     &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<GuiMessage>>>,
     &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<GuiMessage>>>,
 ) {
