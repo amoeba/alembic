@@ -46,6 +46,7 @@ The project is divided into subcrates,
 If you just want to get started, run:
 
 ```sh
+cargo build --target i686-pc-windows-msvc -p dll
 cargo run --bin desktop
 ```
 
