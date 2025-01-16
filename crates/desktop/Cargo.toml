@@ -19,11 +19,13 @@ path = "src/simulator.rs"
 
 [dependencies]
 anyhow = { workspace = true }
+ctrlc = "3.4.5"
 eframe = "0.30.0"
 egui_extras = { version = "0.30.0", features = ["image"] }
 env_logger = { workspace = true }
 futures = "0.3.31"
 libalembic = { path = "../libalembic" }
 log = { workspace = true }
+rand = "0.8.5"
 tarpc = { workspace = true }
 tokio = { workspace = true }
