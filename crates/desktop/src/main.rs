@@ -17,7 +17,6 @@ use tarpc::{
     tokio_serde::formats::Json,
 };
 use tokio::sync::{
-    broadcast::error,
     mpsc::{channel, error::TryRecvError, Receiver},
     Mutex,
 };
