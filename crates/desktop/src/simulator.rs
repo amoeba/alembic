@@ -1,7 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use libalembic::rpc::WorldClient;
 use tarpc::{client, context, tokio_serde::formats::Json};
+
+use libalembic::rpc::WorldClient;
 
 #[allow(unused)]
 #[tokio::main]

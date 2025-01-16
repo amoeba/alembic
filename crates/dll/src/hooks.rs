@@ -5,6 +5,7 @@ use std::{
     panic, slice,
 };
 
+use crate::ensure_channel;
 use libalembic::{
     acclient::{PSRefBuffer, PStringBase},
     rpc::GuiMessage,
@@ -19,8 +20,6 @@ use windows::{
         System::LibraryLoader::{GetProcAddress, LoadLibraryA},
     },
 };
-
-use crate::ensure_channel;
 
 // wsock32.dll::send_to
 type fn_WinSock_SendTo = extern "system" fn(

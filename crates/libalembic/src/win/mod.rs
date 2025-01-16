@@ -4,18 +4,15 @@ use std::{ffi::CString, iter};
 
 use windows::{
     core::PCSTR,
+    core::PCWSTR,
     Win32::{
         Foundation::HANDLE,
         Storage::FileSystem::{
             CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
         },
         System::Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
+        System::LibraryLoader::{GetModuleHandleW, GetProcAddress},
     },
-};
-
-use windows::{
-    core::PCWSTR,
-    Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress},
 };
 
 pub unsafe fn allocate_console() -> windows::core::Result<()> {
