@@ -11,5 +11,6 @@ pub fn try_launch() -> anyhow::Result<()> {
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub fn try_launch() -> anyhow::Result<()> {
+    // TODO: Show some indication we can't launch on this platform
     Ok(())
 }
