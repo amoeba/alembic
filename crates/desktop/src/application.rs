@@ -1,14 +1,12 @@
 use std::{
     sync::Arc,
+    sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use eframe::egui::{self, Response, ScrollArea, TextStyle, Ui, Widget};
 use libalembic::rpc::GuiMessage;
-use tokio::sync::{
-    mpsc::{error::TryRecvError, Receiver},
-    Mutex,
-};
+use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
     backend::{Backend, LogEntry, PacketInfo},
@@ -156,8 +154,12 @@ struct DeveloperLogsTab {}
 
 impl Widget for &mut DeveloperLogsTab {
     fn ui(self, ui: &mut Ui) -> Response {
-        let backend: Arc<Backend> =
-            ui.data_mut(|data| data.get_temp::<Arc<Backend>>(egui::Id::new(1)).unwrap());
+        // WIP: Here's how we access the backend for now
+        let backend: Arc<Mutex<Backend>> = ui.data_mut(|data| {
+            data.get_temp::<Arc<Mutex<Backend>>>(egui::Id::new(1))
+                .unwrap()
+        });
+        let backend = backend.lock().unwrap();
 
         ui.group(|ui| {
             if backend.logs.len() <= 0 {
@@ -281,23 +283,23 @@ impl Widget for &mut TabContainer {
 
 pub struct Application {
     tab_container: TabContainer,
-    gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
-    backend: Arc<Backend>,
+    gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
+    backend: Arc<Mutex<Backend>>,
 }
 
 impl Application {
-    pub fn new(gui_rx: Arc<Mutex<Receiver<GuiMessage>>>) -> Self {
+    pub fn new(gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>) -> Self {
         Self {
             tab_container: TabContainer::new(),
             gui_rx: gui_rx,
-            backend: Arc::new(Backend::new()),
+            backend: Arc::new(Mutex::new(Backend::new())),
         }
     }
 
     fn ui(&mut self, ctx: &egui::Context) {
         // Set backend into context
         ctx.data_mut(|data| {
-            data.insert_temp::<Arc<Backend>>(egui::Id::new(1), self.backend.clone())
+            data.insert_temp::<Arc<Mutex<Backend>>>(egui::Id::new(1), self.backend.clone())
         });
 
         // Menu bar
@@ -328,6 +330,9 @@ impl Application {
 
 impl eframe::App for Application {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let backend = Arc::clone(&self.backend);
+        let mut backend = backend.lock().unwrap();
+
         // Handle channel
         loop {
             match self.gui_rx.try_lock().unwrap().try_recv() {
@@ -347,19 +352,19 @@ impl eframe::App for Application {
                                 .as_secs(),
                             message: value,
                         };
-                        // self.backend.logs.push(log);
+                        backend.logs.push(log);
                     }
                     GuiMessage::SendTo(vec) => {
                         println!("Gui got a packet data");
                         let packet = PacketInfo {
-                            index: self.backend.packets_incoming.len(),
+                            index: backend.packets_incoming.len(),
                             timestamp: SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_secs(),
                             data: vec,
                         };
-                        // self.backend.packets_incoming.push(packet);
+                        backend.packets_incoming.push(packet);
                     }
                 },
                 Err(TryRecvError::Empty) => break,
