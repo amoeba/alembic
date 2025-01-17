@@ -13,7 +13,7 @@ use tokio::sync::{
 use crate::{
     backend::{Backend, LogEntry, PacketInfo},
     components::centered_text,
-    try_launch,
+    launch::try_launch,
 };
 
 #[derive(PartialEq)]

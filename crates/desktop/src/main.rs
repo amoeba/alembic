@@ -1,6 +1,7 @@
 mod application;
 mod backend;
 mod components;
+mod launch;
 mod simulator;
 
 use std::{
@@ -101,20 +102,4 @@ fn main() -> eframe::Result {
             Ok(Box::new(app))
         }),
     )
-}
-
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
-fn try_launch() -> anyhow::Result<()> {
-    use libalembic::launch::Launcher;
-
-    let mut launcher = Launcher::new();
-    launcher.find_or_launch()?;
-    launcher.inject()?;
-
-    Ok(())
-}
-
-#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-fn try_launch() -> anyhow::Result<()> {
-    Ok(())
 }
