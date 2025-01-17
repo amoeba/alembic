@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use eframe::egui::{self, Align, Align2, Layout, ScrollArea, TextStyle, Ui};
+use eframe::egui::{self, Response, ScrollArea, TextStyle, Ui, Widget};
 use libalembic::rpc::GuiMessage;
 use tokio::sync::{
     mpsc::{error::TryRecvError, Receiver},
@@ -16,204 +16,313 @@ use crate::{
     launch::try_launch,
 };
 
-#[derive(PartialEq)]
-enum Tab {
-    Main,
-    Developer,
+// Main tabs
+enum TabContent {
+    Main(MainTab),
+    Developer(DeveloperTab),
 }
 
-#[derive(PartialEq)]
-enum DeveloperTab {
-    Main,
-    Network,
-    Logs,
+struct MainTab {}
+
+impl Widget for &mut MainTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.group(|ui| {
+            if ui.add(egui::Button::new("Launch")).clicked() {
+                println!("Launch clicked.");
+
+                match try_launch() {
+                    Ok(_) => println!("Launch succeeded."),
+                    Err(error) => println!("Launch failed with error: {error}"),
+                }
+
+                println!("Launch completed.");
+            }
+
+            // let mut selected = ComboOptions::First;
+            // egui::ComboBox::from_label("Select one!")
+            //     .selected_text(format!("{:?}", selected))
+            //     .show_ui(ui, |ui| {
+            //         ui.selectable_value(&mut selected, ComboOptions::First, "First");
+            //         ui.selectable_value(&mut selected, ComboOptions::Second, "Second");
+            //         ui.selectable_value(&mut selected, ComboOptions::Third, "Third");
+            //     });
+        })
+        .response
+    }
 }
 
-#[derive(PartialEq)]
-enum DeveloperNetworkTab {
-    Incoming,
-    Outgoing,
+struct DeveloperTab {
+    tabs: Vec<DeveloperTabContent>,
+    selected_tab: usize,
 }
 
-#[derive(Debug, PartialEq)]
-enum ComboOptions {
-    First,
-    Second,
-    Third,
+impl Widget for &mut DeveloperTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.vertical(|ui| {
+            // Tabs
+            ui.horizontal(|ui| {
+                for (index, tab) in self.tabs.iter().enumerate() {
+                    let label = match tab {
+                        DeveloperTabContent::Main(_) => "Main",
+                        DeveloperTabContent::Network(_) => "Network",
+                        DeveloperTabContent::Logs(_) => "Logs",
+                    };
+
+                    if ui
+                        .selectable_label(self.selected_tab == index, label)
+                        .clicked()
+                    {
+                        self.selected_tab = index;
+                    }
+                }
+            });
+
+            ui.separator();
+
+            // Tab contents
+            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
+                match tab {
+                    DeveloperTabContent::Main(tab) => {
+                        ui.add(tab);
+                    }
+                    DeveloperTabContent::Network(tab) => {
+                        ui.add(tab);
+                    }
+                    DeveloperTabContent::Logs(tab) => {
+                        ui.add(tab);
+                    }
+                }
+            }
+        })
+        .response
+    }
+}
+enum DeveloperTabContent {
+    Main(DeveloperMainTab),
+    Network(DeveloperNetworkTab),
+    Logs(DeveloperLogsTab),
+}
+struct DeveloperMainTab {}
+
+impl Widget for &mut DeveloperMainTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.group(|ui| ui.label("Developer Main")).response
+    }
+}
+struct DeveloperNetworkTab {
+    selected_tab: usize,
+    tabs: Vec<DeveloperNetworkTabContent>,
+}
+
+impl Widget for &mut DeveloperNetworkTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.vertical(|ui| {
+            // Tabs
+            ui.horizontal(|ui| {
+                for (index, tab) in self.tabs.iter().enumerate() {
+                    let label = match tab {
+                        DeveloperNetworkTabContent::Incoming(_) => "Incoming",
+                        DeveloperNetworkTabContent::Outgoing(_) => "Outgoing",
+                    };
+
+                    if ui
+                        .selectable_label(self.selected_tab == index, label)
+                        .clicked()
+                    {
+                        self.selected_tab = index;
+                    }
+                }
+            });
+
+            ui.separator();
+
+            // Tab contents
+            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
+                match tab {
+                    DeveloperNetworkTabContent::Incoming(tab) => {
+                        ui.add(tab);
+                    }
+                    DeveloperNetworkTabContent::Outgoing(tab) => {
+                        ui.add(tab);
+                    }
+                }
+            }
+        })
+        .response
+    }
+}
+
+struct DeveloperLogsTab {}
+
+impl Widget for &mut DeveloperLogsTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let backend: Arc<Backend> =
+            ui.data_mut(|data| data.get_temp::<Arc<Backend>>(egui::Id::new(1)).unwrap());
+
+        ui.group(|ui| {
+            if backend.logs.len() <= 0 {
+                centered_text(ui, "No logs yet.");
+            } else {
+                let n_logs = backend.logs.len();
+                let text_style = TextStyle::Body;
+                let total_rows = ui.text_style_height(&text_style);
+
+                ui.vertical(|ui| {
+                    ScrollArea::vertical().auto_shrink(false).show_rows(
+                        ui,
+                        total_rows,
+                        n_logs,
+                        |ui, row_range| {
+                            for row in row_range {
+                                let text = format!("{}", backend.logs[row].message);
+                                ui.label(text);
+                            }
+                        },
+                    );
+                });
+            }
+        })
+        .response
+    }
+}
+
+enum DeveloperNetworkTabContent {
+    Incoming(DeveloperNetworkIncomingTab),
+    Outgoing(DeveloperNetworkOutgoingTab),
+}
+
+struct DeveloperNetworkIncomingTab {}
+
+impl Widget for &mut DeveloperNetworkIncomingTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.group(|ui| ui.label("NetworkIncoming")).response
+    }
+}
+
+struct DeveloperNetworkOutgoingTab {}
+
+impl Widget for &mut DeveloperNetworkOutgoingTab {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.group(|ui| ui.label("NetworkOutgoing")).response
+    }
+}
+
+struct TabContainer {
+    tabs: Vec<TabContent>,
+    selected_tab: usize,
+}
+
+impl TabContainer {
+    fn new() -> Self {
+        Self {
+            tabs: vec![
+                TabContent::Main(MainTab {}),
+                TabContent::Developer(DeveloperTab {
+                    selected_tab: 0,
+                    tabs: vec![
+                        DeveloperTabContent::Main(DeveloperMainTab {}),
+                        DeveloperTabContent::Network(DeveloperNetworkTab {
+                            selected_tab: 0,
+                            tabs: vec![
+                                DeveloperNetworkTabContent::Incoming(
+                                    DeveloperNetworkIncomingTab {},
+                                ),
+                                DeveloperNetworkTabContent::Outgoing(
+                                    DeveloperNetworkOutgoingTab {},
+                                ),
+                            ],
+                        }),
+                        DeveloperTabContent::Logs(DeveloperLogsTab {}),
+                    ],
+                }),
+            ],
+            selected_tab: 0,
+        }
+    }
+}
+
+impl Widget for &mut TabContainer {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.vertical(|ui| {
+            // Tabs
+            ui.horizontal(|ui| {
+                for (index, tab) in self.tabs.iter().enumerate() {
+                    let label = match tab {
+                        TabContent::Main(_) => "Settings",
+                        TabContent::Developer(_) => "Developer",
+                    };
+
+                    if ui
+                        .selectable_label(self.selected_tab == index, label)
+                        .clicked()
+                    {
+                        self.selected_tab = index;
+                    }
+                }
+            });
+
+            ui.separator();
+
+            // Tab contents
+            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
+                match tab {
+                    TabContent::Main(tab) => {
+                        ui.add(tab);
+                    }
+                    TabContent::Developer(tab) => {
+                        ui.add(tab);
+                    }
+                }
+            }
+        })
+        .response
+    }
 }
 
 pub struct Application {
-    backend: Backend,
-    current_tab: Tab,
-    current_developer_tab: DeveloperTab,
-    current_developer_network_tab: DeveloperNetworkTab,
-    string: String,
-    selected_incoming_packet: Option<usize>,
-    selected_outgoing_packet: Option<usize>,
+    tab_container: TabContainer,
     gui_rx: Arc<Mutex<Receiver<GuiMessage>>>,
-    show_about: bool,
+    backend: Arc<Backend>,
 }
 
 impl Application {
     pub fn new(gui_rx: Arc<Mutex<Receiver<GuiMessage>>>) -> Self {
         Self {
-            backend: Backend::new(),
-            current_tab: Tab::Main,
-            current_developer_tab: DeveloperTab::Main,
-            current_developer_network_tab: DeveloperNetworkTab::Incoming,
-            string: "Unset".to_string(),
-            selected_incoming_packet: None,
-            selected_outgoing_packet: None,
-            gui_rx,
-            show_about: false,
+            tab_container: TabContainer::new(),
+            gui_rx: gui_rx,
+            backend: Arc::new(Backend::new()),
         }
     }
 
-    fn main(self: &mut Self, ui: &mut Ui) {
-        if ui.add(egui::Button::new("Launch")).clicked() {
-            println!("Launch clicked.");
-
-            match try_launch() {
-                Ok(_) => println!("Launch succeeded."),
-                Err(error) => println!("Launch failed with error: {error}"),
-            }
-
-            println!("Launch completed.");
-        }
-        let mut selected = ComboOptions::First;
-        egui::ComboBox::from_label("Select one!")
-            .selected_text(format!("{:?}", selected))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut selected, ComboOptions::First, "First");
-                ui.selectable_value(&mut selected, ComboOptions::Second, "Second");
-                ui.selectable_value(&mut selected, ComboOptions::Third, "Third");
-            });
-    }
-
-    fn developer(self: &mut Self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.current_developer_tab, DeveloperTab::Main, "Main");
-            ui.selectable_value(
-                &mut self.current_developer_tab,
-                DeveloperTab::Network,
-                "Network",
-            );
-            ui.selectable_value(&mut self.current_developer_tab, DeveloperTab::Logs, "Logs");
+    fn ui(&mut self, ctx: &egui::Context) {
+        // Set backend into context
+        ctx.data_mut(|data| {
+            data.insert_temp::<Arc<Backend>>(egui::Id::new(1), self.backend.clone())
         });
 
-        ui.separator();
-
-        match self.current_developer_tab {
-            DeveloperTab::Main => self.developer_main(ui),
-            DeveloperTab::Network => self.developer_network(ui),
-            DeveloperTab::Logs => self.developer_logs(ui),
-        }
-        // ui.heading("Debugging");
-        // ui.horizontal(|ui| {
-        //     let string_label = ui.label("String: ");
-        //     ui.text_edit_singleline(&mut self.string)
-        //         .labelled_by(string_label.id);
-        // });
-    }
-
-    fn developer_main(self: &mut Self, ui: &mut Ui) {
-        ui.heading("Developer Main");
-    }
-
-    fn developer_network(self: &mut Self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.current_developer_network_tab,
-                DeveloperNetworkTab::Incoming,
-                "Incoming",
-            );
-            ui.selectable_value(
-                &mut self.current_developer_network_tab,
-                DeveloperNetworkTab::Outgoing,
-                "Outgoing",
-            );
-        });
-
-        ui.separator();
-
-        match self.current_developer_network_tab {
-            DeveloperNetworkTab::Incoming => self.developer_network_incoming(ui),
-            DeveloperNetworkTab::Outgoing => self.developer_network_outgoing(ui),
-        }
-    }
-
-    fn developer_logs(&self, ui: &mut Ui) {
-        if self.backend.logs.len() <= 0 {
-            centered_text(ui, "No logs yet.");
-        } else {
-            let n_logs = self.backend.logs.len();
-            let text_style = TextStyle::Body;
-            let total_rows = ui.text_style_height(&text_style);
-
-            ui.vertical(|ui| {
-                ScrollArea::vertical().auto_shrink(false).show_rows(
-                    ui,
-                    total_rows,
-                    n_logs,
-                    |ui, row_range| {
-                        for row in row_range {
-                            let text = format!("{}", self.backend.logs[row].message);
-                            ui.label(text);
-                        }
-                    },
-                );
-            });
-        }
-    }
-
-    fn developer_network_incoming(&mut self, ui: &mut Ui) {
-        if self.backend.packets_incoming.len() <= 0 {
-            centered_text(ui, "No incoming packets yet.");
-        } else {
-            // TODO: Use show_rows() here too
-            ui.columns(2, |columns| {
-                columns[0].vertical(|ui| {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        for (index, item) in self.backend.packets_incoming.iter().enumerate() {
-                            if ui.button(item.timestamp.to_string()).clicked() {
-                                self.selected_incoming_packet = Some(index);
-                            }
-                        }
-                    });
+        // Menu bar
+        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.add(egui::Button::new("Exit")).clicked() {
+                        ui.close_menu();
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
                 });
 
-                columns[1].vertical(|ui| {
-                    if let Some(index) = self.selected_incoming_packet {
-                        ui.label(format!("{:?}", self.backend.packets_incoming[index].data));
+                ui.menu_button("Help", |ui: &mut egui::Ui| {
+                    if ui.add(egui::Button::new("About")).clicked() {
+                        ui.close_menu();
+                        // self.show_about = true;
                     }
                 });
             });
-        }
-    }
+        });
 
-    fn developer_network_outgoing(&mut self, ui: &mut Ui) {
-        if self.backend.packets_outgoing.len() <= 0 {
-            centered_text(ui, "No outgoing packets yet.");
-        } else {
-            // TODO: Use show_rows() here too
-            ui.columns(2, |columns| {
-                columns[0].vertical(|ui| {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        for (index, item) in self.backend.packets_outgoing.iter().enumerate() {
-                            if ui.button(item.timestamp.to_string()).clicked() {
-                                self.selected_outgoing_packet = Some(index);
-                            }
-                        }
-                    });
-                });
-
-                columns[1].vertical(|ui| {
-                    if let Some(index) = self.selected_outgoing_packet {
-                        ui.label(format!("{:?}", self.backend.packets_outgoing[index].data));
-                    }
-                });
-            });
-        }
+        // Central panel
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.add(&mut self.tab_container);
+        });
     }
 }
 
@@ -228,7 +337,6 @@ impl eframe::App for Application {
                     }
                     GuiMessage::UpdateString(value) => {
                         println!("GUI got UpdateString with value {value}");
-                        self.string = value.to_string();
                     }
                     GuiMessage::AppendLog(value) => {
                         println!("GUI got AppendLog with value {value}");
@@ -239,7 +347,7 @@ impl eframe::App for Application {
                                 .as_secs(),
                             message: value,
                         };
-                        self.backend.logs.push(log);
+                        // self.backend.logs.push(log);
                     }
                     GuiMessage::SendTo(vec) => {
                         println!("Gui got a packet data");
@@ -251,7 +359,7 @@ impl eframe::App for Application {
                                 .as_secs(),
                             data: vec,
                         };
-                        self.backend.packets_incoming.push(packet);
+                        // self.backend.packets_incoming.push(packet);
                     }
                 },
                 Err(TryRecvError::Empty) => break,
@@ -262,68 +370,6 @@ impl eframe::App for Application {
             }
         }
 
-        // Handle UI
-        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.add(egui::Button::new("Exit")).clicked() {
-                        ui.close_menu();
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
-
-                ui.menu_button("Help", |ui: &mut egui::Ui| {
-                    if ui.add(egui::Button::new("About")).clicked() {
-                        ui.close_menu();
-                        self.show_about = true;
-                    }
-                });
-            });
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.current_tab, Tab::Main, "Main");
-                ui.selectable_value(&mut self.current_tab, Tab::Developer, "Developer");
-            });
-
-            ui.separator();
-
-            match self.current_tab {
-                Tab::Main => self.main(ui),
-                Tab::Developer => self.developer(ui),
-            }
-        });
-
-        if self.show_about {
-            egui::Window::new("About")
-                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-                .collapsible(false)
-                .resizable(false)
-                .title_bar(false)
-                .show(ctx, |ui| {
-                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                        ui.add(
-                            egui::Image::new(egui::include_image!("../assets/logo.png"))
-                                .max_width(128.0),
-                        );
-                        ui.heading("Alembic");
-                        ui.add_space(16.0);
-                        ui.label("Version 0.1.0");
-                        ui.add_space(16.0);
-                        ui.label("Copyright © 2025 Bryce Mecum");
-                        ui.add_space(16.0);
-                        use egui::special_emojis::GITHUB;
-                        ui.hyperlink_to(
-                            format!("{GITHUB} alembic on GitHub"),
-                            "https://github.com/amoeba/alembic",
-                        );
-                        ui.add_space(16.0);
-                        if ui.button("Okay").clicked() {
-                            self.show_about = false;
-                        }
-                    });
-                });
-        }
+        self.ui(ctx);
     }
 }
