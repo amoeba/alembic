@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use eframe::egui::{self, Align, Align2, Layout, Response, ScrollArea, TextStyle, Ui, Widget};
+use eframe::egui::{self, Align, Align2, Layout};
 use libalembic::rpc::GuiMessage;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 

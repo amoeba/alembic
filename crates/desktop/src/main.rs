@@ -12,7 +12,6 @@ use std::{
 };
 
 use application::Application;
-use backend::Backend;
 use eframe::egui;
 use futures::{future, StreamExt};
 use libalembic::rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
