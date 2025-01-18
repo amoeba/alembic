@@ -1,8 +1,8 @@
 mod application;
 mod backend;
-mod components;
 mod launch;
 mod simulator;
+mod widgets;
 
 use std::{
     net::{IpAddr, Ipv4Addr},

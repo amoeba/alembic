@@ -10,8 +10,8 @@ use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
     backend::{Backend, LogEntry, PacketInfo},
-    components::centered_text,
     launch::try_launch,
+    widgets::components::centered_text,
 };
 
 // Main tabs
