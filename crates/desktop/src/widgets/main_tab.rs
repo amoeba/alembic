@@ -1,10 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
-
-use crate::{backend::Backend, launch::try_launch};
-
 use super::components::centered_text;
+use crate::{backend::Backend, launch::try_launch};
+use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 
 struct AccountPicker {}
 
