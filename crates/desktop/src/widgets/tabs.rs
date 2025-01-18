@@ -56,7 +56,7 @@ impl Widget for &mut TabContainer {
             ui.horizontal(|ui| {
                 for (index, tab) in self.tabs.iter().enumerate() {
                     let label = match tab {
-                        TabContent::Main(_) => "Settings",
+                        TabContent::Main(_) => "Main",
                         TabContent::Developer(_) => "Developer",
                     };
 
