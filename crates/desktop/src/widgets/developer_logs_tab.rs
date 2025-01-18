@@ -11,7 +11,7 @@ impl Widget for &mut DeveloperLogsTab {
         if let Some(backend) =
             ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
         {
-            ui.group(|ui| {
+            ui.vertical(|ui| {
                 if backend.lock().unwrap().logs.len() <= 0 {
                     centered_text(ui, "No logs yet.");
                 } else {
@@ -37,7 +37,7 @@ impl Widget for &mut DeveloperLogsTab {
             })
             .response
         } else {
-            ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
+            ui.vertical(|ui| centered_text(ui, "Failed to reach application backend."))
                 .response
         }
     }

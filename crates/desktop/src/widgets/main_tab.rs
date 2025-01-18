@@ -6,7 +6,7 @@ pub struct MainTab {}
 
 impl Widget for &mut MainTab {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.group(|ui| {
+        ui.vertical(|ui| {
             if ui.add(egui::Button::new("Launch")).clicked() {
                 println!("Launch clicked.");
 

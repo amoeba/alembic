@@ -23,7 +23,7 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
         if let Some(backend) =
             ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
         {
-            ui.group(|ui| {
+            ui.vertical(|ui| {
                 if backend.lock().unwrap().packets_outgoing.len() <= 0 {
                     centered_text(ui, "No outgoing packets yet.");
                 } else {
@@ -54,7 +54,7 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
             })
             .response
         } else {
-            ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
+            ui.vertical(|ui| centered_text(ui, "Failed to reach application backend."))
                 .response
         }
     }
