@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use eframe::egui::{self, Response, Ui, Widget};
+use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 
 use crate::{backend::Backend, launch::try_launch};
 
@@ -24,21 +24,18 @@ impl Widget for &mut AccountPicker {
                 .and_then(|index| account_names.get(index).cloned())
                 .unwrap_or_else(|| "Choose an account".to_string());
 
-            ui.group(|ui| {
-                egui::ComboBox::from_id_salt("Account")
-                    .selected_text(selected_text)
-                    .show_ui(ui, |ui| {
-                        for (index, name) in account_names.iter().enumerate() {
-                            ui.selectable_value(
-                                &mut backend.selected_account,
-                                Some(index),
-                                name.clone(),
-                            );
-                        }
-                    })
-                    .response
-            })
-            .response
+            egui::ComboBox::from_id_salt("Account")
+                .selected_text(selected_text)
+                .show_ui(ui, |ui| {
+                    for (index, name) in account_names.iter().enumerate() {
+                        ui.selectable_value(
+                            &mut backend.selected_account,
+                            Some(index),
+                            name.clone(),
+                        );
+                    }
+                })
+                .response
         } else {
             ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
                 .response
@@ -49,19 +46,24 @@ pub struct MainTab {}
 
 impl Widget for &mut MainTab {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.vertical(|ui| {
-            if ui.add(egui::Button::new("Launch")).clicked() {
-                println!("Launch clicked.");
+        ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
+            ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
+                if ui
+                    .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
+                    .clicked()
+                {
+                    println!("Launch clicked.");
 
-                match try_launch() {
-                    Ok(_) => println!("Launch succeeded."),
-                    Err(error) => println!("Launch failed with error: {error}"),
+                    match try_launch() {
+                        Ok(_) => println!("Launch succeeded."),
+                        Err(error) => println!("Launch failed with error: {error}"),
+                    }
+
+                    println!("Launch completed.");
                 }
 
-                println!("Launch completed.");
-            }
-
-            ui.add(&mut AccountPicker {})
+                ui.add(&mut AccountPicker {});
+            });
         })
         .response
     }
