@@ -35,3 +35,6 @@ impl Widget for &mut SomeWidget {
     }
 }
 ```
+
+Note: I don't yet have a nice pattern for a getting a read-only lock on the backend so all code uses `.data_mut`.
+If you have a good method, please let me know.
