@@ -33,10 +33,10 @@ impl TabContainer {
                             selected_tab: 0,
                             tabs: vec![
                                 DeveloperNetworkTabContent::Incoming(
-                                    DeveloperNetworkIncomingTab {},
+                                    DeveloperNetworkIncomingTab::default(),
                                 ),
                                 DeveloperNetworkTabContent::Outgoing(
-                                    DeveloperNetworkOutgoingTab {},
+                                    DeveloperNetworkOutgoingTab::default(),
                                 ),
                             ],
                         }),
