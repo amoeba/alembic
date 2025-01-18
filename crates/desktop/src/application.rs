@@ -26,7 +26,7 @@ impl Application {
         cc: &eframe::CreationContext<'_>,
         gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
     ) -> Self {
-        // TODO: VERY WIP
+        // Inject a new, shared Backend object into the egui_ctx (Context)
         let backend = Arc::new(Mutex::new(Backend::new()));
         cc.egui_ctx
             .data_mut(|data| data.insert_persisted(egui::Id::new("backend"), backend));
