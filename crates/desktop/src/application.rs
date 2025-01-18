@@ -154,10 +154,6 @@ struct DeveloperLogsTab {}
 
 impl Widget for &mut DeveloperLogsTab {
     fn ui(self, ui: &mut Ui) -> Response {
-        // WIP: Here's how we access the backend for now
-        // let state_id = ui.id();
-        // let backend: Arc<Mutex<Backend>> = ui.data(|data| data.get_temp(state_id).unwrap());
-
         if let Some(backend) =
             ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
         {
@@ -187,7 +183,8 @@ impl Widget for &mut DeveloperLogsTab {
             })
             .response
         } else {
-            ui.group(|ui| centered_text(ui, "ERROR")).response
+            ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
+                .response
         }
     }
 }
