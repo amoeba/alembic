@@ -4,286 +4,20 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use eframe::egui::{self, Response, ScrollArea, TextStyle, Ui, Widget};
+use eframe::egui::{self, Align, Align2, Layout, Response, ScrollArea, TextStyle, Ui, Widget};
 use libalembic::rpc::GuiMessage;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
     backend::{Backend, LogEntry, PacketInfo},
-    launch::try_launch,
-    widgets::components::centered_text,
+    widgets::tabs::TabContainer,
 };
 
 // Main tabs
-enum TabContent {
-    Main(MainTab),
-    Developer(DeveloperTab),
-}
-
-struct MainTab {}
-
-impl Widget for &mut MainTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.group(|ui| {
-            if ui.add(egui::Button::new("Launch")).clicked() {
-                println!("Launch clicked.");
-
-                match try_launch() {
-                    Ok(_) => println!("Launch succeeded."),
-                    Err(error) => println!("Launch failed with error: {error}"),
-                }
-
-                println!("Launch completed.");
-            }
-
-            // let mut selected = ComboOptions::First;
-            // egui::ComboBox::from_label("Select one!")
-            //     .selected_text(format!("{:?}", selected))
-            //     .show_ui(ui, |ui| {
-            //         ui.selectable_value(&mut selected, ComboOptions::First, "First");
-            //         ui.selectable_value(&mut selected, ComboOptions::Second, "Second");
-            //         ui.selectable_value(&mut selected, ComboOptions::Third, "Third");
-            //     });
-        })
-        .response
-    }
-}
-
-struct DeveloperTab {
-    tabs: Vec<DeveloperTabContent>,
-    selected_tab: usize,
-}
-
-impl Widget for &mut DeveloperTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.vertical(|ui| {
-            // Tabs
-            ui.horizontal(|ui| {
-                for (index, tab) in self.tabs.iter().enumerate() {
-                    let label = match tab {
-                        DeveloperTabContent::Main(_) => "Main",
-                        DeveloperTabContent::Network(_) => "Network",
-                        DeveloperTabContent::Logs(_) => "Logs",
-                    };
-
-                    if ui
-                        .selectable_label(self.selected_tab == index, label)
-                        .clicked()
-                    {
-                        self.selected_tab = index;
-                    }
-                }
-            });
-
-            ui.separator();
-
-            // Tab contents
-            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
-                match tab {
-                    DeveloperTabContent::Main(tab) => {
-                        ui.add(tab);
-                    }
-                    DeveloperTabContent::Network(tab) => {
-                        ui.add(tab);
-                    }
-                    DeveloperTabContent::Logs(tab) => {
-                        ui.add(tab);
-                    }
-                }
-            }
-        })
-        .response
-    }
-}
-enum DeveloperTabContent {
-    Main(DeveloperMainTab),
-    Network(DeveloperNetworkTab),
-    Logs(DeveloperLogsTab),
-}
-struct DeveloperMainTab {}
-
-impl Widget for &mut DeveloperMainTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.group(|ui| ui.label("Developer Main")).response
-    }
-}
-struct DeveloperNetworkTab {
-    selected_tab: usize,
-    tabs: Vec<DeveloperNetworkTabContent>,
-}
-
-impl Widget for &mut DeveloperNetworkTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.vertical(|ui| {
-            // Tabs
-            ui.horizontal(|ui| {
-                for (index, tab) in self.tabs.iter().enumerate() {
-                    let label = match tab {
-                        DeveloperNetworkTabContent::Incoming(_) => "Incoming",
-                        DeveloperNetworkTabContent::Outgoing(_) => "Outgoing",
-                    };
-
-                    if ui
-                        .selectable_label(self.selected_tab == index, label)
-                        .clicked()
-                    {
-                        self.selected_tab = index;
-                    }
-                }
-            });
-
-            ui.separator();
-
-            // Tab contents
-            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
-                match tab {
-                    DeveloperNetworkTabContent::Incoming(tab) => {
-                        ui.add(tab);
-                    }
-                    DeveloperNetworkTabContent::Outgoing(tab) => {
-                        ui.add(tab);
-                    }
-                }
-            }
-        })
-        .response
-    }
-}
-
-struct DeveloperLogsTab {}
-
-impl Widget for &mut DeveloperLogsTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        if let Some(backend) =
-            ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
-        {
-            ui.group(|ui| {
-                if backend.lock().unwrap().logs.len() <= 0 {
-                    centered_text(ui, "No logs yet.");
-                } else {
-                    let n_logs = backend.lock().unwrap().logs.len();
-                    let text_style = TextStyle::Body;
-                    let total_rows = ui.text_style_height(&text_style);
-
-                    ui.vertical(|ui| {
-                        ScrollArea::vertical().auto_shrink(false).show_rows(
-                            ui,
-                            total_rows,
-                            n_logs,
-                            |ui, row_range| {
-                                for row in row_range {
-                                    let text =
-                                        format!("{}", backend.lock().unwrap().logs[row].message);
-                                    ui.label(text);
-                                }
-                            },
-                        );
-                    });
-                }
-            })
-            .response
-        } else {
-            ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
-                .response
-        }
-    }
-}
-
-enum DeveloperNetworkTabContent {
-    Incoming(DeveloperNetworkIncomingTab),
-    Outgoing(DeveloperNetworkOutgoingTab),
-}
-
-struct DeveloperNetworkIncomingTab {}
-
-impl Widget for &mut DeveloperNetworkIncomingTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.group(|ui| ui.label("NetworkIncoming")).response
-    }
-}
-
-struct DeveloperNetworkOutgoingTab {}
-
-impl Widget for &mut DeveloperNetworkOutgoingTab {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.group(|ui| ui.label("NetworkOutgoing")).response
-    }
-}
-
-struct TabContainer {
-    tabs: Vec<TabContent>,
-    selected_tab: usize,
-}
-
-impl TabContainer {
-    fn new() -> Self {
-        Self {
-            tabs: vec![
-                TabContent::Main(MainTab {}),
-                TabContent::Developer(DeveloperTab {
-                    selected_tab: 0,
-                    tabs: vec![
-                        DeveloperTabContent::Main(DeveloperMainTab {}),
-                        DeveloperTabContent::Network(DeveloperNetworkTab {
-                            selected_tab: 0,
-                            tabs: vec![
-                                DeveloperNetworkTabContent::Incoming(
-                                    DeveloperNetworkIncomingTab {},
-                                ),
-                                DeveloperNetworkTabContent::Outgoing(
-                                    DeveloperNetworkOutgoingTab {},
-                                ),
-                            ],
-                        }),
-                        DeveloperTabContent::Logs(DeveloperLogsTab {}),
-                    ],
-                }),
-            ],
-            selected_tab: 0,
-        }
-    }
-}
-
-impl Widget for &mut TabContainer {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.vertical(|ui| {
-            // Tabs
-            ui.horizontal(|ui| {
-                for (index, tab) in self.tabs.iter().enumerate() {
-                    let label = match tab {
-                        TabContent::Main(_) => "Settings",
-                        TabContent::Developer(_) => "Developer",
-                    };
-
-                    if ui
-                        .selectable_label(self.selected_tab == index, label)
-                        .clicked()
-                    {
-                        self.selected_tab = index;
-                    }
-                }
-            });
-
-            ui.separator();
-
-            // Tab contents
-            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
-                match tab {
-                    TabContent::Main(tab) => {
-                        ui.add(tab);
-                    }
-                    TabContent::Developer(tab) => {
-                        ui.add(tab);
-                    }
-                }
-            }
-        })
-        .response
-    }
-}
 
 pub struct Application {
     tab_container: TabContainer,
+    show_about: bool,
     gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
 }
 
@@ -299,6 +33,7 @@ impl Application {
 
         Self {
             tab_container: TabContainer::new(),
+            show_about: false,
             gui_rx: gui_rx,
         }
     }
@@ -317,7 +52,7 @@ impl Application {
                 ui.menu_button("Help", |ui: &mut egui::Ui| {
                     if ui.add(egui::Button::new("About")).clicked() {
                         ui.close_menu();
-                        // self.show_about = true;
+                        self.show_about = true;
                     }
                 });
             });
@@ -327,6 +62,37 @@ impl Application {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(&mut self.tab_container);
         });
+
+        if self.show_about {
+            egui::Window::new("About")
+                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                .collapsible(false)
+                .resizable(false)
+                .title_bar(false)
+                .show(ctx, |ui| {
+                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                        ui.add(
+                            egui::Image::new(egui::include_image!("../assets/logo.png"))
+                                .max_width(128.0),
+                        );
+                        ui.heading("Alembic");
+                        ui.add_space(16.0);
+                        ui.label("Version 0.1.0");
+                        ui.add_space(16.0);
+                        ui.label("Copyright © 2025 Bryce Mecum");
+                        ui.add_space(16.0);
+                        use egui::special_emojis::GITHUB;
+                        ui.hyperlink_to(
+                            format!("{GITHUB} alembic on GitHub"),
+                            "https://github.com/amoeba/alembic",
+                        );
+                        ui.add_space(16.0);
+                        if ui.button("Okay").clicked() {
+                            self.show_about = false;
+                        }
+                    });
+                });
+        }
     }
 }
 

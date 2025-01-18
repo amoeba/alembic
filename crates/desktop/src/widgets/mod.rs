@@ -1,2 +1,9 @@
-pub mod about;
 pub mod components;
+pub mod developer_logs_tab;
+pub mod developer_main_tab_;
+pub mod developer_network_incoming_tab;
+pub mod developer_network_outgoing_tab;
+pub mod developer_network_tab;
+pub mod developer_tab;
+pub mod main_tab;
+pub mod tabs;
