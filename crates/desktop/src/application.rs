@@ -4,14 +4,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use eframe::egui::{self, Align, Align2, Layout};
-use libalembic::rpc::GuiMessage;
-use tokio::sync::mpsc::{error::TryRecvError, Receiver};
-
 use crate::{
     backend::{Backend, LogEntry, PacketInfo},
     widgets::tabs::TabContainer,
 };
+use eframe::egui::{self, Align, Align2, Layout};
+use libalembic::rpc::GuiMessage;
+use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 // Main tabs
 
