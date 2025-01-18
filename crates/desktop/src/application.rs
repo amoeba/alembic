@@ -155,36 +155,40 @@ struct DeveloperLogsTab {}
 impl Widget for &mut DeveloperLogsTab {
     fn ui(self, ui: &mut Ui) -> Response {
         // WIP: Here's how we access the backend for now
-        let backend: Arc<Mutex<Backend>> = ui.data_mut(|data| {
-            data.get_temp::<Arc<Mutex<Backend>>>(egui::Id::new(1))
-                .unwrap()
-        });
-        let backend = backend.lock().unwrap();
+        // let state_id = ui.id();
+        // let backend: Arc<Mutex<Backend>> = ui.data(|data| data.get_temp(state_id).unwrap());
 
-        ui.group(|ui| {
-            if backend.logs.len() <= 0 {
-                centered_text(ui, "No logs yet.");
-            } else {
-                let n_logs = backend.logs.len();
-                let text_style = TextStyle::Body;
-                let total_rows = ui.text_style_height(&text_style);
+        if let Some(backend) =
+            ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
+        {
+            ui.group(|ui| {
+                if backend.lock().unwrap().logs.len() <= 0 {
+                    centered_text(ui, "No logs yet.");
+                } else {
+                    let n_logs = backend.lock().unwrap().logs.len();
+                    let text_style = TextStyle::Body;
+                    let total_rows = ui.text_style_height(&text_style);
 
-                ui.vertical(|ui| {
-                    ScrollArea::vertical().auto_shrink(false).show_rows(
-                        ui,
-                        total_rows,
-                        n_logs,
-                        |ui, row_range| {
-                            for row in row_range {
-                                let text = format!("{}", backend.logs[row].message);
-                                ui.label(text);
-                            }
-                        },
-                    );
-                });
-            }
-        })
-        .response
+                    ui.vertical(|ui| {
+                        ScrollArea::vertical().auto_shrink(false).show_rows(
+                            ui,
+                            total_rows,
+                            n_logs,
+                            |ui, row_range| {
+                                for row in row_range {
+                                    let text =
+                                        format!("{}", backend.lock().unwrap().logs[row].message);
+                                    ui.label(text);
+                                }
+                            },
+                        );
+                    });
+                }
+            })
+            .response
+        } else {
+            ui.group(|ui| centered_text(ui, "ERROR")).response
+        }
     }
 }
 
@@ -284,24 +288,25 @@ impl Widget for &mut TabContainer {
 pub struct Application {
     tab_container: TabContainer,
     gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
-    backend: Arc<Mutex<Backend>>,
 }
 
 impl Application {
-    pub fn new(gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
+    ) -> Self {
+        // TODO: VERY WIP
+        let backend = Arc::new(Mutex::new(Backend::new()));
+        cc.egui_ctx
+            .data_mut(|data| data.insert_persisted(egui::Id::new("backend"), backend));
+
         Self {
             tab_container: TabContainer::new(),
             gui_rx: gui_rx,
-            backend: Arc::new(Mutex::new(Backend::new())),
         }
     }
 
     fn ui(&mut self, ctx: &egui::Context) {
-        // Set backend into context
-        ctx.data_mut(|data| {
-            data.insert_temp::<Arc<Mutex<Backend>>>(egui::Id::new(1), self.backend.clone())
-        });
-
         // Menu bar
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -330,9 +335,6 @@ impl Application {
 
 impl eframe::App for Application {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let backend = Arc::clone(&self.backend);
-        let mut backend = backend.lock().unwrap();
-
         // Handle channel
         loop {
             match self.gui_rx.try_lock().unwrap().try_recv() {
@@ -352,19 +354,28 @@ impl eframe::App for Application {
                                 .as_secs(),
                             message: value,
                         };
-                        backend.logs.push(log);
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    backend.logs.push(log);
+                                }
+                            }
+                        });
                     }
                     GuiMessage::SendTo(vec) => {
+                        // TODO: Bring this back
                         println!("Gui got a packet data");
-                        let packet = PacketInfo {
-                            index: backend.packets_incoming.len(),
-                            timestamp: SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs(),
-                            data: vec,
-                        };
-                        backend.packets_incoming.push(packet);
+                        // let packet = PacketInfo {
+                        //     index: backend.packets_incoming.len(),
+                        //     timestamp: SystemTime::now()
+                        //         .duration_since(UNIX_EPOCH)
+                        //         .unwrap()
+                        //         .as_secs(),
+                        //     data: vec,
+                        // };
+                        // backend.packets_incoming.push(packet);
                     }
                 },
                 Err(TryRecvError::Empty) => break,

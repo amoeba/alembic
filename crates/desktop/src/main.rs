@@ -12,6 +12,7 @@ use std::{
 };
 
 use application::Application;
+use backend::Backend;
 use eframe::egui;
 use futures::{future, StreamExt};
 use libalembic::rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
@@ -66,8 +67,6 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    let app = Application::new(Arc::clone(&gui_rx_ref));
-
     // Pass a cloned paint_rx into the app so we can handle repaints
     let app_paint_rx = Arc::clone(&paint_rx_ref);
 
@@ -98,6 +97,9 @@ fn main() -> eframe::Result {
                 }
             });
             egui_extras::install_image_loaders(&cc.egui_ctx);
+
+            // WIP
+            let app: Application = Application::new(cc, Arc::clone(&gui_rx_ref));
 
             Ok(Box::new(app))
         }),
