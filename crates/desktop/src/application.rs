@@ -362,17 +362,24 @@ impl eframe::App for Application {
                         });
                     }
                     GuiMessage::SendTo(vec) => {
-                        // TODO: Bring this back
                         println!("Gui got a packet data");
-                        // let packet = PacketInfo {
-                        //     index: backend.packets_incoming.len(),
-                        //     timestamp: SystemTime::now()
-                        //         .duration_since(UNIX_EPOCH)
-                        //         .unwrap()
-                        //         .as_secs(),
-                        //     data: vec,
-                        // };
-                        // backend.packets_incoming.push(packet);
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    let packet = PacketInfo {
+                                        index: backend.packets_incoming.len(),
+                                        timestamp: SystemTime::now()
+                                            .duration_since(UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                        data: vec,
+                                    };
+                                    backend.packets_incoming.push(packet);
+                                }
+                            }
+                        });
                     }
                 },
                 Err(TryRecvError::Empty) => break,
