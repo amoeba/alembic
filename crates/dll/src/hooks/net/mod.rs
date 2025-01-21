@@ -42,8 +42,6 @@ extern "system" fn Hook_Network_SendTo_Impl(
             let bytes = unsafe { slice::from_raw_parts(buf, bytes_sent as usize) };
             let bytes_vec = bytes.to_vec();
 
-            print_vec(&bytes_vec);
-
             let (tx, _rx) = ensure_channel();
             tx.try_lock()
                 .unwrap()
@@ -75,9 +73,6 @@ type fn_WinSock_RecvFrom = extern "system" fn(
 pub static Hook_Network_RecvFrom: Lazy<GenericDetour<fn_WinSock_RecvFrom>> = Lazy::new(|| {
     let library_handle = unsafe { LoadLibraryA(PCSTR(b"wsock32.dll\0".as_ptr() as _)) }.unwrap();
     let address = unsafe { GetProcAddress(library_handle, PCSTR(b"recvfrom\0".as_ptr() as _)) };
-
-    println!("hook_RecvFrom address is {address:?}");
-
     let ori: fn_WinSock_RecvFrom = unsafe { std::mem::transmute(address) };
 
     return unsafe { GenericDetour::new(ori, Hook_Network_RecvFrom_Impl).unwrap() };
@@ -98,8 +93,6 @@ extern "system" fn Hook_Network_RecvFrom_Impl(
             // Convert the buffer to a slice
             let bytes = unsafe { slice::from_raw_parts(buf, bytes_read as usize) };
             let bytes_vec = bytes.to_vec();
-
-            print_vec(&bytes_vec);
 
             let (tx, _rx) = ensure_channel();
             tx.try_lock()

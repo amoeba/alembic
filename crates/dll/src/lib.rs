@@ -77,13 +77,9 @@ pub fn ensure_channel() -> (
 fn ensure_client() -> anyhow::Result<()> {
     let (_tx, rx) = ensure_channel();
 
-    println!("inside client_wip, start");
-
     let runtime = ensure_runtime();
 
     runtime.spawn(async {
-        println!("Hello from inside async runtime");
-
         let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
         let transport = tarpc::serde_transport::tcp::connect(&addr, Json::default);
         let client: WorldClient = WorldClient::new(
@@ -97,8 +93,8 @@ fn ensure_client() -> anyhow::Result<()> {
                 Ok(msg) => match msg {
                     GuiMessage::SendTo(vec) => {
                         match client.handle_sendto(context::current(), vec).await {
-                            Ok(resp) => println!("resp is {resp}"),
-                            Err(error) => println!("error is {error:?}"),
+                            Ok(resp) => {}
+                            Err(error) => {}
                         }
                     }
                     GuiMessage::Hello(_) => todo!(),
@@ -106,14 +102,13 @@ fn ensure_client() -> anyhow::Result<()> {
                     GuiMessage::AppendLog(_) => todo!(),
                     GuiMessage::RecvFrom(vec) => {
                         match client.handle_recvfrom(context::current(), vec).await {
-                            Ok(resp) => println!("resp is {resp}"),
-                            Err(error) => println!("error is {error:?}"),
+                            Ok(resp) => {}
+                            Err(error) => {}
                         }
                     }
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
-                    println!("Channel disconnected");
                     break;
                 }
             }
@@ -121,8 +116,6 @@ fn ensure_client() -> anyhow::Result<()> {
             thread::sleep(Duration::from_millis(16));
         }
     });
-
-    println!("inside, client_wip end");
 
     Ok(())
 }
