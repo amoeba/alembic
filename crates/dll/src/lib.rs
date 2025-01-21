@@ -16,7 +16,6 @@ use std::{
     time::Duration,
 };
 
-use hooks::{hook_OnChatCommand_Impl, hook_RecvFrom_New, hook_SendTo_New, hook_StartTooltip_Impl};
 use libalembic::{
     rpc::{GuiMessage, WorldClient},
     win::allocate_console,
@@ -124,39 +123,18 @@ fn ensure_client() -> anyhow::Result<()> {
 
 fn on_attach() -> Result<(), anyhow::Error> {
     unsafe {
-        match allocate_console() {
-            Ok(_) => println!("Call to FreeConsole succeeded"),
-            Err(error) => println!("Call to FreeConsole failed: {error:?}"),
-        }
+        allocate_console()?;
     }
-
-    match ensure_client() {
-        Ok(_) => println!("Client started without error"),
-        Err(error) => println!("Client started with error: {error}"),
-    }
-
+    ensure_client()?;
     ensure_channel();
 
-    println!("in init_hooks, initializing hooks now");
-
-    unsafe {
-        hook_StartTooltip_Impl.enable().unwrap();
-    }
-
-    unsafe {
-        hook_OnChatCommand_Impl.enable().unwrap();
-    }
-
-    unsafe { hook_RecvFrom_New.enable().unwrap() }
-    unsafe { hook_SendTo_New.enable().unwrap() }
-
-    // this doesn't work well, don't do this
-    //unsafe { init_message_box_detour().unwrap() };
+    unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable().unwrap() }
+    unsafe { crate::hooks::net::Hook_Network_SendTo.enable().unwrap() }
 
     Ok(())
 }
 
-fn on_detach() -> Result<(), anyhow::Error> {
+fn on_detach() -> anyhow::Result<()> {
     unsafe {
         match FreeConsole() {
             Ok(_) => println!("Call to FreeConsole succeeded"),
@@ -164,17 +142,8 @@ fn on_detach() -> Result<(), anyhow::Error> {
         }
     }
 
-    unsafe {
-        hook_StartTooltip_Impl.disable().unwrap();
-    }
-
-    unsafe {
-        hook_OnChatCommand_Impl.disable().unwrap();
-    }
-
-    // unsafe {
-    //     hook_RecvFrom.disable().unwrap();
-    // }
+    unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable().unwrap() }
+    unsafe { crate::hooks::net::Hook_Network_SendTo.disable().unwrap() }
 
     Ok(())
 }
@@ -184,11 +153,17 @@ unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c
     match reason {
         DLL_PROCESS_ATTACH => {
             println!("In DllMain, reason=DLL_PROCESS_ATTACH. initializing hooks now.");
-            let _ = on_attach();
+            match on_attach() {
+                Ok(_) => println!("on_attach succeeded"),
+                Err(error) => println!("on_attach failed with error: {error}"),
+            }
         }
         DLL_PROCESS_DETACH => {
             println!("In DllMain, reason=DLL_PROCESS_DETACH. removing hooks now.");
-            let _ = on_detach();
+            match on_detach() {
+                Ok(_) => println!("on_detach succeeded"),
+                Err(error) => println!("on_detach failed with error: {error}"),
+            }
         }
         DLL_THREAD_ATTACH => {}
         DLL_THREAD_DETACH => {}
