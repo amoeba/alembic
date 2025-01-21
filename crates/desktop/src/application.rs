@@ -134,6 +134,26 @@ impl eframe::App for Application {
                             {
                                 if let Ok(mut backend) = backend.lock() {
                                     let packet = PacketInfo {
+                                        index: backend.packets_outgoing.len(),
+                                        timestamp: SystemTime::now()
+                                            .duration_since(UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                        data: vec,
+                                    };
+                                    backend.packets_outgoing.push(packet);
+                                }
+                            }
+                        });
+                    }
+                    GuiMessage::RecvFrom(vec) => {
+                        println!("Gui got a packet data");
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    let packet = PacketInfo {
                                         index: backend.packets_incoming.len(),
                                         timestamp: SystemTime::now()
                                             .duration_since(UNIX_EPOCH)

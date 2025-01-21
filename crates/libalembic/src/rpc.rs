@@ -23,6 +23,7 @@ pub enum GuiMessage {
     UpdateString(String),
     AppendLog(String),
     SendTo(Vec<u8>),
+    RecvFrom(Vec<u8>),
 }
 
 pub enum PaintMessage {
