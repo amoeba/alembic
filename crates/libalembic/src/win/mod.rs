@@ -15,7 +15,7 @@ use windows::{
     },
 };
 
-pub unsafe fn allocate_console() -> windows::core::Result<()> {
+pub unsafe fn allocate_console() -> anyhow::Result<()> {
     unsafe {
         // Allocate a new console
         AllocConsole()?;
