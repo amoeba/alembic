@@ -9,6 +9,7 @@ pub trait World {
     async fn update_string(value: String) -> String;
     async fn append_log(value: String) -> String;
     async fn handle_sendto(value: Vec<u8>) -> usize;
+    async fn handle_recvfrom(value: Vec<u8>) -> usize;
 }
 
 #[derive(Clone)]
@@ -105,6 +106,36 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => println!("sendto sent"),
+            Err(error) => println!("tx error: {error}"),
+        }
+
+        match self
+            .paint_tx
+            .lock()
+            .await
+            .send(PaintMessage::RequestRepaint)
+            .await
+        {
+            Ok(()) => println!("Repaint Requested"),
+            Err(error) => println!("tx error: {error}"),
+        }
+
+        len
+    }
+
+    async fn handle_recvfrom(self, context: tarpc::context::Context, value: Vec<u8>) -> usize {
+        let _ = context;
+        println!("rpc handle_recvfrom");
+        let len = value.len();
+
+        match self
+            .gui_tx
+            .lock()
+            .await
+            .send(GuiMessage::RecvFrom(value))
+            .await
+        {
+            Ok(()) => println!("RecvFrom sent"),
             Err(error) => println!("tx error: {error}"),
         }
 

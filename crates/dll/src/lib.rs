@@ -95,8 +95,8 @@ fn ensure_client() -> anyhow::Result<()> {
         loop {
             match rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
-                    GuiMessage::SendTo(value) => {
-                        match client.handle_sendto(context::current(), value).await {
+                    GuiMessage::SendTo(vec) => {
+                        match client.handle_sendto(context::current(), vec).await {
                             Ok(resp) => println!("resp is {resp}"),
                             Err(error) => println!("error is {error:?}"),
                         }
@@ -104,6 +104,12 @@ fn ensure_client() -> anyhow::Result<()> {
                     GuiMessage::Hello(_) => todo!(),
                     GuiMessage::UpdateString(_) => todo!(),
                     GuiMessage::AppendLog(_) => todo!(),
+                    GuiMessage::RecvFrom(vec) => {
+                        match client.handle_recvfrom(context::current(), vec).await {
+                            Ok(resp) => println!("resp is {resp}"),
+                            Err(error) => println!("error is {error:?}"),
+                        }
+                    }
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
