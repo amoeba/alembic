@@ -1,74 +1,85 @@
-// 0x005649F0
-//
-// [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvMemberFunction) })]
-// private static int ClientSystem_AddTextToScroll_Impl(IntPtr This, PStringBase<ushort>* text, eChatTypes type, byte unknown, StringInfo* info) {
-//     var eventArgs = new ChatTextAddedEventArgs(text->ToString().TrimEnd('\r', '\n'), (ChatType)type);
-//     StandaloneLoader.Backend.HandleChatTextAdded(eventArgs);
+use std::ffi::c_void;
 
-//     if (eventArgs.Eat) {
-//         return 0;
-//     }
-
-//     return _ClientSystem_AddTextToScrollHook!.OriginalFunction(This, text, type, unknown, info);
-// }
-
-use std::{
-    ffi::{c_void, CStr, OsString},
-    os::windows::ffi::OsStringExt,
-};
-
+use libalembic::acclient::{PSRefBuffer, PStringBase};
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 
-type PStringBase = *const u16;
-type eChatTypes = u32;
-unsafe fn wide_char_ptr_to_string(ptr: PStringBase) -> String {
-    let mut wide_chars = Vec::new();
-    let mut i = 0;
-    loop {
-        let ch = *ptr.add(i);
-        if ch == 0 {
-            break; // Null terminator
-        }
-        wide_chars.push(ch);
-        i += 1;
-    }
-    OsString::from_wide(&wide_chars)
-        .to_string_lossy()
-        .into_owned()
-}
+type fn_AddTextToScroll_Impl_A =
+    extern "thiscall" fn(This: *mut c_void, text: *mut c_void, a: u32, b: u8, c: u32) -> i32;
 
-type fn_OnChatCommand_Impl = extern "system" fn(
+extern "thiscall" fn Hook_AddTextToScroll_Impl_A(
     This: *mut c_void,
-    text: PStringBase,
-    chatType: eChatTypes,
-    unk: u8,
-    info: *mut c_void,
-) -> i32;
-
-extern "system" fn Hook_AddTextToScroll_Impl(
-    This: *mut c_void,
-    text: PStringBase,
-    chatType: eChatTypes,
-    unk: u8,
-    info: *mut c_void,
+    text: *mut c_void,
+    a: u32,
+    b: u8,
+    c: u32,
 ) -> i32 {
-    println!("AddTextToScroll_Impl");
+    println!("Hook_AddTextToScroll_Impl_A");
 
-    // let pstring = unsafe { PStringBase::from_mut_ptr(text as *mut PSRefBuffer) };
-    // println!("pstring to_string is {pstring}");
-    let wide_str = unsafe { wide_char_ptr_to_string(text) };
-    println!("wide_str is {wide_str}");
+    let wide_pstring = PStringBase::<u16> {
+        m_buffer: text as *mut PSRefBuffer<u16>,
+    };
 
-    let ret_val = Hook_AddTextToScroll.call(This, text, chatType, unk, info);
+    unsafe {
+        match wide_pstring.to_string() {
+            Ok(val) => println!("OK: {val}"),
+            Err(err) => println!("Err: {err}"),
+        }
+    };
 
-    ret_val
+    Hook_AddTextToScroll_A.call(This, text, a, b, c)
 }
 
-pub static Hook_AddTextToScroll: Lazy<GenericDetour<fn_OnChatCommand_Impl>> = Lazy::new(|| {
-    println!("AddTextToScroll_Impl");
+pub static Hook_AddTextToScroll_A: Lazy<GenericDetour<fn_AddTextToScroll_Impl_A>> =
+    Lazy::new(|| {
+        println!("AddTextToScroll_Impl_A");
 
-    let address = 0x005649F0 as isize;
-    let ori: fn_OnChatCommand_Impl = unsafe { std::mem::transmute(address) };
-    return unsafe { GenericDetour::new(ori, Hook_AddTextToScroll_Impl).unwrap() };
-});
+        // ClientSystem__AddTextToScroll = 0x004882F0, <- Broadcasts
+        // ClientSystem__AddTextToScroll_ = 0x004C3010,
+        // ClientSystem__AddTextToScroll__ = 0x005649F0,
+        //    crashes on first invocation
+
+        let address: isize = 0x005649F0 as isize;
+        let ori: fn_AddTextToScroll_Impl_A = unsafe { std::mem::transmute(address) };
+        return unsafe { GenericDetour::new(ori, Hook_AddTextToScroll_Impl_A).unwrap() };
+    });
+
+type fn_AddTextToScroll_Impl_B =
+    extern "thiscall" fn(This: *mut c_void, text: *mut c_void, a: u32, b: u8, c: u32) -> i32;
+
+extern "thiscall" fn Hook_AddTextToScroll_Impl_B(
+    This: *mut c_void,
+    text: *mut c_void,
+    a: u32,
+    b: u8,
+    c: u32,
+) -> i32 {
+    println!("Hook_AddTextToScroll_Impl_B");
+
+    let wide_pstring = PStringBase::<u8> {
+        m_buffer: text as *mut PSRefBuffer<u8>,
+    };
+
+    unsafe {
+        match wide_pstring.to_string() {
+            Ok(val) => println!("OK: {val}"),
+            Err(err) => println!("Err: {err}"),
+        }
+    };
+
+    Hook_AddTextToScroll_A.call(This, text, a, b, c)
+}
+
+pub static Hook_AddTextToScroll_B: Lazy<GenericDetour<fn_AddTextToScroll_Impl_B>> =
+    Lazy::new(|| {
+        println!("AddTextToScroll_Impl_B");
+
+        // ClientSystem__AddTextToScroll = 0x004882F0, <- Broadcasts
+        // ClientSystem__AddTextToScroll_ = 0x004C3010,
+        // ClientSystem__AddTextToScroll__ = 0x005649F0,
+        //    crashes on first invocation
+
+        let address: isize = 0x004C3010 as isize;
+        let ori: fn_AddTextToScroll_Impl_B = unsafe { std::mem::transmute(address) };
+        return unsafe { GenericDetour::new(ori, Hook_AddTextToScroll_Impl_B).unwrap() };
+    });
