@@ -131,6 +131,7 @@ fn on_attach() -> Result<(), anyhow::Error> {
     unsafe { crate::hooks::net::Hook_Network_SendTo.enable().unwrap() }
     unsafe { crate::hooks::chat::Hook_AddTextToScroll_A.enable().unwrap() }
     unsafe { crate::hooks::chat::Hook_AddTextToScroll_B.enable().unwrap() }
+    unsafe { crate::hooks::chat::Hook_AddTextToScroll_C.enable().unwrap() }
 
     Ok(())
 }
@@ -152,6 +153,11 @@ fn on_detach() -> anyhow::Result<()> {
     }
     unsafe {
         crate::hooks::chat::Hook_AddTextToScroll_B
+            .disable()
+            .unwrap()
+    }
+    unsafe {
+        crate::hooks::chat::Hook_AddTextToScroll_C
             .disable()
             .unwrap()
     }
