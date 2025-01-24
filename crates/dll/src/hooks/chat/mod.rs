@@ -16,8 +16,8 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_A(
 ) -> i32 {
     println!("Hook_AddTextToScroll_Impl_A");
 
-    let wide_pstring = PStringBase::<u16> {
-        m_buffer: text as *mut PSRefBuffer<u16>,
+    let wide_pstring = PStringBase {
+        m_buffer: text as *mut PSRefBuffer,
     };
 
     unsafe {
@@ -56,14 +56,14 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_B(
 ) -> i32 {
     println!("Hook_AddTextToScroll_Impl_B");
 
-    let wide_pstring = PStringBase::<u8> {
-        m_buffer: text as *mut PSRefBuffer<u8>,
+    let wide_pstring = PStringBase {
+        m_buffer: text as *mut PSRefBuffer,
     };
 
     unsafe {
-        match wide_pstring.to_string() {
-            Ok(val) => println!("OK: {val}"),
-            Err(err) => println!("Err: {err}"),
+        match PStringBase::from_ptr(text) {
+            Ok(s) => println!("String: {}", s),
+            Err(e) => eprintln!("Error: {}", e),
         }
     };
 
