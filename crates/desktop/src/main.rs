@@ -14,9 +14,12 @@ use std::{
 use application::Application;
 use eframe::egui;
 use futures::{future, StreamExt};
-use libalembic::rpc::{spawn, GuiMessage, HelloServer, PaintMessage, World};
+use libalembic::{
+    msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
+    rpc::{spawn, HelloServer, World},
+};
 use tarpc::{
-    server::{self, Channel},
+    server::{self, Channel, Serve},
     tokio_serde::formats::Json,
 };
 use tokio::sync::{
@@ -28,12 +31,12 @@ fn main() -> eframe::Result {
     env_logger::init();
 
     // Channel: GUI
-    let (gui_tx, gui_rx) = channel::<GuiMessage>(32);
+    let (gui_tx, gui_rx) = channel::<ClientServerMessage>(32);
     let gui_rx_ref = Arc::new(Mutex::new(gui_rx));
     let gui_tx_ref = Arc::new(Mutex::new(gui_tx));
 
     // Channel: Painting
-    let (paint_tx, paint_rx) = channel::<PaintMessage>(32);
+    let (paint_tx, paint_rx) = channel::<ServerGuiMessage>(32);
     let paint_rx_ref = Arc::new(Mutex::new(paint_rx));
     let paint_tx_ref = Arc::new(Mutex::new(paint_tx));
 
@@ -79,7 +82,7 @@ fn main() -> eframe::Result {
                 loop {
                     match app_paint_rx.try_lock().unwrap().try_recv() {
                         Ok(msg) => match msg {
-                            PaintMessage::RequestRepaint => {
+                            ServerGuiMessage::RequestRepaint => {
                                 println!("Repaint request received!");
                                 frame.request_repaint();
                             }

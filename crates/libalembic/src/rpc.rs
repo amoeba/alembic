@@ -3,6 +3,8 @@ use std::{future::Future, sync::Arc};
 use tarpc::context;
 use tokio::sync::{mpsc::Sender, Mutex};
 
+use crate::msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage};
+
 #[tarpc::service]
 pub trait World {
     async fn hello(name: String) -> String;
@@ -15,22 +17,8 @@ pub trait World {
 
 #[derive(Clone)]
 pub struct HelloServer {
-    pub paint_tx: Arc<Mutex<Sender<PaintMessage>>>,
-    pub gui_tx: Arc<Mutex<Sender<GuiMessage>>>,
-}
-
-#[allow(dead_code)]
-pub enum GuiMessage {
-    Hello(String),
-    UpdateString(String),
-    AppendLog(String),
-    SendTo(Vec<u8>),
-    RecvFrom(Vec<u8>),
-    AddTextToScroll(String),
-}
-
-pub enum PaintMessage {
-    RequestRepaint,
+    pub paint_tx: Arc<Mutex<Sender<ServerGuiMessage>>>,
+    pub gui_tx: Arc<Mutex<Sender<ClientServerMessage>>>,
 }
 
 impl World for HelloServer {
@@ -46,7 +34,7 @@ impl World for HelloServer {
             .gui_tx
             .lock()
             .await
-            .send(GuiMessage::UpdateString(value.to_string()))
+            .send(ClientServerMessage::UpdateString(value.to_string()))
             .await
         {
             Ok(()) => println!("Request to update string with string {value} sent to GUI."),
@@ -57,7 +45,7 @@ impl World for HelloServer {
             .paint_tx
             .lock()
             .await
-            .send(PaintMessage::RequestRepaint)
+            .send(ServerGuiMessage::RequestRepaint)
             .await
         {
             Ok(()) => println!("Repaint Requested"),
@@ -74,7 +62,7 @@ impl World for HelloServer {
             .gui_tx
             .lock()
             .await
-            .send(GuiMessage::AppendLog(value.to_string()))
+            .send(ClientServerMessage::AppendLog(value.to_string()))
             .await
         {
             Ok(()) => println!("Request to append logs with string {value} sent to GUI."),
@@ -85,7 +73,7 @@ impl World for HelloServer {
             .paint_tx
             .lock()
             .await
-            .send(PaintMessage::RequestRepaint)
+            .send(ServerGuiMessage::RequestRepaint)
             .await
         {
             Ok(()) => println!("Repaint Requested"),
@@ -104,7 +92,7 @@ impl World for HelloServer {
             .gui_tx
             .lock()
             .await
-            .send(GuiMessage::SendTo(value))
+            .send(ClientServerMessage::SendTo(value))
             .await
         {
             Ok(()) => println!("sendto sent"),
@@ -115,7 +103,7 @@ impl World for HelloServer {
             .paint_tx
             .lock()
             .await
-            .send(PaintMessage::RequestRepaint)
+            .send(ServerGuiMessage::RequestRepaint)
             .await
         {
             Ok(()) => println!("Repaint Requested"),
@@ -134,7 +122,7 @@ impl World for HelloServer {
             .gui_tx
             .lock()
             .await
-            .send(GuiMessage::RecvFrom(value))
+            .send(ClientServerMessage::RecvFrom(value))
             .await
         {
             Ok(()) => println!("RecvFrom sent"),
@@ -145,7 +133,7 @@ impl World for HelloServer {
             .paint_tx
             .lock()
             .await
-            .send(PaintMessage::RequestRepaint)
+            .send(ServerGuiMessage::RequestRepaint)
             .await
         {
             Ok(()) => println!("Repaint Requested"),
@@ -163,7 +151,7 @@ impl World for HelloServer {
             .gui_tx
             .lock()
             .await
-            .send(GuiMessage::AddTextToScroll(value))
+            .send(ClientServerMessage::AddTextToScroll(value))
             .await
         {
             Ok(()) => println!("AddTextToScroll sent"),
@@ -174,7 +162,7 @@ impl World for HelloServer {
             .paint_tx
             .lock()
             .await
-            .send(PaintMessage::RequestRepaint)
+            .send(ServerGuiMessage::RequestRepaint)
             .await
         {
             Ok(()) => println!("Repaint Requested"),

@@ -9,7 +9,7 @@ use crate::{
     widgets::tabs::TabContainer,
 };
 use eframe::egui::{self, Align, Align2, Layout};
-use libalembic::rpc::GuiMessage;
+use libalembic::msg::client_server::ClientServerMessage;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 // Main tabs
@@ -17,13 +17,13 @@ use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 pub struct Application {
     tab_container: TabContainer,
     show_about: bool,
-    gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
+    gui_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
 }
 
 impl Application {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
-        gui_rx: Arc<tokio::sync::Mutex<Receiver<GuiMessage>>>,
+        gui_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
     ) -> Self {
         // Inject a new, shared Backend object into the egui_ctx (Context)
         let backend = Arc::new(Mutex::new(Backend::new()));
@@ -101,13 +101,13 @@ impl eframe::App for Application {
         loop {
             match self.gui_rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
-                    GuiMessage::Hello(_) => {
+                    ClientServerMessage::Hello(_) => {
                         println!("GUI got Hello");
                     }
-                    GuiMessage::UpdateString(value) => {
+                    ClientServerMessage::UpdateString(value) => {
                         println!("GUI got UpdateString with value {value}");
                     }
-                    GuiMessage::AppendLog(value) => {
+                    ClientServerMessage::AppendLog(value) => {
                         println!("GUI got AppendLog with value {value}");
                         let log = LogEntry {
                             timestamp: SystemTime::now()
@@ -126,7 +126,7 @@ impl eframe::App for Application {
                             }
                         });
                     }
-                    GuiMessage::SendTo(vec) => {
+                    ClientServerMessage::SendTo(vec) => {
                         println!("Gui got a packet data");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
@@ -146,7 +146,7 @@ impl eframe::App for Application {
                             }
                         });
                     }
-                    GuiMessage::RecvFrom(vec) => {
+                    ClientServerMessage::RecvFrom(vec) => {
                         println!("Gui got a packet data");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
@@ -166,7 +166,7 @@ impl eframe::App for Application {
                             }
                         });
                     }
-                    GuiMessage::AddTextToScroll(text) => {
+                    ClientServerMessage::AddTextToScroll(text) => {
                         println!("Gui got a chat data");
 
                         ctx.data_mut(|data| {
