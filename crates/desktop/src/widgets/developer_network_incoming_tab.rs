@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use eframe::egui::{self, Response, ScrollArea, Ui, Widget};
+use eframe::egui::{self, Response, Ui, Widget};
 
 use crate::backend::Backend;
 
