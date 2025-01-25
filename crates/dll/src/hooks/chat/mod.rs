@@ -1,8 +1,6 @@
 use std::ffi::c_void;
 
-use libalembic::acclient::{
-    string_from_char_ptr, string_from_char_ptr_ptr, string_from_ushort_ptr_ptr,
-};
+use libalembic::acclient::PStringBase;
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 
@@ -20,11 +18,11 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
     println!("Hook_AddTextToScroll_Impl_ushort_ptr_ptr");
 
     unsafe {
-        match string_from_ushort_ptr_ptr(text) {
-            Ok(val) => println!("OK: {val}"),
-            Err(err) => println!("Err: {err}"),
+        match PStringBase::<*const u16>::new(text).and_then(|p| p.to_string()) {
+            Ok(str) => println!("str is {str}"),
+            Err(err) => println!("err is {err}"),
         }
-    };
+    }
 
     Hook_AddTextToScroll_ushort_ptr_ptr.call(This, text, a, b, c)
 }
@@ -55,14 +53,14 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
     b: u8,
     c: u32,
 ) -> i32 {
-    println!("Hook_AddTextToScroll_Impl_B");
+    println!("Hook_AddTextToScroll_Impl_char_ptr_ptr");
 
     unsafe {
-        match string_from_char_ptr_ptr(text) {
-            Ok(val) => println!("OK: {val}"),
-            Err(err) => println!("Err: {err}"),
+        match PStringBase::<*const i8>::new(text).and_then(|p| p.to_string()) {
+            Ok(str) => println!("str is {str}"),
+            Err(err) => println!("err is {err}"),
         }
-    };
+    }
 
     Hook_AddTextToScroll_char_ptr_ptr.call(This, text, a, b, c)
 }
@@ -70,7 +68,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
 pub static Hook_AddTextToScroll_char_ptr_ptr: Lazy<
     GenericDetour<fn_AddTextToScroll_Impl_char_ptr_ptr>,
 > = Lazy::new(|| {
-    println!("AddTextToScroll_Impl_B");
+    println!("Hook_AddTextToScroll_char_ptr_ptr");
 
     // ClientSystem__AddTextToScroll = 0x004882F0, <- Broadcasts
     // ClientSystem__AddTextToScroll_ = 0x004C3010,
@@ -96,11 +94,11 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr(
     println!("Hook_AddTextToScroll_Impl_char_ptr");
 
     unsafe {
-        match string_from_char_ptr(text) {
-            Ok(val) => println!("OK: {val}"),
-            Err(err) => println!("Err: {err}"),
+        match PStringBase::<i8>::new(text).and_then(|p| p.to_string()) {
+            Ok(str) => println!("str is {str}"),
+            Err(err) => println!("err is {err}"),
         }
-    };
+    }
 
     Hook_AddTextToScroll_char_ptr.call(This, text, a, b, c)
 }
