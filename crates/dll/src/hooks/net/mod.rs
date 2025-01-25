@@ -1,7 +1,7 @@
 use std::{ffi::c_void, panic, slice};
 
 use crate::ensure_channel;
-use libalembic::{rpc::GuiMessage, util::print_vec};
+use libalembic::rpc::GuiMessage;
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::{

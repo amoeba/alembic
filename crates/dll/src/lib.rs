@@ -93,8 +93,8 @@ fn ensure_client() -> anyhow::Result<()> {
                 Ok(msg) => match msg {
                     GuiMessage::SendTo(vec) => {
                         match client.handle_sendto(context::current(), vec).await {
-                            Ok(resp) => {}
-                            Err(error) => {}
+                            Ok(_) => {}
+                            Err(_) => {}
                         }
                     }
                     GuiMessage::Hello(_) => todo!(),
@@ -102,14 +102,14 @@ fn ensure_client() -> anyhow::Result<()> {
                     GuiMessage::AppendLog(_) => todo!(),
                     GuiMessage::RecvFrom(vec) => {
                         match client.handle_recvfrom(context::current(), vec).await {
-                            Ok(resp) => {}
-                            Err(error) => {}
+                            Ok(_) => {}
+                            Err(_) => {}
                         }
                     }
                     GuiMessage::AddTextToScroll(text) => {
                         match client.handle_chat(context::current(), text).await {
-                            Ok(resp) => {}
-                            Err(error) => {}
+                            Ok(_) => {}
+                            Err(_) => {}
                         }
                     }
                 },
