@@ -92,7 +92,7 @@ impl World for HelloServer {
             .client_server_tx
             .lock()
             .await
-            .send(ClientServerMessage::SendTo(value))
+            .send(ClientServerMessage::HandleSendTo(value))
             .await
         {
             Ok(()) => println!("sendto sent"),
@@ -122,7 +122,7 @@ impl World for HelloServer {
             .client_server_tx
             .lock()
             .await
-            .send(ClientServerMessage::RecvFrom(value))
+            .send(ClientServerMessage::HandleRecvFrom(value))
             .await
         {
             Ok(()) => println!("RecvFrom sent"),
@@ -151,7 +151,7 @@ impl World for HelloServer {
             .client_server_tx
             .lock()
             .await
-            .send(ClientServerMessage::AddTextToScroll(value))
+            .send(ClientServerMessage::HandleAddTextToScroll(value))
             .await
         {
             Ok(()) => println!("AddTextToScroll sent"),

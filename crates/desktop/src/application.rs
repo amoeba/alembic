@@ -126,7 +126,7 @@ impl eframe::App for Application {
                             }
                         });
                     }
-                    ClientServerMessage::SendTo(vec) => {
+                    ClientServerMessage::HandleSendTo(vec) => {
                         println!("Gui got a packet data");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
@@ -146,7 +146,7 @@ impl eframe::App for Application {
                             }
                         });
                     }
-                    ClientServerMessage::RecvFrom(vec) => {
+                    ClientServerMessage::HandleRecvFrom(vec) => {
                         println!("Gui got a packet data");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
@@ -166,7 +166,7 @@ impl eframe::App for Application {
                             }
                         });
                     }
-                    ClientServerMessage::AddTextToScroll(text) => {
+                    ClientServerMessage::HandleAddTextToScroll(text) => {
                         println!("Gui got a chat data");
 
                         ctx.data_mut(|data| {
