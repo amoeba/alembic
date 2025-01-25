@@ -19,22 +19,24 @@ impl Widget for &mut GameChatTab {
                     let text_style = TextStyle::Body;
                     let total_rows = ui.text_style_height(&text_style);
 
-                    ui.vertical(|ui| {
-                        ScrollArea::vertical().auto_shrink(false).show_rows(
-                            ui,
-                            total_rows,
-                            n_messages,
-                            |ui, row_range| {
-                                for row in row_range {
-                                    let text = format!(
-                                        "{}",
-                                        backend.lock().unwrap().chat_messages[row].text
-                                    );
-                                    ui.label(text);
-                                }
-                            },
-                        );
-                    });
+                    egui::Frame::dark_canvas(ui.style())
+                        .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke)
+                        .show(ui, |ui| {
+                            ScrollArea::vertical().auto_shrink(false).show_rows(
+                                ui,
+                                total_rows,
+                                n_messages,
+                                |ui, row_range| {
+                                    for row in row_range {
+                                        let text = format!(
+                                            "{}",
+                                            backend.lock().unwrap().chat_messages[row].text
+                                        );
+                                        ui.label(text);
+                                    }
+                                },
+                            );
+                        });
                 }
             })
             .response

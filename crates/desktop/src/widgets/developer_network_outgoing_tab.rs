@@ -47,10 +47,14 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
 
                     egui::CentralPanel::default().show_inside(ui, |ui| {
                         if let Some(item) = &self.selected_item {
-                            ui.label(format!(
-                                "{:?}",
-                                backend.lock().unwrap().packets_outgoing[*item].data
-                            ));
+                            egui::Frame::dark_canvas(ui.style())
+                                .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke)
+                                .show(ui, |ui| {
+                                    ui.label(format!(
+                                        "{:?}",
+                                        backend.lock().unwrap().packets_outgoing[*item].data
+                                    ));
+                                });
                         } else {
                             centered_text(ui, "Select a packet.");
                         }

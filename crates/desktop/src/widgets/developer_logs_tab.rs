@@ -19,20 +19,24 @@ impl Widget for &mut DeveloperLogsTab {
                     let text_style = TextStyle::Body;
                     let total_rows = ui.text_style_height(&text_style);
 
-                    ui.vertical(|ui| {
-                        ScrollArea::vertical().auto_shrink(false).show_rows(
-                            ui,
-                            total_rows,
-                            n_logs,
-                            |ui, row_range| {
-                                for row in row_range {
-                                    let text =
-                                        format!("{}", backend.lock().unwrap().logs[row].message);
-                                    ui.label(text);
-                                }
-                            },
-                        );
-                    });
+                    egui::Frame::dark_canvas(ui.style())
+                        .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke)
+                        .show(ui, |ui| {
+                            ScrollArea::vertical().auto_shrink(false).show_rows(
+                                ui,
+                                total_rows,
+                                n_logs,
+                                |ui, row_range| {
+                                    for row in row_range {
+                                        let text = format!(
+                                            "{}",
+                                            backend.lock().unwrap().logs[row].message
+                                        );
+                                        ui.label(text);
+                                    }
+                                },
+                            );
+                        });
                 }
             })
             .response
