@@ -83,13 +83,12 @@ fn main() -> eframe::Result {
                     match app_paint_rx.try_lock().unwrap().try_recv() {
                         Ok(msg) => match msg {
                             ServerGuiMessage::RequestRepaint => {
-                                println!("Repaint request received!");
                                 frame.request_repaint();
                             }
                         },
                         Err(TryRecvError::Empty) => {}
                         Err(TryRecvError::Disconnected) => {
-                            println!("Channel disconnected");
+                            eprintln!("Channel disconnected");
                             break;
                         }
                     }

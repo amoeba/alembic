@@ -28,7 +28,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         match self
@@ -39,7 +39,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         value
@@ -57,7 +57,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         match self
@@ -68,7 +68,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         len
@@ -86,7 +86,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         match self
@@ -97,7 +97,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         len
@@ -114,7 +114,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
 
         match self
@@ -125,7 +125,7 @@ impl World for HelloServer {
             .await
         {
             Ok(()) => {}
-            Err(error) => println!("tx error: {error}"),
+            Err(error) => eprintln!("tx error: {error}"),
         }
     }
 }

@@ -30,7 +30,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr(
 
                 Ok(())
             }) {
-            Ok(_) => println!("sent text"),
+            Ok(_) => {}
             Err(err) => println!("error is {err}"),
         }
     }
@@ -68,7 +68,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
 
                 Ok(())
             }) {
-            Ok(_) => println!("sent text"),
+            Ok(_) => {}
             Err(err) => println!("error is {err}"),
         }
     }
@@ -108,7 +108,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
 
                 Ok(())
             }) {
-            Ok(_) => println!("sent text"),
+            Ok(_) => {}
             Err(err) => println!("error is {err}"),
         }
     }

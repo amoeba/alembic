@@ -101,14 +101,7 @@ impl eframe::App for Application {
         loop {
             match self.client_server_rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
-                    ClientServerMessage::Hello(_) => {
-                        println!("GUI got Hello");
-                    }
-                    ClientServerMessage::UpdateString(value) => {
-                        println!("GUI got UpdateString with value {value}");
-                    }
                     ClientServerMessage::AppendLog(value) => {
-                        println!("GUI got AppendLog with value {value}");
                         let log = LogEntry {
                             timestamp: SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
@@ -127,7 +120,6 @@ impl eframe::App for Application {
                         });
                     }
                     ClientServerMessage::HandleSendTo(vec) => {
-                        println!("Gui got a packet data");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
@@ -147,7 +139,6 @@ impl eframe::App for Application {
                         });
                     }
                     ClientServerMessage::HandleRecvFrom(vec) => {
-                        println!("Gui got a packet data");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
@@ -167,8 +158,6 @@ impl eframe::App for Application {
                         });
                     }
                     ClientServerMessage::HandleAddTextToScroll(text) => {
-                        println!("Gui got a chat data");
-
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
@@ -190,7 +179,7 @@ impl eframe::App for Application {
                 },
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    println!("Channel disconnected");
+                    eprintln!("Channel disconnected");
                     break;
                 }
             }
