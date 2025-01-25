@@ -30,15 +30,15 @@ use tokio::sync::{
 fn main() -> eframe::Result {
     env_logger::init();
 
-    // Channel: GUI
-    let (gui_tx, gui_rx) = channel::<ClientServerMessage>(32);
-    let gui_rx_ref = Arc::new(Mutex::new(gui_rx));
-    let gui_tx_ref = Arc::new(Mutex::new(gui_tx));
+    // Channel: ClientServer
+    let (client_server_tx, client_server_rx) = channel::<ClientServerMessage>(32);
+    let client_server_tx_ref = Arc::new(Mutex::new(client_server_tx));
+    let client_server_rx_ref = Arc::new(Mutex::new(client_server_rx));
 
     // Channel: Painting
-    let (paint_tx, paint_rx) = channel::<ServerGuiMessage>(32);
-    let paint_rx_ref = Arc::new(Mutex::new(paint_rx));
-    let paint_tx_ref = Arc::new(Mutex::new(paint_tx));
+    let (server_gui_tx, server_gui_rx) = channel::<ServerGuiMessage>(32);
+    let server_gui_tx_ref = Arc::new(Mutex::new(server_gui_tx));
+    let server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
 
     // tarpc
     let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -54,8 +54,8 @@ fn main() -> eframe::Result {
             .map(server::BaseChannel::with_defaults)
             .map(|channel| {
                 let server = HelloServer {
-                    paint_tx: Arc::clone(&paint_tx_ref),
-                    gui_tx: Arc::clone(&gui_tx_ref),
+                    server_gui_tx: Arc::clone(&server_gui_tx_ref),
+                    client_server_tx: Arc::clone(&client_server_tx_ref),
                 };
                 channel.execute(server.serve()).for_each(spawn)
             })
@@ -70,7 +70,7 @@ fn main() -> eframe::Result {
     };
 
     // Pass a cloned paint_rx into the app so we can handle repaints
-    let app_paint_rx = Arc::clone(&paint_rx_ref);
+    let app_paint_rx = Arc::clone(&server_gui_rx_ref);
 
     eframe::run_native(
         "Alembic",
@@ -98,10 +98,10 @@ fn main() -> eframe::Result {
                     thread::sleep(Duration::from_millis(16));
                 }
             });
+
             egui_extras::install_image_loaders(&cc.egui_ctx);
 
-            // WIP
-            let app: Application = Application::new(cc, Arc::clone(&gui_rx_ref));
+            let app: Application = Application::new(cc, Arc::clone(&client_server_rx_ref));
 
             Ok(Box::new(app))
         }),

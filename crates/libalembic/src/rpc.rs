@@ -17,8 +17,8 @@ pub trait World {
 
 #[derive(Clone)]
 pub struct HelloServer {
-    pub paint_tx: Arc<Mutex<Sender<ServerGuiMessage>>>,
-    pub gui_tx: Arc<Mutex<Sender<ClientServerMessage>>>,
+    pub server_gui_tx: Arc<Mutex<Sender<ServerGuiMessage>>>,
+    pub client_server_tx: Arc<Mutex<Sender<ClientServerMessage>>>,
 }
 
 impl World for HelloServer {
@@ -31,7 +31,7 @@ impl World for HelloServer {
         println!("rpc update_string");
 
         match self
-            .gui_tx
+            .client_server_tx
             .lock()
             .await
             .send(ClientServerMessage::UpdateString(value.to_string()))
@@ -42,7 +42,7 @@ impl World for HelloServer {
         }
 
         match self
-            .paint_tx
+            .server_gui_tx
             .lock()
             .await
             .send(ServerGuiMessage::RequestRepaint)
@@ -59,7 +59,7 @@ impl World for HelloServer {
         println!("rpc append_log");
 
         match self
-            .gui_tx
+            .client_server_tx
             .lock()
             .await
             .send(ClientServerMessage::AppendLog(value.to_string()))
@@ -70,7 +70,7 @@ impl World for HelloServer {
         }
 
         match self
-            .paint_tx
+            .server_gui_tx
             .lock()
             .await
             .send(ServerGuiMessage::RequestRepaint)
@@ -89,7 +89,7 @@ impl World for HelloServer {
         let len = value.len();
 
         match self
-            .gui_tx
+            .client_server_tx
             .lock()
             .await
             .send(ClientServerMessage::SendTo(value))
@@ -100,7 +100,7 @@ impl World for HelloServer {
         }
 
         match self
-            .paint_tx
+            .server_gui_tx
             .lock()
             .await
             .send(ServerGuiMessage::RequestRepaint)
@@ -119,7 +119,7 @@ impl World for HelloServer {
         let len = value.len();
 
         match self
-            .gui_tx
+            .client_server_tx
             .lock()
             .await
             .send(ClientServerMessage::RecvFrom(value))
@@ -130,7 +130,7 @@ impl World for HelloServer {
         }
 
         match self
-            .paint_tx
+            .server_gui_tx
             .lock()
             .await
             .send(ServerGuiMessage::RequestRepaint)
@@ -148,7 +148,7 @@ impl World for HelloServer {
         println!("rpc handle_chat");
 
         match self
-            .gui_tx
+            .client_server_tx
             .lock()
             .await
             .send(ClientServerMessage::AddTextToScroll(value))
@@ -159,7 +159,7 @@ impl World for HelloServer {
         }
 
         match self
-            .paint_tx
+            .server_gui_tx
             .lock()
             .await
             .send(ServerGuiMessage::RequestRepaint)

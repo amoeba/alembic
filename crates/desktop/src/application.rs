@@ -17,13 +17,13 @@ use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 pub struct Application {
     tab_container: TabContainer,
     show_about: bool,
-    gui_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
+    client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
 }
 
 impl Application {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
-        gui_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
+        client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
     ) -> Self {
         // Inject a new, shared Backend object into the egui_ctx (Context)
         let backend = Arc::new(Mutex::new(Backend::new()));
@@ -33,7 +33,7 @@ impl Application {
         Self {
             tab_container: TabContainer::new(),
             show_about: false,
-            gui_rx: gui_rx,
+            client_server_rx: client_server_rx,
         }
     }
 
@@ -99,7 +99,7 @@ impl eframe::App for Application {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Handle channel
         loop {
-            match self.gui_rx.try_lock().unwrap().try_recv() {
+            match self.client_server_rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
                     ClientServerMessage::Hello(_) => {
                         println!("GUI got Hello");
