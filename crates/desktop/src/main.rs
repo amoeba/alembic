@@ -19,7 +19,7 @@ use libalembic::{
     rpc::{spawn, HelloServer, World},
 };
 use tarpc::{
-    server::{self, Channel, Serve},
+    server::{self, Channel},
     tokio_serde::formats::Json,
 };
 use tokio::sync::{
