@@ -42,7 +42,11 @@ async fn main() -> anyhow::Result<()> {
         rng.fill(&mut random_vec[..]);
         wc.handle_sendto(context::current(), random_vec)
             .await
-            .expect("Failed to send log.");
+            .unwrap();
+
+        wc.handle_chat(context::current(), "hello from simulator".to_string())
+            .await
+            .unwrap();
 
         thread::sleep(Duration::from_millis(delay_ms));
     }
