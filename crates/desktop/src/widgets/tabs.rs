@@ -7,11 +7,15 @@ use super::{
     developer_network_outgoing_tab::DeveloperNetworkOutgoingTab,
     developer_network_tab::{DeveloperNetworkTab, DeveloperNetworkTabContent},
     developer_tab::{DeveloperTab, DeveloperTabContent},
+    game_chat_tab::GameChatTab,
+    game_main_tab::GameMainTab,
+    game_tab::{GameTab, GameTabContent},
     main_tab::MainTab,
 };
 
 pub enum TabContent {
     Main(MainTab),
+    Game(GameTab),
     Developer(DeveloperTab),
 }
 
@@ -25,6 +29,13 @@ impl TabContainer {
         Self {
             tabs: vec![
                 TabContent::Main(MainTab {}),
+                TabContent::Game(GameTab {
+                    selected_tab: 0,
+                    tabs: vec![
+                        GameTabContent::Main(GameMainTab {}),
+                        GameTabContent::Chat(GameChatTab {}),
+                    ],
+                }),
                 TabContent::Developer(DeveloperTab {
                     selected_tab: 0,
                     tabs: vec![
@@ -57,6 +68,7 @@ impl Widget for &mut TabContainer {
                 for (index, tab) in self.tabs.iter().enumerate() {
                     let label = match tab {
                         TabContent::Main(_) => "Main",
+                        TabContent::Game(_) => "Game",
                         TabContent::Developer(_) => "Developer",
                     };
 
@@ -75,6 +87,9 @@ impl Widget for &mut TabContainer {
             if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
                 match tab {
                     TabContent::Main(tab) => {
+                        ui.add(tab);
+                    }
+                    TabContent::Game(tab) => {
                         ui.add(tab);
                     }
                     TabContent::Developer(tab) => {

@@ -10,6 +10,7 @@ pub trait World {
     async fn append_log(value: String) -> String;
     async fn handle_sendto(value: Vec<u8>) -> usize;
     async fn handle_recvfrom(value: Vec<u8>) -> usize;
+    async fn handle_chat(value: String);
 }
 
 #[derive(Clone)]
@@ -25,6 +26,7 @@ pub enum GuiMessage {
     AppendLog(String),
     SendTo(Vec<u8>),
     RecvFrom(Vec<u8>),
+    AddTextToScroll(String),
 }
 
 pub enum PaintMessage {
@@ -151,6 +153,33 @@ impl World for HelloServer {
         }
 
         len
+    }
+
+    async fn handle_chat(self, context: ::tarpc::context::Context, value: String) {
+        let _ = context;
+        println!("rpc handle_chat");
+
+        match self
+            .gui_tx
+            .lock()
+            .await
+            .send(GuiMessage::AddTextToScroll(value))
+            .await
+        {
+            Ok(()) => println!("AddTextToScroll sent"),
+            Err(error) => println!("tx error: {error}"),
+        }
+
+        match self
+            .paint_tx
+            .lock()
+            .await
+            .send(PaintMessage::RequestRepaint)
+            .await
+        {
+            Ok(()) => println!("Repaint Requested"),
+            Err(error) => println!("tx error: {error}"),
+        }
     }
 }
 

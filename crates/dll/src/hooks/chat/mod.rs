@@ -1,8 +1,10 @@
 use std::ffi::c_void;
 
-use libalembic::acclient::PStringBase;
+use libalembic::{acclient::PStringBase, rpc::GuiMessage};
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
+
+use crate::ensure_channel;
 
 // char_ptr
 type fn_AddTextToScroll_Impl_char_ptr =
@@ -18,12 +20,20 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr(
     println!("Hook_AddTextToScroll_Impl_char_ptr");
 
     unsafe {
-        match PStringBase::<i8>::new(text).and_then(|p| p.to_string()) {
-            Ok(str) => println!("str is {str}"),
-            Err(err) => println!("err is {err}"),
+        match PStringBase::<i8>::new(text)
+            .and_then(|p| p.to_string())
+            .and_then(|p| {
+                let (tx, _rx) = ensure_channel();
+                tx.try_lock()
+                    .unwrap()
+                    .send(GuiMessage::AddTextToScroll(p.to_string()));
+
+                Ok(())
+            }) {
+            Ok(_) => println!("sent text"),
+            Err(err) => println!("error is {err}"),
         }
     }
-
     Hook_AddTextToScroll_char_ptr.call(This, text, a, b, c)
 }
 
@@ -48,9 +58,18 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
     println!("Hook_AddTextToScroll_Impl_char_ptr_ptr");
 
     unsafe {
-        match PStringBase::<*const i8>::new(text).and_then(|p| p.to_string()) {
-            Ok(str) => println!("str is {str}"),
-            Err(err) => println!("err is {err}"),
+        match PStringBase::<*const i8>::new(text)
+            .and_then(|p| p.to_string())
+            .and_then(|p| {
+                let (tx, _rx) = ensure_channel();
+                tx.try_lock()
+                    .unwrap()
+                    .send(GuiMessage::AddTextToScroll(p.to_string()));
+
+                Ok(())
+            }) {
+            Ok(_) => println!("sent text"),
+            Err(err) => println!("error is {err}"),
         }
     }
 
@@ -79,9 +98,18 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
     println!("Hook_AddTextToScroll_Impl_ushort_ptr_ptr");
 
     unsafe {
-        match PStringBase::<*const u16>::new(text).and_then(|p| p.to_string()) {
-            Ok(str) => println!("str is {str}"),
-            Err(err) => println!("err is {err}"),
+        match PStringBase::<*const u16>::new(text)
+            .and_then(|p| p.to_string())
+            .and_then(|p| {
+                let (tx, _rx) = ensure_channel();
+                tx.try_lock()
+                    .unwrap()
+                    .send(GuiMessage::AddTextToScroll(p.to_string()));
+
+                Ok(())
+            }) {
+            Ok(_) => println!("sent text"),
+            Err(err) => println!("error is {err}"),
         }
     }
 

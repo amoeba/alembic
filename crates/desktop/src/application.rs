@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    backend::{Backend, LogEntry, PacketInfo},
+    backend::{Backend, ChatMessage, LogEntry, PacketInfo},
     widgets::tabs::TabContainer,
 };
 use eframe::egui::{self, Align, Align2, Layout};
@@ -162,6 +162,27 @@ impl eframe::App for Application {
                                         data: vec,
                                     };
                                     backend.packets_incoming.push(packet);
+                                }
+                            }
+                        });
+                    }
+                    GuiMessage::AddTextToScroll(text) => {
+                        println!("Gui got a chat data");
+
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    let message = ChatMessage {
+                                        index: backend.chat_messages.len(),
+                                        timestamp: SystemTime::now()
+                                            .duration_since(UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                        text,
+                                    };
+                                    backend.chat_messages.push(message);
                                 }
                             }
                         });

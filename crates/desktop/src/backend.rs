@@ -5,6 +5,13 @@ pub struct LogEntry {
 }
 
 #[allow(unused)]
+pub struct ChatMessage {
+    pub index: usize,
+    pub timestamp: u64,
+    pub text: String,
+}
+
+#[allow(unused)]
 pub struct PacketInfo {
     pub index: usize,
     pub timestamp: u64,
@@ -20,6 +27,7 @@ pub struct Backend {
     pub packets_outgoing: Vec<PacketInfo>,
     pub accounts: Vec<Account>,
     pub selected_account: Option<usize>,
+    pub chat_messages: Vec<ChatMessage>,
 }
 
 impl Backend {
@@ -40,6 +48,7 @@ impl Backend {
                 },
             ],
             selected_account: None,
+            chat_messages: vec![],
         }
     }
 }

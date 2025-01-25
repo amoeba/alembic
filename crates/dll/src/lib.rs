@@ -106,6 +106,12 @@ fn ensure_client() -> anyhow::Result<()> {
                             Err(error) => {}
                         }
                     }
+                    GuiMessage::AddTextToScroll(text) => {
+                        match client.handle_chat(context::current(), text).await {
+                            Ok(resp) => {}
+                            Err(error) => {}
+                        }
+                    }
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
