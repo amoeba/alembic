@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
         WorldClient::new(client::Config::default(), transport.await.expect("oops")).spawn();
 
     println!("Waiting for Ctrl-C...");
-    let delay_ms = 1000;
+    let delay_ms = 16;
     while running.load(Ordering::SeqCst) {
         // Send log
         wc.append_log(context::current(), "hello from simulator".to_string())

@@ -20,8 +20,14 @@ pub struct PacketInfo {
 pub struct Account {
     pub name: String,
 }
+#[derive(Clone)]
+pub struct Client {
+    pub pid: usize,
+}
 
 pub struct Backend {
+    pub client: Option<Client>,
+    pub is_injected: bool,
     pub logs: Vec<LogEntry>,
     pub packets_incoming: Vec<PacketInfo>,
     pub packets_outgoing: Vec<PacketInfo>,
@@ -33,9 +39,43 @@ pub struct Backend {
 impl Backend {
     pub fn new() -> Self {
         Self {
+            client: None,
+            is_injected: false,
             logs: vec![],
-            packets_incoming: vec![],
-            packets_outgoing: vec![],
+            packets_incoming: vec![
+                PacketInfo {
+                    index: 0,
+                    timestamp: 1234,
+                    data: vec![1, 2, 3, 4],
+                },
+                PacketInfo {
+                    index: 0,
+                    timestamp: 1234,
+                    data: vec![1, 2, 3, 4],
+                },
+                PacketInfo {
+                    index: 0,
+                    timestamp: 1234,
+                    data: vec![1, 2, 3, 4],
+                },
+            ],
+            packets_outgoing: vec![
+                PacketInfo {
+                    index: 0,
+                    timestamp: 1234,
+                    data: vec![1, 2, 3, 4],
+                },
+                PacketInfo {
+                    index: 0,
+                    timestamp: 1234,
+                    data: vec![1, 2, 3, 4],
+                },
+                PacketInfo {
+                    index: 0,
+                    timestamp: 1234,
+                    data: vec![1, 2, 3, 4],
+                },
+            ],
             accounts: vec![
                 Account {
                     name: "Frostfell - F".to_string(),

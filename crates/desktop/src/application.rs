@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    backend::{Backend, ChatMessage, LogEntry, PacketInfo},
+    backend::{Backend, ChatMessage, Client, LogEntry, PacketInfo},
     widgets::tabs::TabContainer,
 };
 use eframe::egui::{self, Align, Align2, Layout};
@@ -26,7 +26,7 @@ impl Application {
         client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
     ) -> Self {
         // Inject a new, shared Backend object into the egui_ctx (Context)
-        let backend = Arc::new(Mutex::new(Backend::new()));
+        let backend: Arc<Mutex<Backend>> = Arc::new(Mutex::new(Backend::new()));
         cc.egui_ctx
             .data_mut(|data| data.insert_persisted(egui::Id::new("backend"), backend));
 
@@ -56,6 +56,42 @@ impl Application {
                 });
             });
         });
+
+        // Status Bar
+        egui::TopBottomPanel::bottom("status")
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let mut client: Option<Client> = None;
+                    let mut is_injected = false;
+
+                    if let Some(backend) = ui.ctx().data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                    }) {
+                        let b = backend.lock().unwrap();
+
+                        is_injected = b.is_injected;
+                        client = b.client.clone();
+                    }
+
+                    // Client
+                    ui.colored_label(egui::Color32::from_rgb(200, 160, 60), "Client: ");
+                    if let Some(c) = client {
+                        let pid = c.pid;
+                        ui.colored_label(egui::Color32::from_rgb(200, 160, 60), format!("{pid}"));
+                    } else {
+                        ui.colored_label(egui::Color32::from_rgb(128, 128, 128), "None");
+                    }
+
+                    // Injected
+                    ui.colored_label(egui::Color32::from_rgb(128, 140, 255), "Injected: ");
+                    if is_injected {
+                        ui.colored_label(egui::Color32::from_rgb(128, 140, 255), "Yes");
+                    } else {
+                        ui.colored_label(egui::Color32::from_rgb(128, 128, 128), "No");
+                    }
+                });
+            });
 
         // Central panel
         egui::CentralPanel::default().show(ctx, |ui| {
