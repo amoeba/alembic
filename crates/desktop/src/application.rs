@@ -71,33 +71,18 @@ impl Application {
             .resizable(false)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    let mut client: Option<Client> = None;
-                    let mut is_injected = false;
-
-                    if let Some(backend) = ui.ctx().data_mut(|data| {
+                    if let Some(backend) = ui.data_mut(|data| {
                         data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                     }) {
                         let b = backend.lock().unwrap();
 
-                        is_injected = b.is_injected;
-                        client = b.client.clone();
-                    }
-
-                    // Client
-                    ui.colored_label(egui::Color32::from_rgb(200, 160, 60), "Client: ");
-                    if let Some(c) = client {
-                        let pid = c.pid;
-                        ui.colored_label(egui::Color32::from_rgb(200, 160, 60), format!("{pid}"));
+                        if let Some(msg) = &b.status_message {
+                            ui.label(msg)
+                        } else {
+                            ui.label("Ready".to_string())
+                        }
                     } else {
-                        ui.colored_label(egui::Color32::from_rgb(128, 128, 128), "None");
-                    }
-
-                    // Injected
-                    ui.colored_label(egui::Color32::from_rgb(128, 140, 255), "Injected: ");
-                    if is_injected {
-                        ui.colored_label(egui::Color32::from_rgb(128, 140, 255), "Yes");
-                    } else {
-                        ui.colored_label(egui::Color32::from_rgb(128, 128, 128), "No");
+                        ui.label("Failed to reach application backend.")
                     }
                 });
             });

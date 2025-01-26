@@ -24,6 +24,7 @@ pub struct Client {
 }
 
 pub struct Backend {
+    pub status_message: Option<String>,
     pub client: Option<Client>,
     pub is_injected: bool,
     pub logs: Vec<LogEntry>,
@@ -35,6 +36,7 @@ pub struct Backend {
 impl Backend {
     pub fn new() -> Self {
         Self {
+            status_message: None,
             client: None,
             is_injected: false,
             logs: vec![],
