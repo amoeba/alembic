@@ -17,7 +17,7 @@ const ENV_PREFIX: &str = "ALEMBIC";
 
 #[allow(dead_code)]
 pub struct SettingsManager {
-    settings: Arc<RwLock<AlembicSettings>>,
+    pub settings: Arc<RwLock<AlembicSettings>>,
 }
 
 static SETTINGS: Lazy<SettingsManager> =
@@ -25,11 +25,18 @@ static SETTINGS: Lazy<SettingsManager> =
 
 impl SettingsManager {
     pub fn new() -> anyhow::Result<Self> {
+        let mut final_settings = AlembicSettings::new();
         let loaded_settings = ensure_settings()?;
 
+        // TODO Merge
+
         Ok(Self {
-            settings: Arc::new(RwLock::new(loaded_settings)),
+            settings: Arc::new(RwLock::new(final_settings)),
         })
+    }
+
+    pub fn update_selected_account() {
+        println!("supposedly updating...");
     }
 
     pub fn save() -> anyhow::Result<()> {
@@ -66,20 +73,28 @@ impl SettingsManager {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+// TODO: Make this real
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Account {
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct General {
     pub version: u32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Client {
     pub path: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AlembicSettings {
     pub general: General,
     pub client: Client,
+    pub selected_account: Option<usize>,
+    pub accounts: Vec<Account>,
 }
 
 impl AlembicSettings {
@@ -91,8 +106,27 @@ impl AlembicSettings {
             client: Client {
                 path: "".to_string(),
             },
+            selected_account: None,
+            accounts: vec![
+                Account {
+                    name: "AAAAA".to_string(),
+                },
+                Account {
+                    name: "BBBBB".to_string(),
+                },
+                Account {
+                    name: "CCCCC".to_string(),
+                },
+            ],
         }
     }
+}
+
+// TODO
+pub fn merge_settings(target: &mut AlembicSettings, source: &AlembicSettings) {
+    println!("Source: {source:?}");
+    println!("Target: {target:?}");
+    println!("TODO: Merging");
 }
 
 #[allow(dead_code)]

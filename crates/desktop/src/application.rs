@@ -9,7 +9,7 @@ use crate::{
     widgets::tabs::TabContainer,
 };
 use eframe::egui::{self, Align, Align2, Layout};
-use libalembic::msg::client_server::ClientServerMessage;
+use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 // Main tabs
@@ -29,6 +29,11 @@ impl Application {
         let backend: Arc<Mutex<Backend>> = Arc::new(Mutex::new(Backend::new()));
         cc.egui_ctx
             .data_mut(|data| data.insert_persisted(egui::Id::new("backend"), backend));
+
+        // Inject a new, shared Settings object into the egui_ctx (Context)
+        let settings: Arc<Mutex<AlembicSettings>> = Arc::new(Mutex::new(AlembicSettings::new()));
+        cc.egui_ctx
+            .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), settings));
 
         Self {
             tab_container: TabContainer::new(),

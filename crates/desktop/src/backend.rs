@@ -17,9 +17,7 @@ pub struct PacketInfo {
     pub timestamp: u64,
     pub data: Vec<u8>,
 }
-pub struct Account {
-    pub name: String,
-}
+
 #[derive(Clone)]
 pub struct Client {
     pub pid: usize,
@@ -31,8 +29,6 @@ pub struct Backend {
     pub logs: Vec<LogEntry>,
     pub packets_incoming: Vec<PacketInfo>,
     pub packets_outgoing: Vec<PacketInfo>,
-    pub accounts: Vec<Account>,
-    pub selected_account: Option<usize>,
     pub chat_messages: Vec<ChatMessage>,
 }
 
@@ -76,18 +72,6 @@ impl Backend {
                     data: vec![1, 2, 3, 4],
                 },
             ],
-            accounts: vec![
-                Account {
-                    name: "Frostfell - F".to_string(),
-                },
-                Account {
-                    name: "Leafcull - L".to_string(),
-                },
-                Account {
-                    name: "WintersEbb - W".to_string(),
-                },
-            ],
-            selected_account: None,
             chat_messages: vec![],
         }
     }

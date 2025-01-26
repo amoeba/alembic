@@ -1,33 +1,38 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    iter,
+    sync::{Arc, Mutex},
+};
 
-use super::components::centered_text;
-use crate::{backend::Backend, launch::try_launch};
+use crate::launch::try_launch;
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
+use libalembic::settings::AlembicSettings;
 
 struct AccountPicker {}
 
 impl Widget for &mut AccountPicker {
     fn ui(self, ui: &mut Ui) -> Response {
-        if let Some(backend) =
-            ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
-        {
-            let mut backend = backend.lock().unwrap();
+        if let Some(s) = ui.data_mut(|data| {
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+        }) {
+            let mut settings = s.lock().unwrap();
 
-            // TODO: Not sure if we have to do this immutable borrow
-            let account_names: Vec<String> =
-                backend.accounts.iter().map(|a| a.name.clone()).collect();
+            let account_names: Vec<String> = settings
+                .accounts
+                .iter()
+                .map(|account| account.name.clone())
+                .collect();
 
-            let selected_text = backend
+            let selected_text = settings
                 .selected_account
                 .and_then(|index| account_names.get(index).cloned())
-                .unwrap_or_else(|| "Choose an account".to_string());
+                .unwrap_or_else(|| "Pick an account".to_string());
 
             egui::ComboBox::from_id_salt("Account")
                 .selected_text(selected_text)
                 .show_ui(ui, |ui| {
                     for (index, name) in account_names.iter().enumerate() {
                         ui.selectable_value(
-                            &mut backend.selected_account,
+                            &mut settings.selected_account,
                             Some(index),
                             name.clone(),
                         );
@@ -35,8 +40,7 @@ impl Widget for &mut AccountPicker {
                 })
                 .response
         } else {
-            ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
-                .response
+            ui.label("Bug, please report.")
         }
     }
 }
