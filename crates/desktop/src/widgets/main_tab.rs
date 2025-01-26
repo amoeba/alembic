@@ -47,6 +47,12 @@ impl Widget for &mut MainTab {
         ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
             ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
                 if ui
+                    .add_sized(Vec2::new(140.0, 35.0), Button::new("Inject"))
+                    .clicked()
+                {
+                    // TODO
+                }
+                if ui
                     .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
                     .clicked()
                 {
