@@ -122,6 +122,32 @@ impl AlembicSettings {
     }
 }
 
+impl AlembicSettings {
+    pub fn load(&mut self) -> anyhow::Result<()> {
+        let dir = ensure_settings_dir()?;
+        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
+
+        // Just stop now if the file doesn't exist
+        if !settings_file_path.exists() {
+            return Ok(());
+        }
+
+        // Otherwise read in and merge
+        let file_contents = fs::read_to_string(settings_file_path)?;
+        let new_settings: AlembicSettings = toml::from_str(&file_contents)?;
+
+        println!("Got settings from disk: {new_settings:?}");
+
+        Ok(())
+    }
+    pub fn save(self) -> anyhow::Result<()> {
+        let dir = ensure_settings_dir()?;
+        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
+        let serialized = toml::to_string_pretty(&self)?;
+
+        Ok(fs::write(&settings_file_path, serialized)?)
+    }
+}
 // TODO
 pub fn merge_settings(target: &mut AlembicSettings, source: &AlembicSettings) {
     println!("Source: {source:?}");

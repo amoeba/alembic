@@ -8,7 +8,7 @@ use crate::{
     backend::{Backend, ChatMessage, Client, LogEntry, PacketInfo},
     widgets::tabs::TabContainer,
 };
-use eframe::egui::{self, Align, Align2, Layout};
+use eframe::egui::{self, util::undoer::Settings, Align, Align2, Layout};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
@@ -32,6 +32,10 @@ impl Application {
 
         // Inject a new, shared Settings object into the egui_ctx (Context)
         let settings: Arc<Mutex<AlembicSettings>> = Arc::new(Mutex::new(AlembicSettings::new()));
+        match settings.lock().unwrap().load() {
+            Ok(_) => {}
+            Err(error) => eprintln!("Error loading settings: {error}"),
+        }
         cc.egui_ctx
             .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), settings));
 
