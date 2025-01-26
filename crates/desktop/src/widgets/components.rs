@@ -25,10 +25,14 @@ impl Widget for &mut AccountPicker {
                 .map(|account| account.name.clone())
                 .collect();
 
-            let selected_text = settings
-                .selected_account
-                .and_then(|index| account_names.get(index).cloned())
-                .unwrap_or_else(|| "Pick an account".to_string());
+            let selected_text = if account_names.len() > 0 {
+                settings
+                    .selected_account
+                    .and_then(|index| account_names.get(index).cloned())
+                    .unwrap_or_else(|| "Pick an account".to_string())
+            } else {
+                "No accounts".to_string()
+            };
 
             egui::ComboBox::from_id_salt("Account")
                 .selected_text(selected_text)

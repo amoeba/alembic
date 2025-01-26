@@ -3,7 +3,10 @@
 
 use std::{error::Error, ffi::OsString, fs, os::windows::ffi::OsStrExt};
 
-use crate::inject::InjectionKit;
+use crate::{
+    inject::InjectionKit,
+    settings::{Account, ClientInfo},
+};
 use anyhow::bail;
 use dll_syringe::process::OwnedProcess;
 use windows::{
@@ -17,13 +20,17 @@ use windows::{
 };
 
 pub struct Launcher {
+    client_info: ClientInfo,
+    account_info: Account,
     client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
 }
 
 impl<'a> Launcher {
-    pub fn new() -> Self {
+    pub fn new(client_info: &ClientInfo, account_info: &Account) -> Self {
         Launcher {
+            client_info: client_info.clone(),
+            account_info: account_info.clone(),
             client: None,
             injector: None,
         }
@@ -34,17 +41,17 @@ impl<'a> Launcher {
         let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
 
-        let cmd_line: Vec<u16> = OsString::from(
-            "C:\\Games\\AC\\acclient.exe -h play.coldeve.ac -p 9000 -a treestats -v treestats",
-        )
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
-        let current_dir: Vec<u16> = OsString::from("C:\\Games\\AC")
+        let cmd_line: Vec<u16> = OsString::from(self.get_cmd_line())
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
+
+        let current_dir: Vec<u16> = OsString::from(self.get_current_dir())
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        println!("cmdline {}", self.get_cmd_line());
+        println!("current_dir {}", self.get_current_dir());
 
         unsafe {
             let result = CreateProcessW(
@@ -155,5 +162,20 @@ impl<'a> Launcher {
         self.inject()?;
 
         Ok(())
+    }
+
+    fn get_cmd_line(&self) -> String {
+        format!(
+            "{} -h {} -p {} -a {} -v {}",
+            self.client_info.client_path,
+            self.account_info.server_info.hostname,
+            self.account_info.server_info.port,
+            self.account_info.username,
+            self.account_info.password,
+        )
+    }
+
+    fn get_current_dir(&self) -> String {
+        format!("{}", self.client_info.workdir_path)
     }
 }

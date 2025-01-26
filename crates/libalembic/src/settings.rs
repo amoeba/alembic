@@ -73,10 +73,19 @@ impl SettingsManager {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ServerInfo {
+    pub hostname: String,
+    pub port: usize,
+}
+
 // TODO: Make this real
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Account {
     pub name: String,
+    pub username: String,
+    pub password: String,
+    pub server_info: ServerInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -93,14 +102,16 @@ impl GeneralSettings {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ClientSettings {
-    pub path: String,
+pub struct ClientInfo {
+    pub workdir_path: String,
+    pub client_path: String,
 }
 
-impl ClientSettings {
-    fn default() -> ClientSettings {
+impl ClientInfo {
+    fn default() -> ClientInfo {
         Self {
-            path: "C:\\Turbine\\Asheron's Call\\acclient.exe".to_string(),
+            workdir_path: "C:\\Turbine\\Asheron's Call\\".to_string(),
+            client_path: "C:\\Turbine\\Asheron's Call\\acclient.exe".to_string(),
         }
     }
 }
@@ -108,7 +119,7 @@ impl ClientSettings {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AlembicSettings {
     pub general: GeneralSettings,
-    pub client: ClientSettings,
+    pub client: ClientInfo,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
 }
@@ -117,7 +128,7 @@ impl AlembicSettings {
     pub fn new() -> AlembicSettings {
         AlembicSettings {
             general: GeneralSettings::default(),
-            client: ClientSettings::default(),
+            client: ClientInfo::default(),
             selected_account: None,
             accounts: vec![],
         }
@@ -128,6 +139,8 @@ impl AlembicSettings {
     pub fn load(&mut self) -> anyhow::Result<()> {
         let dir = ensure_settings_dir()?;
         let settings_file_path = dir.join(SETTINGS_FILE_NAME);
+
+        println!("Loading settings from {settings_file_path:?}");
 
         // Just stop now if the file doesn't exist
         if !settings_file_path.exists() {
