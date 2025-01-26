@@ -1,46 +1,8 @@
-use std::sync::{Arc, Mutex};
-
 use crate::launch::try_launch;
-use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
-use libalembic::settings::AlembicSettings;
+use eframe::egui::{Align, Button, Layout, Response, Ui, Vec2, Widget};
 
-struct AccountPicker {}
+use super::components::AccountPicker;
 
-impl Widget for &mut AccountPicker {
-    fn ui(self, ui: &mut Ui) -> Response {
-        if let Some(s) = ui.data_mut(|data| {
-            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-        }) {
-            let mut settings = s.lock().unwrap();
-
-            let account_names: Vec<String> = settings
-                .accounts
-                .iter()
-                .map(|account| account.name.clone())
-                .collect();
-
-            let selected_text = settings
-                .selected_account
-                .and_then(|index| account_names.get(index).cloned())
-                .unwrap_or_else(|| "Pick an account".to_string());
-
-            egui::ComboBox::from_id_salt("Account")
-                .selected_text(selected_text)
-                .show_ui(ui, |ui| {
-                    for (index, name) in account_names.iter().enumerate() {
-                        ui.selectable_value(
-                            &mut settings.selected_account,
-                            Some(index),
-                            name.clone(),
-                        );
-                    }
-                })
-                .response
-        } else {
-            ui.label("Bug, please report.")
-        }
-    }
-}
 pub struct MainTab {}
 
 impl Widget for &mut MainTab {

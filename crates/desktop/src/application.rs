@@ -8,7 +8,7 @@ use crate::{
     backend::{Backend, ChatMessage, Client, LogEntry, PacketInfo},
     widgets::tabs::TabContainer,
 };
-use eframe::egui::{self, util::undoer::Settings, Align, Align2, Layout};
+use eframe::egui::{self, Align, Align2, Layout};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
