@@ -17,8 +17,7 @@ use std::{
 };
 
 use libalembic::{
-    rpc::{GuiMessage, WorldClient},
-    win::allocate_console,
+    msg::client_server::ClientServerMessage, rpc::WorldClient, win::allocate_console,
 };
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 use tokio::{
@@ -52,19 +51,19 @@ fn ensure_runtime() -> &'static Runtime {
     }
 }
 
-static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<GuiMessage>>>> = None;
-static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<GuiMessage>>>> = None;
+static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<ClientServerMessage>>>> = None;
+static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<ClientServerMessage>>>> = None;
 static channel_init: Once = Once::new();
 #[allow(static_mut_refs)]
 pub fn ensure_channel() -> (
-    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<GuiMessage>>>,
-    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<GuiMessage>>>,
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<ClientServerMessage>>>,
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<ClientServerMessage>>>,
 ) {
     unsafe {
         channel_init.call_once(|| {
             let (tx, rx): (
-                mpsc::UnboundedSender<GuiMessage>,
-                mpsc::UnboundedReceiver<GuiMessage>,
+                mpsc::UnboundedSender<ClientServerMessage>,
+                mpsc::UnboundedReceiver<ClientServerMessage>,
             ) = mpsc::unbounded_channel();
 
             dll_tx = Some(Arc::new(Mutex::new(tx)));
@@ -91,27 +90,25 @@ fn ensure_client() -> anyhow::Result<()> {
         loop {
             match rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
-                    GuiMessage::SendTo(vec) => {
+                    ClientServerMessage::HandleSendTo(vec) => {
                         match client.handle_sendto(context::current(), vec).await {
                             Ok(_) => {}
                             Err(_) => {}
                         }
                     }
-                    GuiMessage::Hello(_) => todo!(),
-                    GuiMessage::UpdateString(_) => todo!(),
-                    GuiMessage::AppendLog(_) => todo!(),
-                    GuiMessage::RecvFrom(vec) => {
+                    ClientServerMessage::HandleRecvFrom(vec) => {
                         match client.handle_recvfrom(context::current(), vec).await {
                             Ok(_) => {}
                             Err(_) => {}
                         }
                     }
-                    GuiMessage::AddTextToScroll(text) => {
+                    ClientServerMessage::HandleAddTextToScroll(text) => {
                         match client.handle_chat(context::current(), text).await {
                             Ok(_) => {}
                             Err(_) => {}
                         }
                     }
+                    ClientServerMessage::AppendLog(_) => todo!(),
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {

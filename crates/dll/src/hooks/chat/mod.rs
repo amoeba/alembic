@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 
-use libalembic::{acclient::PStringBase, rpc::GuiMessage};
+use libalembic::{acclient::PStringBase, msg::client_server::ClientServerMessage};
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 
@@ -26,7 +26,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr(
                 let (tx, _rx) = ensure_channel();
                 tx.try_lock()
                     .unwrap()
-                    .send(GuiMessage::AddTextToScroll(p.to_string()));
+                    .send(ClientServerMessage::HandleAddTextToScroll(p.to_string()));
 
                 Ok(())
             }) {
@@ -64,7 +64,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
                 let (tx, _rx) = ensure_channel();
                 tx.try_lock()
                     .unwrap()
-                    .send(GuiMessage::AddTextToScroll(p.to_string()));
+                    .send(ClientServerMessage::HandleAddTextToScroll(p.to_string()));
 
                 Ok(())
             }) {
@@ -104,7 +104,7 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
                 let (tx, _rx) = ensure_channel();
                 tx.try_lock()
                     .unwrap()
-                    .send(GuiMessage::AddTextToScroll(p.to_string()));
+                    .send(ClientServerMessage::HandleAddTextToScroll(p.to_string()));
 
                 Ok(())
             }) {

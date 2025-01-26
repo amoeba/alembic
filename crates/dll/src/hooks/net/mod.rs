@@ -1,7 +1,7 @@
 use std::{ffi::c_void, panic, slice};
 
 use crate::ensure_channel;
-use libalembic::rpc::GuiMessage;
+use libalembic::msg::client_server::ClientServerMessage;
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::{
@@ -45,7 +45,7 @@ extern "system" fn Hook_Network_SendTo_Impl(
             let (tx, _rx) = ensure_channel();
             tx.try_lock()
                 .unwrap()
-                .send(GuiMessage::SendTo(bytes_vec.clone()))
+                .send(ClientServerMessage::HandleSendTo(bytes_vec.clone()))
 
             // TODO: Envision this API
             // Handle the received packet data
@@ -97,7 +97,7 @@ extern "system" fn Hook_Network_RecvFrom_Impl(
             let (tx, _rx) = ensure_channel();
             tx.try_lock()
                 .unwrap()
-                .send(GuiMessage::RecvFrom(bytes_vec.clone()))
+                .send(ClientServerMessage::HandleRecvFrom(bytes_vec.clone()))
         });
 
         if let Err(e) = result {
