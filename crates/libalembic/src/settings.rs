@@ -79,20 +79,36 @@ pub struct Account {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct General {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GeneralSettings {
     pub version: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Client {
+impl GeneralSettings {
+    fn default() -> GeneralSettings {
+        Self {
+            version: SETTINGS_VERSION,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ClientSettings {
     pub path: String,
+}
+
+impl ClientSettings {
+    fn default() -> ClientSettings {
+        Self {
+            path: "C:\\Turbine\\Asheron's Call\\acclient.exe".to_string(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AlembicSettings {
-    pub general: General,
-    pub client: Client,
+    pub general: GeneralSettings,
+    pub client: ClientSettings,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
 }
@@ -100,24 +116,10 @@ pub struct AlembicSettings {
 impl AlembicSettings {
     pub fn new() -> AlembicSettings {
         AlembicSettings {
-            general: General {
-                version: SETTINGS_VERSION,
-            },
-            client: Client {
-                path: "".to_string(),
-            },
+            general: GeneralSettings::default(),
+            client: ClientSettings::default(),
             selected_account: None,
-            accounts: vec![
-                Account {
-                    name: "AAAAA".to_string(),
-                },
-                Account {
-                    name: "BBBBB".to_string(),
-                },
-                Account {
-                    name: "CCCCC".to_string(),
-                },
-            ],
+            accounts: vec![],
         }
     }
 }
@@ -136,11 +138,22 @@ impl AlembicSettings {
         let file_contents = fs::read_to_string(settings_file_path)?;
         let new_settings: AlembicSettings = toml::from_str(&file_contents)?;
 
-        println!("Got settings from disk: {new_settings:?}");
+        // TODO: General
+        self.general = new_settings.general.clone();
+
+        // TODO: Client
+        self.client = new_settings.client.clone();
+
+        // TODO: Account
+        new_settings
+            .accounts
+            .iter()
+            .for_each(|a| self.accounts.push(a.clone()));
 
         Ok(())
     }
-    pub fn save(self) -> anyhow::Result<()> {
+
+    pub fn save(&self) -> anyhow::Result<()> {
         let dir = ensure_settings_dir()?;
         let settings_file_path = dir.join(SETTINGS_FILE_NAME);
         let serialized = toml::to_string_pretty(&self)?;
