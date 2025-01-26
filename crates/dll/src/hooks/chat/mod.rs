@@ -22,11 +22,11 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr(
     unsafe {
         match PStringBase::<i8>::new(text)
             .and_then(|p| p.to_string())
-            .and_then(|p| {
+            .and_then(|text| {
                 let (tx, _rx) = ensure_channel();
                 tx.try_lock()
                     .unwrap()
-                    .send(ClientServerMessage::HandleAddTextToScroll(p.to_string()));
+                    .send(ClientServerMessage::HandleAddTextToScroll(text));
 
                 Ok(())
             }) {
@@ -60,11 +60,11 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
     unsafe {
         match PStringBase::<*const i8>::new(text)
             .and_then(|p| p.to_string())
-            .and_then(|p| {
+            .and_then(|text| {
                 let (tx, _rx) = ensure_channel();
                 tx.try_lock()
                     .unwrap()
-                    .send(ClientServerMessage::HandleAddTextToScroll(p.to_string()));
+                    .send(ClientServerMessage::HandleAddTextToScroll(text));
 
                 Ok(())
             }) {
@@ -100,11 +100,13 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
     unsafe {
         match PStringBase::<*const u16>::new(text)
             .and_then(|p| p.to_string())
-            .and_then(|p| {
+            .and_then(|text| {
                 let (tx, _rx) = ensure_channel();
                 tx.try_lock()
                     .unwrap()
-                    .send(ClientServerMessage::HandleAddTextToScroll(p.to_string()));
+                    .send(ClientServerMessage::HandleAddTextToScroll(
+                        text.trim().to_string(),
+                    ));
 
                 Ok(())
             }) {
