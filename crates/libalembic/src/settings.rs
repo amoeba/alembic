@@ -25,7 +25,7 @@ static SETTINGS: Lazy<SettingsManager> =
 
 impl SettingsManager {
     pub fn new() -> anyhow::Result<Self> {
-        let mut final_settings = AlembicSettings::new();
+        let final_settings = AlembicSettings::new();
         let loaded_settings = ensure_settings()?;
 
         // TODO Merge

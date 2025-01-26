@@ -1,7 +1,4 @@
-use std::{
-    iter,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use crate::launch::try_launch;
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
