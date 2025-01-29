@@ -5,17 +5,38 @@ use std::{
 };
 
 use crate::{
-    backend::{Backend, ChatMessage, Client, LogEntry, PacketInfo},
-    widgets::tabs::TabContainer,
+    backend::{Backend, ChatMessage, LogEntry, PacketInfo},
+    widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
-use eframe::egui::{self, Align, Align2, Layout};
+
+use eframe::{
+    egui::{self, Align, Align2, Layout},
+    App,
+};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 // Main tabs
 
+#[derive(Clone)]
+pub enum AppPage {
+    Wizard,
+    Main,
+    About,
+    Settings,
+}
+
+#[derive(Clone)]
+pub enum WizardPage {
+    Start,
+    Client,
+    Done,
+}
 pub struct Application {
     tab_container: TabContainer,
+    wizard: Wizard,
+    about: About,
+    settings: Settings,
     show_about: bool,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
 }
@@ -39,88 +60,95 @@ impl Application {
         cc.egui_ctx
             .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), settings));
 
+        // Set up view state
+        cc.egui_ctx.memory_mut(|mem| {
+            mem.data
+                .insert_persisted(egui::Id::new("app_page"), AppPage::Wizard);
+            mem.data
+                .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Start);
+        });
+
         Self {
             tab_container: TabContainer::new(),
+            wizard: Wizard::new(),
+            about: About::new(),
+            settings: Settings::new(),
             show_about: false,
             client_server_rx: client_server_rx,
         }
     }
 
     fn ui(&mut self, ctx: &egui::Context) {
-        // Menu bar
-        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.add(egui::Button::new("Exit")).clicked() {
-                        ui.close_menu();
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
+        let mut current_app_page = AppPage::Wizard;
 
-                ui.menu_button("Help", |ui: &mut egui::Ui| {
-                    if ui.add(egui::Button::new("About")).clicked() {
-                        ui.close_menu();
-                        self.show_about = true;
-                    }
-                });
-            });
+        ctx.memory_mut(|mem| {
+            if let Some(val) = mem.data.get_persisted::<AppPage>(egui::Id::new("app_page")) {
+                current_app_page = val;
+            }
         });
 
-        // Status Bar
-        egui::TopBottomPanel::bottom("status")
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    if let Some(backend) = ui.data_mut(|data| {
-                        data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
-                    }) {
-                        let b = backend.lock().unwrap();
+        match current_app_page {
+            AppPage::Main => {
+                egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+                    egui::menu::bar(ui, |ui| {
+                        ui.menu_button("File", |ui| {
+                            if ui.add(egui::Button::new("Exit")).clicked() {
+                                ui.close_menu();
+                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                            }
+                        });
 
-                        if let Some(msg) = &b.status_message {
-                            ui.label(msg)
-                        } else {
-                            ui.label("Ready".to_string())
-                        }
-                    } else {
-                        ui.label("Failed to reach application backend.")
-                    }
-                });
-            });
-
-        // Central panel
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut self.tab_container);
-        });
-
-        if self.show_about {
-            egui::Window::new("About")
-                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-                .collapsible(false)
-                .resizable(false)
-                .title_bar(false)
-                .show(ctx, |ui| {
-                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                        ui.add(
-                            egui::Image::new(egui::include_image!("../assets/logo.png"))
-                                .max_width(128.0),
-                        );
-                        ui.heading("Alembic");
-                        ui.add_space(16.0);
-                        ui.label("Version 0.1.0");
-                        ui.add_space(16.0);
-                        ui.label("Copyright © 2025 Bryce Mecum");
-                        ui.add_space(16.0);
-                        use egui::special_emojis::GITHUB;
-                        ui.hyperlink_to(
-                            format!("{GITHUB} alembic on GitHub"),
-                            "https://github.com/amoeba/alembic",
-                        );
-                        ui.add_space(16.0);
-                        if ui.button("Okay").clicked() {
-                            self.show_about = false;
-                        }
+                        ui.menu_button("Help", |ui: &mut egui::Ui| {
+                            if ui.add(egui::Button::new("About")).clicked() {
+                                ui.close_menu();
+                                ui.memory_mut(|mem| {
+                                    mem.data
+                                        .insert_persisted(egui::Id::new("app_page"), AppPage::About)
+                                });
+                            }
+                        });
                     });
                 });
+
+                egui::TopBottomPanel::bottom("status")
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.horizontal(|ui| {
+                            if let Some(backend) = ui.data_mut(|data| {
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            }) {
+                                let b = backend.lock().unwrap();
+
+                                if let Some(msg) = &b.status_message {
+                                    ui.label(msg)
+                                } else {
+                                    ui.label("Ready".to_string())
+                                }
+                            } else {
+                                ui.label("Failed to reach application backend.")
+                            }
+                        });
+                    });
+
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.add(&mut self.tab_container);
+                });
+            }
+            AppPage::Settings => {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.add(&mut self.settings);
+                });
+            }
+            AppPage::Wizard => {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.add(&mut self.wizard);
+                });
+            }
+            AppPage::About => {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.add(&mut self.about);
+                });
+            }
         }
     }
 }

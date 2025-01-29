@@ -1,3 +1,4 @@
+pub mod about;
 pub mod components;
 pub mod developer_logs_tab;
 pub mod developer_main_tab_;
@@ -9,4 +10,6 @@ pub mod game_chat_tab;
 pub mod game_main_tab;
 pub mod game_tab;
 pub mod main_tab;
+pub mod settings;
 pub mod tabs;
+pub mod wizard;
