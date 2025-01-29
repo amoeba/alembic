@@ -1,6 +1,11 @@
-use eframe::egui::{self, Response, Ui, Widget};
+use std::sync::{Arc, Mutex};
+
+use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
+use libalembic::settings::AlembicSettings;
 
 use crate::application::{AppPage, WizardPage};
+
+use super::components::centered_text;
 
 pub struct Wizard {}
 
@@ -25,17 +30,35 @@ impl Widget for &mut Wizard {
 
         ui.vertical(|ui| match current_wizard_page {
             WizardPage::Start => {
-                ui.label("Welcome!");
-                if ui.button("Next").clicked() {
-                    ui.memory_mut(|mem| {
-                        mem.data
-                            .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Client)
-                    });
-                }
+                ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                    // TODO: Is this really as good as egui can do to center things?
+                    ui.add_space(ui.available_height() / 2.0);
+                    ui.heading("Welcome to Alembic!");
+                    if ui.button("Get started...").clicked() {
+                        ui.memory_mut(|mem| {
+                            mem.data
+                                .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Client)
+                        });
+                    }
+                });
             }
             WizardPage::Client => {
-                ui.label("Set up your client...");
-                if ui.button("Next").clicked() {
+                ui.heading("Game Client Setup");
+                ui.add_space(16.0);
+
+                ui.label("Game Client Path");
+                if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    let settings = s.lock().unwrap();
+                    // TODO: Fix this so it works
+                    // ui.text_edit_singleline(&mut settings.client_info.client_path);
+                } else {
+                    ui.label("Failed to get backend.");
+                }
+
+                ui.add_space(16.0);
+                if ui.button("Continue").clicked() {
                     ui.memory_mut(|mem| {
                         mem.data
                             .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
