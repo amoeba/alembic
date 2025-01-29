@@ -13,7 +13,10 @@ pub fn try_launch(
 }
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-pub fn try_launch() -> anyhow::Result<()> {
+pub fn try_launch(
+    client_info: &libalembic::settings::ClientInfo,
+    account_info: &libalembic::settings::Account,
+) -> anyhow::Result<()> {
     // TODO: Show some indication we can't launch on this platform
     Ok(())
 }
