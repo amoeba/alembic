@@ -41,6 +41,12 @@ impl Widget for &mut Wizard {
                                 .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Client)
                         });
                     }
+                    if ui.button("Exit Setup").clicked() {
+                        ui.memory_mut(|mem| {
+                            mem.data
+                                .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                        });
+                    }
                 });
             }
             WizardPage::Client => {
@@ -63,6 +69,12 @@ impl Widget for &mut Wizard {
                     ui.memory_mut(|mem| {
                         mem.data
                             .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
+                    });
+                }
+                if ui.button("Exit Setup").clicked() {
+                    ui.memory_mut(|mem| {
+                        mem.data
+                            .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
                     });
                 }
             }
