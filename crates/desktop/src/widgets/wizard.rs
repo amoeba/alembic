@@ -34,6 +34,7 @@ impl Widget for &mut Wizard {
                     // TODO: Is this really as good as egui can do to center things?
                     ui.add_space(ui.available_height() / 2.0);
                     ui.heading("Welcome to Alembic!");
+                    ui.add_space(16.0);
                     if ui.button("Get started...").clicked() {
                         ui.memory_mut(|mem| {
                             mem.data
