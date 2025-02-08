@@ -30,62 +30,100 @@ impl Widget for &mut Wizard {
 
         ui.vertical(|ui| match current_wizard_page {
             WizardPage::Start => {
-                ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                    // TODO: Is this really as good as egui can do to center things?
-                    ui.add_space(ui.available_height() / 2.0);
-                    ui.heading("Welcome to Alembic!");
+                egui::TopBottomPanel::bottom("wizard_controls")
+                    .resizable(false)
+                    .show_separator_line(false)
+                    .show_inside(ui, |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if ui.button("Exit Setup").clicked() {
+                                ui.memory_mut(|mem| {
+                                    mem.data
+                                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                                });
+                            }
+                        });
+                    });
+
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                        // TODO: Is this really as good as egui can do to center things?
+                        ui.add_space(ui.available_height() / 2.0);
+                        ui.heading("Welcome to Alembic!");
+                        ui.add_space(16.0);
+                        if ui.button("Get started...").clicked() {
+                            ui.memory_mut(|mem| {
+                                mem.data.insert_persisted(
+                                    egui::Id::new("wizard_page"),
+                                    WizardPage::Client,
+                                )
+                            });
+                        }
+                    });
+                });
+            }
+            WizardPage::Client => {
+                egui::TopBottomPanel::bottom("wizard_controls")
+                    .resizable(false)
+                    .show_separator_line(false)
+                    .show_inside(ui, |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if ui.button("Exit Setup").clicked() {
+                                ui.memory_mut(|mem| {
+                                    mem.data
+                                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                                });
+                            }
+                        });
+                    });
+
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    ui.heading("Game Client Setup");
                     ui.add_space(16.0);
-                    if ui.button("Get started...").clicked() {
+
+                    ui.label("Game Client Path");
+                    if let Some(s) = ui.data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    }) {
+                        let settings = s.lock().unwrap();
+                        // TODO: Fix this so it works
+                        // ui.text_edit_singleline(&mut settings.client_info.client_path);
+                    } else {
+                        ui.label("Failed to get backend.");
+                    }
+
+                    ui.add_space(16.0);
+                    if ui.button("Continue").clicked() {
                         ui.memory_mut(|mem| {
                             mem.data
-                                .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Client)
+                                .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
                         });
                     }
-                    if ui.button("Exit Setup").clicked() {
+                });
+            }
+            WizardPage::Done => {
+                egui::TopBottomPanel::bottom("wizard_controls")
+                    .resizable(false)
+                    .show_separator_line(false)
+                    .show_inside(ui, |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if ui.button("Exit Setup").clicked() {
+                                ui.memory_mut(|mem| {
+                                    mem.data
+                                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                                });
+                            }
+                        });
+                    });
+
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    ui.heading("Done");
+                    if ui.button("Done").clicked() {
                         ui.memory_mut(|mem| {
                             mem.data
                                 .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
                         });
                     }
                 });
-            }
-            WizardPage::Client => {
-                ui.heading("Game Client Setup");
-                ui.add_space(16.0);
-
-                ui.label("Game Client Path");
-                if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                }) {
-                    let settings = s.lock().unwrap();
-                    // TODO: Fix this so it works
-                    // ui.text_edit_singleline(&mut settings.client_info.client_path);
-                } else {
-                    ui.label("Failed to get backend.");
-                }
-
-                ui.add_space(16.0);
-                if ui.button("Continue").clicked() {
-                    ui.memory_mut(|mem| {
-                        mem.data
-                            .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
-                    });
-                }
-                if ui.button("Exit Setup").clicked() {
-                    ui.memory_mut(|mem| {
-                        mem.data
-                            .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
-                    });
-                }
-            }
-            WizardPage::Done => {
-                ui.label("Done");
-                if ui.button("Exit").clicked() {
-                    ui.memory_mut(|mem| {
-                        mem.data
-                            .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
-                    });
-                }
             }
         })
         .response
