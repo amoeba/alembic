@@ -116,10 +116,24 @@ impl ClientInfo {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DllInfo {
+    pub dll_path: String,
+}
+
+impl DllInfo {
+    fn default() -> DllInfo {
+        Self {
+            dll_path: "C:\\foo\\bar\\baz.dll".to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AlembicSettings {
     pub general: GeneralSettings,
     pub client: ClientInfo,
+    pub dll: DllInfo,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
 }
@@ -129,6 +143,7 @@ impl AlembicSettings {
         AlembicSettings {
             general: GeneralSettings::default(),
             client: ClientInfo::default(),
+            dll: DllInfo::default(),
             selected_account: None,
             accounts: vec![],
         }

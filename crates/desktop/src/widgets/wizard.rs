@@ -84,6 +84,7 @@ impl Widget for &mut Wizard {
                     ui.heading("Game Client Setup");
                     ui.add_space(16.0);
 
+                    // Client Path
                     ui.label("Game Client Path");
 
                     if let Some(s) = ui.data_mut(|data| {
@@ -94,6 +95,37 @@ impl Widget for &mut Wizard {
 
                         // Indicator
                         match fs::exists(settings.client.client_path.clone()) {
+                            Ok(result) => match result {
+                                true => {
+                                    ui.label(RichText::new("Path exists.").color(Color32::GREEN))
+                                }
+                                false => ui.label(
+                                    RichText::new(
+                                        "Path does not exist. Please enter a valid path.",
+                                    )
+                                    .color(Color32::YELLOW),
+                                ),
+                            },
+                            Err(_) => ui.label(
+                                RichText::new("Error determining whether path exists. Please report this as a bug.")
+                                    .color(Color32::RED),
+                            ),
+                        };
+                    } else {
+                        ui.label("Failed to get backend.");
+                    }
+
+                    // DLL Path
+                    ui.label("Alembic DLL Path");
+
+                    if let Some(s) = ui.data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    }) {
+                        let mut settings = s.lock().unwrap();
+                        ui.text_edit_singleline(&mut settings.dll.dll_path);
+
+                        // Indicator
+                        match fs::exists(settings.dll.dll_path.clone()) {
                             Ok(result) => match result {
                                 true => {
                                     ui.label(RichText::new("Path exists.").color(Color32::GREEN))
