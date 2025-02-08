@@ -35,7 +35,7 @@ impl Widget for &mut Wizard {
                     .resizable(false)
                     .show_separator_line(false)
                     .show_inside(ui, |ui| {
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
                                 ui.memory_mut(|mem| {
                                     mem.data
@@ -112,7 +112,7 @@ impl Widget for &mut Wizard {
                     });
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
-                    ui.heading("Game Client Setup");
+                    ui.heading("Setup");
                     ui.add_space(16.0);
 
                     // Client Path
@@ -146,9 +146,6 @@ impl Widget for &mut Wizard {
                         ui.label("Failed to get backend.");
                     }
 
-                    ui.add_space(32.0);
-
-                    ui.heading("Alembic DLL Setup");
                     ui.add_space(16.0);
 
                     // DLL Path
@@ -188,7 +185,7 @@ impl Widget for &mut Wizard {
                     .resizable(false)
                     .show_separator_line(false)
                     .show_inside(ui, |ui| {
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
                                 ui.memory_mut(|mem| {
                                     mem.data
@@ -199,6 +196,9 @@ impl Widget for &mut Wizard {
                     });
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
+                    ui.heading("Setup");
+                    ui.add_space(16.0);
+
                     ui.heading("Done");
                     if ui.button("Done").clicked() {
                         ui.memory_mut(|mem| {
