@@ -1,5 +1,7 @@
 use std::num::NonZero;
 
+use ringbuffer::{AllocRingBuffer, RingBuffer};
+
 #[allow(unused)]
 pub struct LogEntry {
     pub timestamp: u64,
@@ -29,10 +31,10 @@ pub struct Backend {
     pub status_message: Option<String>,
     pub client: Option<Client>,
     pub is_injected: bool,
-    pub logs: Vec<LogEntry>,
-    pub packets_incoming: Vec<PacketInfo>,
-    pub packets_outgoing: Vec<PacketInfo>,
-    pub chat_messages: Vec<ChatMessage>,
+    pub logs: AllocRingBuffer<LogEntry>,
+    pub packets_incoming: AllocRingBuffer<PacketInfo>,
+    pub packets_outgoing: AllocRingBuffer<PacketInfo>,
+    pub chat_messages: AllocRingBuffer<ChatMessage>,
 }
 
 impl Backend {
@@ -41,42 +43,10 @@ impl Backend {
             status_message: None,
             client: None,
             is_injected: false,
-            logs: vec![],
-            packets_incoming: vec![
-                PacketInfo {
-                    index: 0,
-                    timestamp: 1234,
-                    data: vec![1, 2, 3, 4],
-                },
-                PacketInfo {
-                    index: 0,
-                    timestamp: 1234,
-                    data: vec![1, 2, 3, 4],
-                },
-                PacketInfo {
-                    index: 0,
-                    timestamp: 1234,
-                    data: vec![1, 2, 3, 4],
-                },
-            ],
-            packets_outgoing: vec![
-                PacketInfo {
-                    index: 0,
-                    timestamp: 1234,
-                    data: vec![1, 2, 3, 4],
-                },
-                PacketInfo {
-                    index: 0,
-                    timestamp: 1234,
-                    data: vec![1, 2, 3, 4],
-                },
-                PacketInfo {
-                    index: 0,
-                    timestamp: 1234,
-                    data: vec![1, 2, 3, 4],
-                },
-            ],
-            chat_messages: vec![],
+            logs: AllocRingBuffer::<LogEntry>::new(1000),
+            packets_incoming: AllocRingBuffer::<PacketInfo>::new(100),
+            packets_outgoing: AllocRingBuffer::<PacketInfo>::new(100),
+            chat_messages: AllocRingBuffer::<ChatMessage>::new(100),
         }
     }
 }

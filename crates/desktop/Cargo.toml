@@ -27,5 +27,6 @@ futures = "0.3.31"
 libalembic = { path = "../libalembic" }
 log = { workspace = true }
 rand = "0.8.5"
+ringbuffer = "0.15.0"
 tarpc = { workspace = true }
 tokio = { workspace = true }

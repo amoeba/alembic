@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use super::components::centered_text;
 use crate::backend::Backend;
 use eframe::egui::{self, Response, ScrollArea, TextStyle, Ui, Widget};
+use ringbuffer::RingBuffer;
 
 pub struct DeveloperLogsTab {}
 
@@ -12,7 +13,7 @@ impl Widget for &mut DeveloperLogsTab {
             ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
         {
             ui.vertical(|ui| {
-                if backend.lock().unwrap().logs.len() <= 0 {
+                if backend.lock().unwrap().logs.is_empty() {
                     centered_text(ui, "No logs yet.");
                 } else {
                     let n_logs = backend.lock().unwrap().logs.len();

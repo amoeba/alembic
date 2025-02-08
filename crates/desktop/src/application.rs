@@ -14,6 +14,7 @@ use eframe::{
     App,
 };
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
+use ringbuffer::RingBuffer;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 // Main tabs

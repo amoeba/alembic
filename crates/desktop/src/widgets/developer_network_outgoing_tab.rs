@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Response, Ui, Widget};
+use ringbuffer::RingBuffer;
 
 use crate::backend::Backend;
 
@@ -26,7 +27,7 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
             ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
         {
             ui.vertical(|ui| {
-                if backend.lock().unwrap().packets_outgoing.len() <= 0 {
+                if backend.lock().unwrap().packets_outgoing.is_empty() {
                     centered_text(ui, "No outgoing packets yet.");
                 } else {
                     egui::SidePanel::left("left_panel")
