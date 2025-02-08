@@ -67,13 +67,47 @@ impl Widget for &mut Wizard {
                     .resizable(false)
                     .show_separator_line(false)
                     .show_inside(ui, |ui| {
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+
+                        ui.horizontal(|ui| {
+                            ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                             if ui.button("Exit Setup").clicked() {
+                                    // Save settings now
+                                    ui.data_mut(|data| {
+                                    if let Some(settings_ref) =
+                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
+                                            let settings = settings_ref.lock().unwrap();
+                                            settings.save().expect("Unhandled error: Failed to save settings.")
+                                        }
+                                });
+
+                                // Then progress the view
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
                                 });
                             }
+                            });
+
+                            ui.add_space(ui.available_width());
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                                if ui.button("Continue").clicked() {
+                                    // Save settings now
+                                    ui.data_mut(|data| {
+                                        if let Some(settings_ref) =
+                                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
+                                                let settings = settings_ref.lock().unwrap();
+                                                settings.save().expect("Unhandled error: Failed to save settings.")
+                                            }
+                                    });
+
+                                    // Then progress the view
+                                    ui.memory_mut(|mem| {
+                                        mem.data
+                                            .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
+                                    });
+                                }
+                            });
                         });
                     });
 
@@ -146,25 +180,6 @@ impl Widget for &mut Wizard {
                         };
                     } else {
                         ui.label("Failed to get backend.");
-                    }
-
-                    ui.add_space(16.0);
-                    if ui.button("Continue").clicked() {
-
-                        // Save settings now
-                        ui.data_mut(|data| {
-                            if let Some(settings_ref) =
-                                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                    let settings = settings_ref.lock().unwrap();
-                                    settings.save().expect("Unhandled error: Failed to save settings.")
-                                }
-                        });
-
-                        // Then progress the view
-                        ui.memory_mut(|mem| {
-                            mem.data
-                                .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
-                        });
                     }
                 });
             }
