@@ -172,6 +172,9 @@ impl AlembicSettings {
         // TODO: Client
         self.client = new_settings.client.clone();
 
+        // TODO: DLL
+        self.dll = new_settings.dll.clone();
+
         // TODO: Account
         new_settings
             .accounts

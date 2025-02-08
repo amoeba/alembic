@@ -1,15 +1,12 @@
 use std::{
-    fs::{self, File},
+    fs::{self},
     sync::{Arc, Mutex},
 };
 
 use eframe::egui::{self, Align, Color32, Layout, Response, RichText, Ui, Widget};
-use egui_file_dialog::FileDialog;
 use libalembic::settings::AlembicSettings;
 
 use crate::application::{AppPage, WizardPage};
-
-use super::components::centered_text;
 
 pub struct Wizard {}
 
