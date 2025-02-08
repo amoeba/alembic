@@ -40,76 +40,96 @@ impl Widget for &mut MainTab {
                 {
                     // TODO
                 }
-                if ui
-                    .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
-                    .clicked()
-                {
-                    println!("Launch clicked.");
 
-                    // Get client info
-                    let client_info = if let Some(s) = ui.data_mut(|data| {
-                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                    }) {
-                        let settings = s.lock().unwrap();
+                let can_launch = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    let settings = s.lock().unwrap();
 
-                        Some(settings.client.clone())
-                    } else {
-                        None
-                    };
-
-                    if client_info.is_none() {
-                        println!("Client info is none");
-                        return;
+                    match settings.selected_account {
+                        Some(_) => true,
+                        None => false,
                     }
+                } else {
+                    false
+                };
 
-                    // Get account info
-                    let account_info = if let Some(s) = ui.data_mut(|data| {
-                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                    }) {
-                        let settings = s.lock().unwrap();
+                ui.add_enabled_ui(can_launch, |ui| {
+                    if ui
+                        .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
+                        .clicked()
+                    {
+                        println!("Launch clicked.");
 
-                        match settings.selected_account {
-                            Some(index) => Some(settings.accounts[index].clone()),
-                            None => None,
+                        // Get client info
+                        let client_info = if let Some(s) = ui.data_mut(|data| {
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                                "settings",
+                            ))
+                        }) {
+                            let settings = s.lock().unwrap();
+
+                            Some(settings.client.clone())
+                        } else {
+                            None
+                        };
+
+                        if client_info.is_none() {
+                            println!("Client info is none");
+                            return;
                         }
-                    } else {
-                        None
-                    };
 
-                    if account_info.is_none() {
-                        println!("Account info is none");
-                        return;
-                    }
+                        // Get account info
+                        let account_info = if let Some(s) = ui.data_mut(|data| {
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                                "settings",
+                            ))
+                        }) {
+                            let settings = s.lock().unwrap();
 
-                    let final_client_info = client_info.unwrap();
-                    let final_account_info = account_info.unwrap();
-
-                    // Verify client exists
-                    // if final_client_info.client_path
-                    match fs::exists(&final_client_info.client_path) {
-                        Ok(does_exist) => {
-                            if does_exist {
-                                println!("client path does exist");
-                            } else {
-                                println!("client path does not exist");
-                                return;
+                            match settings.selected_account {
+                                Some(index) => Some(settings.accounts[index].clone()),
+                                None => None,
                             }
+                        } else {
+                            None
+                        };
+
+                        if account_info.is_none() {
+                            println!("Account info is none");
+                            return;
                         }
-                        Err(err) => todo!(),
+
+                        let final_client_info = client_info.unwrap();
+                        let final_account_info = account_info.unwrap();
+
+                        // Verify client exists
+                        // if final_client_info.client_path
+                        match fs::exists(&final_client_info.client_path) {
+                            Ok(does_exist) => {
+                                if does_exist {
+                                    println!("client path does exist");
+                                } else {
+                                    println!("client path does not exist");
+                                    return;
+                                }
+                            }
+                            Err(err) => todo!(),
+                        }
+
+                        println!(
+                            "Trying launch with client {:?} and account {:?}",
+                            final_client_info, final_account_info
+                        );
+
+                        match try_launch(&final_client_info, &final_account_info) {
+                            Ok(_) => println!("Launch succeeded."),
+                            Err(error) => println!("Launch failed with error: {error}"),
+                        }
+
+                        println!("Launch completed.");
                     }
-
-                    println!(
-                        "Trying launch with client {:?} and account {:?}",
-                        final_client_info, final_account_info
-                    );
-
-                    match try_launch(&final_client_info, &final_account_info) {
-                        Ok(_) => println!("Launch succeeded."),
-                        Err(error) => println!("Launch failed with error: {error}"),
-                    }
-
-                    println!("Launch completed.");
-                }
+                });
 
                 ui.add(&mut AccountPicker {});
             });
