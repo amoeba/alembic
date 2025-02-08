@@ -150,6 +150,17 @@ impl Widget for &mut Wizard {
 
                     ui.add_space(16.0);
                     if ui.button("Continue").clicked() {
+
+                        // Save settings now
+                        ui.data_mut(|data| {
+                            if let Some(settings_ref) =
+                                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
+                                    let settings = settings_ref.lock().unwrap();
+                                    settings.save().expect("Unhandled error: Failed to save settings.")
+                                }
+                        });
+
+                        // Then progress the view
                         ui.memory_mut(|mem| {
                             mem.data
                                 .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
