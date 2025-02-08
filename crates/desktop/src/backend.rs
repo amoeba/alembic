@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 #[allow(unused)]
 pub struct LogEntry {
     pub timestamp: u64,
@@ -20,7 +22,7 @@ pub struct PacketInfo {
 
 #[derive(Clone)]
 pub struct Client {
-    pub pid: usize,
+    pub pid: NonZero<u32>,
 }
 
 pub struct Backend {

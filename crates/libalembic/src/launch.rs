@@ -1,18 +1,18 @@
 #![cfg(all(target_os = "windows", target_env = "msvc"))]
 #![allow(dead_code)]
 
-use std::{error::Error, ffi::OsString, fs, os::windows::ffi::OsStrExt};
+use std::{error::Error, ffi::OsString, fs, num::NonZero, os::windows::ffi::OsStrExt};
 
 use crate::{
     inject::InjectionKit,
     settings::{Account, ClientInfo},
 };
 use anyhow::bail;
-use dll_syringe::process::OwnedProcess;
+use dll_syringe::process::{OwnedProcess, Process};
 use windows::{
     core::PWSTR,
     Win32::{
-        Foundation::{CloseHandle, GetLastError},
+        Foundation::{CloseHandle, GetLastError, PROC},
         System::Threading::{
             CreateProcessW, ResumeThread, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOW,
         },
@@ -96,24 +96,31 @@ impl<'a> Launcher {
         Ok(())
     }
 
-    pub fn find_or_launch(&mut self) -> Result<(), anyhow::Error> {
+    pub fn find_or_launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
+        println!("Attempting to find process first before attempting to launch.");
+
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
-            return Ok(());
+
+            match self.client.as_ref().unwrap().pid() {
+                Ok(val) => return Ok(val.clone()),
+                Err(err) => return Err(err),
+            }
         }
 
         println!("Couldn't find existing client to inject into. Launching instead.");
 
         match self.launch() {
             Ok(process_info) => {
-                self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap())
-            }
-            Err(error) => {
-                bail!("Error on launch: {error:?}");
-            }
-        }
+                self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap());
 
-        Ok(())
+                Ok(NonZero::new(process_info.dwProcessId).unwrap())
+            }
+            Err(error) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                error.to_string(),
+            )),
+        }
     }
 
     pub fn attach_injected(&self) -> Result<(), Box<dyn Error>> {

@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::launch::try_launch;
+use crate::{
+    backend::{Backend, Client},
+    launch::try_launch,
+};
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 use libalembic::settings::{Account, AlembicSettings, ClientInfo, ServerInfo};
 
@@ -14,32 +17,25 @@ pub struct MainTab {}
 impl Widget for &mut MainTab {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
-            if ui
-                .add_sized(Vec2::new(100.0, 300.0), Button::new("Debug: Save Settings"))
-                .clicked()
-            {
-                println!("clicked");
-                if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                }) {
-                    let settings = s.lock().unwrap();
-
-                    match settings.save() {
-                        Ok(_) => println!("saved"),
-                        Err(error) => eprintln!("Error saving: {error}."),
-                    }
-                } else {
-                    println!("Failed");
-                }
-            }
-
             ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
-                if ui
-                    .add_sized(Vec2::new(140.0, 35.0), Button::new("Inject"))
-                    .clicked()
-                {
-                    // TODO
-                }
+                let have_client = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                }) {
+                    let backend = s.lock().unwrap();
+
+                    backend.client.is_some()
+                } else {
+                    false
+                };
+                let is_injected = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                }) {
+                    let backend = s.lock().unwrap();
+
+                    backend.is_injected
+                } else {
+                    false
+                };
 
                 let can_launch = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
@@ -53,6 +49,19 @@ impl Widget for &mut MainTab {
                 } else {
                     false
                 };
+
+                ui.label(format!("have_client: {have_client}"));
+                ui.label(format!("is_injected: {is_injected}"));
+                ui.label(format!("can_launch: {can_launch}"));
+
+                ui.add_enabled_ui(have_client && !is_injected, |ui| {
+                    if ui
+                        .add_sized(Vec2::new(140.0, 35.0), Button::new("Inject"))
+                        .clicked()
+                    {
+                        // TODO
+                    }
+                });
 
                 ui.add_enabled_ui(can_launch, |ui| {
                     if ui
@@ -123,11 +132,24 @@ impl Widget for &mut MainTab {
                         );
 
                         match try_launch(&final_client_info, &final_account_info) {
-                            Ok(_) => println!("Launch succeeded."),
+                            Ok(val) => {
+                                println!("Launch succeeded. Launched pid is {val}!");
+
+                                if let Some(backend_ref) = ui.data_mut(|data| {
+                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                                        "backend",
+                                    ))
+                                }) {
+                                    let mut backend = backend_ref.lock().unwrap();
+
+                                    backend.client = Some(Client { pid: val });
+                                    backend.is_injected = true;
+                                }
+                            }
                             Err(error) => println!("Launch failed with error: {error}"),
                         }
 
-                        println!("Launch completed.");
+                        println!("Launch process is over.");
                     }
                 });
 
