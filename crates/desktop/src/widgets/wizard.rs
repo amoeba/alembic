@@ -1,6 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    fs::{self, File},
+    sync::{Arc, Mutex},
+};
 
-use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
+use eframe::egui::{self, Align, Color32, Layout, Response, RichText, Ui, Widget};
+use egui_file_dialog::FileDialog;
 use libalembic::settings::AlembicSettings;
 
 use crate::application::{AppPage, WizardPage};
@@ -81,12 +85,31 @@ impl Widget for &mut Wizard {
                     ui.add_space(16.0);
 
                     ui.label("Game Client Path");
+
                     if let Some(s) = ui.data_mut(|data| {
                         data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
                     }) {
-                        let settings = s.lock().unwrap();
-                        // TODO: Fix this so it works
-                        // ui.text_edit_singleline(&mut settings.client_info.client_path);
+                        let mut settings = s.lock().unwrap();
+                        ui.text_edit_singleline(&mut settings.client.client_path);
+
+                        // Indicator
+                        match fs::exists(settings.client.client_path.clone()) {
+                            Ok(result) => match result {
+                                true => {
+                                    ui.label(RichText::new("Path exists.").color(Color32::GREEN))
+                                }
+                                false => ui.label(
+                                    RichText::new(
+                                        "Path does not exist. Please enter a valid path.",
+                                    )
+                                    .color(Color32::YELLOW),
+                                ),
+                            },
+                            Err(_) => ui.label(
+                                RichText::new("Error determining whether path exists. Please report this as a bug.")
+                                    .color(Color32::RED),
+                            ),
+                        };
                     } else {
                         ui.label("Failed to get backend.");
                     }
