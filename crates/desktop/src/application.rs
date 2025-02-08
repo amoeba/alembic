@@ -52,13 +52,15 @@ impl Application {
             .data_mut(|data| data.insert_persisted(egui::Id::new("backend"), backend));
 
         // Inject a new, shared Settings object into the egui_ctx (Context)
-        let settings: Arc<Mutex<AlembicSettings>> = Arc::new(Mutex::new(AlembicSettings::new()));
-        match settings.lock().unwrap().load() {
+        let alembic_settings: Arc<Mutex<AlembicSettings>> =
+            Arc::new(Mutex::new(AlembicSettings::new()));
+        match alembic_settings.lock().unwrap().load() {
             Ok(_) => {}
             Err(error) => eprintln!("Error loading settings: {error}"),
         }
+
         cc.egui_ctx
-            .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), settings));
+            .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), alembic_settings));
 
         // Set up view state
         cc.egui_ctx.memory_mut(|mem| {
