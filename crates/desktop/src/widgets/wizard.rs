@@ -112,6 +112,11 @@ impl Widget for &mut Wizard {
                         ui.label("Failed to get backend.");
                     }
 
+                    ui.add_space(32.0);
+
+                    ui.heading("Alembic DLL Setup");
+                    ui.add_space(16.0);
+
                     // DLL Path
                     ui.label("Alembic DLL Path");
 
