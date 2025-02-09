@@ -52,6 +52,9 @@ impl Widget for &mut AccountsTab {
                     let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
                     let mut settings_mut = settings.lock().unwrap();
 
+                    // Dirty checking
+                    let mut did_update = false;
+
                     TableBuilder::new(ui)
                         .striped(true) // Enable striped rows for readability
                         .resizable(true) // Allow column resizing
@@ -79,21 +82,28 @@ impl Widget for &mut AccountsTab {
                                 body.row(text_height, |mut table_row| {
                                     // Editable Address field
                                     table_row.col(|ui| {
-                                        ui.text_edit_singleline(&mut account.server_info.hostname);
+                                        did_update |= ui
+                                            .text_edit_singleline(&mut account.server_info.hostname)
+                                            .changed();
                                     });
 
                                     // Editable Port field
                                     // todo
                                     table_row.col(|ui| {
-                                        ui.text_edit_singleline(&mut account.server_info.hostname);
+                                        did_update |= ui
+                                            .text_edit_singleline(&mut account.server_info.hostname)
+                                            .changed();
                                     });
 
                                     // Editable Username field
                                     table_row.col(|ui| {
-                                        ui.text_edit_singleline(&mut account.username);
+                                        did_update |= ui
+                                            .text_edit_singleline(&mut account.username)
+                                            .changed();
                                     });
 
                                     // TODO
+                                    // TODO: Handle save on dirty
                                     // Editable Password field (masked by default)
                                     table_row.col(|ui| {
                                         let mut password_edit =
@@ -113,6 +123,13 @@ impl Widget for &mut AccountsTab {
                                 });
                             }
                         });
+
+                    // WIP: Handle save
+                    if did_update {
+                        println!("Should save...");
+                        // This is deadlocking me, figure it out.
+                        // let _ = settings.lock().unwrap().save();
+                    }
                 })
                 .response
             } else {
