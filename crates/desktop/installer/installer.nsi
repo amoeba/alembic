@@ -97,6 +97,8 @@ Section -MainProgram
 
     File /r "..\..\..\target\i686-pc-windows-msvc\release\alembic.exe"
     File /r "..\..\..\target\i686-pc-windows-msvc\release\alembic.dll"
+    File /r "..\..\..\target\i686-pc-windows-msvc\release\logo.png"
+    Rename "$INSTDIR\desktop.exe" "$INSTDIR\Alembic.exe"
 SectionEnd
 
 Section -Icons_Reg

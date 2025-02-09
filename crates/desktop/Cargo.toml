@@ -10,7 +10,7 @@ repository.workspace = true
 readme.workspace = true
 
 [[bin]]
-name = "alembic"
+name = "desktop"
 path = "src/main.rs"
 
 [[bin]]
