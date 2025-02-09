@@ -95,8 +95,8 @@ Section -MainProgram
 	SetOverwrite ifnewer
 	SetOutPath "$INSTDIR"
 
-	# TODO: Install DLL too
 	File /r "..\..\..\target\release\alembic.exe"
+    File /r "..\..\..\target\i686-pc-windows-msvc\release\alembic.dll"
 SectionEnd
 
 Section -Icons_Reg
