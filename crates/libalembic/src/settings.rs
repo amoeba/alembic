@@ -91,12 +91,14 @@ pub struct Account {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeneralSettings {
     pub version: u32,
+    pub is_configured: bool,
 }
 
 impl GeneralSettings {
     fn default() -> GeneralSettings {
         Self {
             version: SETTINGS_VERSION,
+            is_configured: false,
         }
     }
 }
@@ -188,6 +190,8 @@ impl AlembicSettings {
         let dir = ensure_settings_dir()?;
         let settings_file_path = dir.join(SETTINGS_FILE_NAME);
         let serialized = toml::to_string_pretty(&self)?;
+
+        println!("Saving settings to {settings_file_path:?}");
 
         Ok(fs::write(&settings_file_path, serialized)?)
     }

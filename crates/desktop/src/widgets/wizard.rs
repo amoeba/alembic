@@ -37,6 +37,17 @@ impl Widget for &mut Wizard {
                     .show_inside(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
+                                // Update and save settings now
+                                ui.data_mut(|data| {
+                                    if let Some(settings_ref) =
+                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
+                                            let mut settings = settings_ref.lock().unwrap();
+                                            settings.general.is_configured = true;
+                                            settings.save().expect("Unhandled error: Failed to save settings.")
+                                        }
+                                });
+
+                                // Then progress the view
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
@@ -71,11 +82,12 @@ impl Widget for &mut Wizard {
                         ui.horizontal(|ui| {
                             ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                             if ui.button("Exit Setup").clicked() {
-                                    // Save settings now
-                                    ui.data_mut(|data| {
+                                // Update and save settings now
+                                ui.data_mut(|data| {
                                     if let Some(settings_ref) =
                                         data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                            let settings = settings_ref.lock().unwrap();
+                                            let mut settings = settings_ref.lock().unwrap();
+                                            settings.general.is_configured = true;
                                             settings.save().expect("Unhandled error: Failed to save settings.")
                                         }
                                 });
@@ -187,6 +199,17 @@ impl Widget for &mut Wizard {
                     .show_inside(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
+                                // Update and save settings now
+                                ui.data_mut(|data| {
+                                    if let Some(settings_ref) =
+                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
+                                            let mut settings = settings_ref.lock().unwrap();
+                                            settings.general.is_configured = true;
+                                            settings.save().expect("Unhandled error: Failed to save settings.")
+                                        }
+                                });
+
+                                // Then progress the view
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
@@ -199,8 +222,19 @@ impl Widget for &mut Wizard {
                     ui.heading("Setup");
                     ui.add_space(16.0);
 
-                    ui.heading("Done");
-                    if ui.button("Done").clicked() {
+                    ui.heading("Finish Setup");
+                    if ui.button("Finish").clicked() {
+                        // Update and save settings now
+                        ui.data_mut(|data| {
+                            if let Some(settings_ref) =
+                                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
+                                    let mut settings = settings_ref.lock().unwrap();
+                                    settings.general.is_configured = true;
+                                    settings.save().expect("Unhandled error: Failed to save settings.")
+                                }
+                        });
+
+                        // Then progress the view
                         ui.memory_mut(|mem| {
                             mem.data
                                 .insert_persisted(egui::Id::new("app_page"), AppPage::Main)

@@ -64,12 +64,36 @@ impl Application {
             .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), alembic_settings));
 
         // Set up view state
-        cc.egui_ctx.memory_mut(|mem| {
-            mem.data
-                .insert_persisted(egui::Id::new("app_page"), AppPage::Wizard);
-            mem.data
-                .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Start);
+        //
+        // Determine if we should show the Wizard page or just jump straight into
+        // TODO: Do I really have to pull from the data context? Anything else
+        // ends up giving me borrow-checker errors
+        let is_configured = cc.egui_ctx.data_mut(|data| {
+            if let Some(val) =
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            {
+                val.lock().unwrap().general.is_configured
+            } else {
+                false
+            }
         });
+
+        match is_configured {
+            true => {
+                cc.egui_ctx.memory_mut(|mem| {
+                    mem.data
+                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main);
+                });
+            }
+            false => {
+                cc.egui_ctx.memory_mut(|mem| {
+                    mem.data
+                        .insert_persisted(egui::Id::new("app_page"), AppPage::Wizard);
+                    mem.data
+                        .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Start);
+                });
+            }
+        }
 
         Self {
             tab_container: TabContainer::new(),
