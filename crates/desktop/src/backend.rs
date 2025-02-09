@@ -49,7 +49,7 @@ impl Backend {
             status_message: None,
             client: None,
             is_injected: false,
-            logs: AllocRingBuffer::<LogEntry>::new(1000),
+            logs: AllocRingBuffer::<LogEntry>::new(100),
             packets_incoming: AllocRingBuffer::<PacketInfo>::new(100),
             packets_outgoing: AllocRingBuffer::<PacketInfo>::new(100),
             chat_messages: AllocRingBuffer::<ChatMessage>::new(100),
