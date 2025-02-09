@@ -21,7 +21,7 @@ path = "src/simulator.rs"
 anyhow = { workspace = true }
 ctrlc = "3.4.5"
 eframe = "0.30.0"
-egui_extras = { version = "0.30.0", features = ["image"] }
+egui_extras = { version = "0.30.0", features = ["default"] }
 env_logger = { workspace = true }
 futures = "0.3.31"
 image = "0.25.5"
