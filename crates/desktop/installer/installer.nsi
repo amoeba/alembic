@@ -80,7 +80,7 @@ Function UninstallMSI
 FunctionEnd
 
 Section -MainProgram
-	${INSTALL_TYPE}
+    ${INSTALL_TYPE}
 
     # Search for an old version installed via the previous WiX installer and remove it found
     !define upgradecode {A1365246-AB09-43F9-ACB5-07EE4DAE9EC3} ;Alembic WiX installer UpgradeCode
@@ -92,10 +92,10 @@ Section -MainProgram
         pop $R0
     ${EndIf}
 
-	SetOverwrite ifnewer
-	SetOutPath "$INSTDIR"
+    SetOverwrite ifnewer
+    SetOutPath "$INSTDIR"
 
-	File /r "..\..\..\target\release\alembic.exe"
+    File /r "..\..\..\target\i686-pc-windows-msvc\release\alembic.exe"
     File /r "..\..\..\target\i686-pc-windows-msvc\release\alembic.dll"
 SectionEnd
 
