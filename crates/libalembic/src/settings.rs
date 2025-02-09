@@ -126,7 +126,7 @@ pub struct DllInfo {
 impl DllInfo {
     fn default() -> DllInfo {
         Self {
-            dll_path: "C:\\foo\\bar\\baz.dll".to_string(),
+            dll_path: "Alembic.dll".to_string(),
         }
     }
 }
