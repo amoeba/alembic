@@ -23,20 +23,14 @@ impl Widget for &mut DeveloperLogsTab {
                     egui::Frame::dark_canvas(ui.style())
                         .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke)
                         .show(ui, |ui| {
-                            ScrollArea::vertical().auto_shrink(false).show_rows(
-                                ui,
-                                total_rows,
-                                n_logs,
-                                |ui, row_range| {
+                            ScrollArea::vertical()
+                                .auto_shrink(false)
+                                .stick_to_bottom(true)
+                                .show_rows(ui, total_rows, n_logs, |ui, row_range| {
                                     for row in row_range {
-                                        let text = format!(
-                                            "{}",
-                                            backend.lock().unwrap().logs[row].message
-                                        );
-                                        ui.label(text);
+                                        ui.label(format!("{}", backend.lock().unwrap().logs[row]));
                                     }
-                                },
-                            );
+                                });
                         });
                 }
             })

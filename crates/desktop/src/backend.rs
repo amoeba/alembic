@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use std::{fmt::Display, num::NonZero};
 
 use ringbuffer::{AllocRingBuffer, RingBuffer};
 
@@ -6,6 +6,12 @@ use ringbuffer::{AllocRingBuffer, RingBuffer};
 pub struct LogEntry {
     pub timestamp: u64,
     pub message: String,
+}
+
+impl Display for LogEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.timestamp, self.message)
+    }
 }
 
 #[allow(unused)]
