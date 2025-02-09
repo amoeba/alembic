@@ -14,8 +14,9 @@ use std::{
 };
 
 use application::Application;
-use eframe::egui;
+use eframe::egui::{self, IconData};
 use futures::{future, StreamExt};
+use image::GenericImageView;
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
     rpc::{spawn, HelloServer, World},
@@ -66,8 +67,32 @@ fn main() -> eframe::Result {
             .await;
     });
 
+    // App Icon
+    let path = if cfg!(debug_assertions) {
+        r"crates\\desktop\\assets\logo.png".to_string()
+    } else {
+        "logo.png".to_string()
+    };
+
+    let image = image::open(path).expect("Failed to load app icon. Please report this as a bug.");
+    let (icon_rgba, icon_width, icon_height) = {
+        let buf = image.into_rgba8();
+        let (width, height) = buf.dimensions();
+
+        (buf.into_raw(), width, height)
+    };
+    let icon_data = IconData {
+        rgba: icon_rgba,
+        width: icon_width,
+        height: icon_height,
+    };
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
+        viewport: egui::ViewportBuilder {
+            icon: Some(Arc::new(icon_data)),
+            ..Default::default()
+        }
+        .with_inner_size([640.0, 480.0]),
         ..Default::default()
     };
 
