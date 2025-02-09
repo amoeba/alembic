@@ -1,6 +1,7 @@
 use eframe::egui::{Response, Ui, Widget};
 
 use super::{
+    accounts_tab::AccountsTab,
     developer_logs_tab::DeveloperLogsTab,
     developer_main_tab_::DeveloperMainTab,
     developer_network_incoming_tab::DeveloperNetworkIncomingTab,
@@ -15,6 +16,7 @@ use super::{
 
 pub enum TabContent {
     Main(MainTab),
+    Accounts(AccountsTab),
     Game(GameTab),
     Developer(DeveloperTab),
 }
@@ -29,6 +31,7 @@ impl TabContainer {
         Self {
             tabs: vec![
                 TabContent::Main(MainTab {}),
+                TabContent::Accounts(AccountsTab {}),
                 TabContent::Game(GameTab {
                     selected_tab: 0,
                     tabs: vec![
@@ -68,6 +71,7 @@ impl Widget for &mut TabContainer {
                 for (index, tab) in self.tabs.iter().enumerate() {
                     let label = match tab {
                         TabContent::Main(_) => "Main",
+                        TabContent::Accounts(_) => "Accounts",
                         TabContent::Game(_) => "Game",
                         TabContent::Developer(_) => "Developer",
                     };
@@ -87,6 +91,9 @@ impl Widget for &mut TabContainer {
             if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
                 match tab {
                     TabContent::Main(tab) => {
+                        ui.add(tab);
+                    }
+                    TabContent::Accounts(tab) => {
                         ui.add(tab);
                     }
                     TabContent::Game(tab) => {

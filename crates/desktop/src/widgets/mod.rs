@@ -1,4 +1,5 @@
 pub mod about;
+pub mod accounts_tab;
 pub mod components;
 pub mod developer_logs_tab;
 pub mod developer_main_tab_;
