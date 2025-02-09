@@ -86,10 +86,10 @@ impl Backend {
             status_message: None,
             client: None,
             is_injected: false,
-            logs: AllocRingBuffer::<LogEntry>::new(100),
-            packets_incoming: AllocRingBuffer::<PacketInfo>::new(10),
-            packets_outgoing: AllocRingBuffer::<PacketInfo>::new(10),
-            chat_messages: AllocRingBuffer::<ChatMessage>::new(10),
+            logs: AllocRingBuffer::<LogEntry>::new(10000),
+            packets_incoming: AllocRingBuffer::<PacketInfo>::new(10000),
+            packets_outgoing: AllocRingBuffer::<PacketInfo>::new(10000),
+            chat_messages: AllocRingBuffer::<ChatMessage>::new(10000),
             statistics: Statistics::default(),
         }
     }
