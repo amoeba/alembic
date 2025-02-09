@@ -42,7 +42,7 @@ impl Widget for &mut Wizard {
                                     if let Some(settings_ref) =
                                         data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
                                             let mut settings = settings_ref.lock().unwrap();
-                                            settings.general.is_configured = true;
+                                            settings.is_configured = true;
                                             settings.save().expect("Unhandled error: Failed to save settings.")
                                         }
                                 });
@@ -87,7 +87,7 @@ impl Widget for &mut Wizard {
                                     if let Some(settings_ref) =
                                         data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
                                             let mut settings = settings_ref.lock().unwrap();
-                                            settings.general.is_configured = true;
+                                            settings.is_configured = true;
                                             settings.save().expect("Unhandled error: Failed to save settings.")
                                         }
                                 });
@@ -204,7 +204,7 @@ impl Widget for &mut Wizard {
                                     if let Some(settings_ref) =
                                         data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
                                             let mut settings = settings_ref.lock().unwrap();
-                                            settings.general.is_configured = true;
+                                            settings.is_configured = true;
                                             settings.save().expect("Unhandled error: Failed to save settings.")
                                         }
                                 });
@@ -229,7 +229,7 @@ impl Widget for &mut Wizard {
                             if let Some(settings_ref) =
                                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
                                     let mut settings = settings_ref.lock().unwrap();
-                                    settings.general.is_configured = true;
+                                    settings.is_configured = true;
                                     settings.save().expect("Unhandled error: Failed to save settings.")
                                 }
                         });

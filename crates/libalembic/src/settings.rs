@@ -5,14 +5,13 @@ use std::{
 };
 
 use anyhow::bail;
-use config::{Config, File};
 use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
-const SETTINGS_FILE_NAME: &str = "config.toml";
+const SETTINGS_FILE_NAME: &str = "config.json";
 const ENV_PREFIX: &str = "ALEMBIC";
 
 #[allow(dead_code)]
@@ -28,7 +27,7 @@ impl SettingsManager {
         let final_settings = AlembicSettings::new();
         let loaded_settings = ensure_settings()?;
 
-        // TODO Merge
+        // TODO Merge loaded_settings into final settings object
 
         Ok(Self {
             settings: Arc::new(RwLock::new(final_settings)),
@@ -43,7 +42,7 @@ impl SettingsManager {
         let settings_path = ensure_settings_file()?;
 
         let settings = SETTINGS.settings.read().unwrap();
-        let serialized = toml::to_string_pretty(&*settings)?;
+        let serialized = serde_json::to_string_pretty(&*settings)?;
         fs::write(settings_path, serialized)?;
 
         Ok(())
@@ -67,9 +66,80 @@ impl SettingsManager {
         Self::save()
     }
 
-    pub fn to_string() -> Result<String, toml::ser::Error> {
+    pub fn to_string() -> Result<std::string::String, serde_json::Error> {
         let settings = SETTINGS.settings.read().unwrap();
-        toml::to_string_pretty(&*settings)
+        serde_json::to_string_pretty(&*settings)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AlembicSettings {
+    pub version: u32,
+    pub is_configured: bool,
+    pub client: ClientInfo,
+    pub dll: DllInfo,
+    pub selected_account: Option<usize>,
+    pub accounts: Vec<Account>,
+}
+
+impl AlembicSettings {
+    pub fn new() -> AlembicSettings {
+        AlembicSettings {
+            version: SETTINGS_VERSION,
+            is_configured: false,
+            client: ClientInfo::default(),
+            dll: DllInfo::default(),
+            selected_account: None,
+            accounts: vec![],
+        }
+    }
+}
+
+impl AlembicSettings {
+    pub fn load(&mut self) -> anyhow::Result<()> {
+        let dir = ensure_settings_dir()?;
+        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
+
+        println!("Loading settings from {settings_file_path:?}");
+
+        // Just stop now if the file doesn't exist
+        if !settings_file_path.exists() {
+            println!("Settings file doesn't exist, not loading.");
+
+            return Ok(());
+        }
+
+        // Otherwise read in and merge
+        let file_contents = fs::read_to_string(settings_file_path)?;
+        let new_settings: AlembicSettings = serde_json::from_str(&file_contents)?;
+
+        // TODO: Top level
+        self.version = new_settings.version.clone();
+        self.is_configured = new_settings.is_configured.clone();
+
+        // TODO: Client
+        self.client = new_settings.client.clone();
+
+        // TODO: DLL
+        self.dll = new_settings.dll.clone();
+
+        // TODO: Account
+        new_settings
+            .accounts
+            .iter()
+            .for_each(|a| self.accounts.push(a.clone()));
+
+        Ok(())
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        let dir = ensure_settings_dir()?;
+        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
+        let serialized = serde_json::to_string_pretty(&self)?;
+
+        println!("Saving settings to {settings_file_path:?}");
+
+        Ok(fs::write(&settings_file_path, serialized)?)
     }
 }
 
@@ -86,21 +156,6 @@ pub struct Account {
     pub username: String,
     pub password: String,
     pub server_info: ServerInfo,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct GeneralSettings {
-    pub version: u32,
-    pub is_configured: bool,
-}
-
-impl GeneralSettings {
-    fn default() -> GeneralSettings {
-        Self {
-            version: SETTINGS_VERSION,
-            is_configured: false,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -131,71 +186,6 @@ impl DllInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AlembicSettings {
-    pub general: GeneralSettings,
-    pub client: ClientInfo,
-    pub dll: DllInfo,
-    pub selected_account: Option<usize>,
-    pub accounts: Vec<Account>,
-}
-
-impl AlembicSettings {
-    pub fn new() -> AlembicSettings {
-        AlembicSettings {
-            general: GeneralSettings::default(),
-            client: ClientInfo::default(),
-            dll: DllInfo::default(),
-            selected_account: None,
-            accounts: vec![],
-        }
-    }
-}
-
-impl AlembicSettings {
-    pub fn load(&mut self) -> anyhow::Result<()> {
-        let dir = ensure_settings_dir()?;
-        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
-
-        println!("Loading settings from {settings_file_path:?}");
-
-        // Just stop now if the file doesn't exist
-        if !settings_file_path.exists() {
-            return Ok(());
-        }
-
-        // Otherwise read in and merge
-        let file_contents = fs::read_to_string(settings_file_path)?;
-        let new_settings: AlembicSettings = toml::from_str(&file_contents)?;
-
-        // TODO: General
-        self.general = new_settings.general.clone();
-
-        // TODO: Client
-        self.client = new_settings.client.clone();
-
-        // TODO: DLL
-        self.dll = new_settings.dll.clone();
-
-        // TODO: Account
-        new_settings
-            .accounts
-            .iter()
-            .for_each(|a| self.accounts.push(a.clone()));
-
-        Ok(())
-    }
-
-    pub fn save(&self) -> anyhow::Result<()> {
-        let dir = ensure_settings_dir()?;
-        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
-        let serialized = toml::to_string_pretty(&self)?;
-
-        println!("Saving settings to {settings_file_path:?}");
-
-        Ok(fs::write(&settings_file_path, serialized)?)
-    }
-}
 // TODO
 pub fn merge_settings(target: &mut AlembicSettings, source: &AlembicSettings) {
     println!("Source: {source:?}");
@@ -208,12 +198,12 @@ fn migrate_settings(mut settings: AlembicSettings) -> AlembicSettings {
     settings = settings; // Just disables warning about mut qualifier
 
     // Doesn't do anything right now
-    match settings.general.version {
+    match settings.version {
         1 => {
             println!("No-op");
         }
         _ => {
-            let bad_version = settings.general.version;
+            let bad_version = settings.version;
             panic!("Unsupported settings file version: {bad_version}.")
         }
     }
@@ -247,7 +237,7 @@ fn ensure_settings_file() -> anyhow::Result<PathBuf> {
         return Ok(settings_file_path);
     }
 
-    let serialized = toml::to_string_pretty(&AlembicSettings::new())?;
+    let serialized = serde_json::to_string_pretty(&AlembicSettings::new())?;
     fs::write(&settings_file_path, serialized)?;
 
     Ok(settings_file_path)
@@ -255,11 +245,8 @@ fn ensure_settings_file() -> anyhow::Result<PathBuf> {
 
 fn ensure_settings() -> anyhow::Result<AlembicSettings> {
     let path = ensure_settings_file()?;
+    let contents = fs::read_to_string(path)?;
+    let settings = serde_json::from_str(&contents)?;
 
-    let builder = Config::builder()
-        .add_source(File::with_name(path.to_str().unwrap()).required(false))
-        .add_source(config::Environment::with_prefix(ENV_PREFIX))
-        .build()?;
-
-    Ok(builder.try_deserialize::<AlembicSettings>()?)
+    Ok(settings)
 }

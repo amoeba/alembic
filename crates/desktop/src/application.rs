@@ -72,7 +72,7 @@ impl Application {
             if let Some(val) =
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             {
-                val.lock().unwrap().general.is_configured
+                val.lock().unwrap().is_configured
             } else {
                 false
             }
