@@ -8,7 +8,7 @@ use crate::{
     launch::try_launch,
 };
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
-use libalembic::settings::{Account, AlembicSettings, ClientInfo, ServerInfo};
+use libalembic::settings::AlembicSettings;
 
 use super::components::AccountPicker;
 

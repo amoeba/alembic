@@ -1,6 +1,6 @@
 use std::{fmt::Display, num::NonZero};
 
-use ringbuffer::{AllocRingBuffer, RingBuffer};
+use ringbuffer::AllocRingBuffer;
 
 #[allow(unused)]
 pub struct LogEntry {
