@@ -186,8 +186,12 @@ impl eframe::App for Application {
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                             {
                                 if let Ok(mut backend) = backend.lock() {
+                                    // Increment statistics
+                                    backend.statistics.network.outgoing_count += 1;
+
+                                    // Append new packet
                                     let packet = PacketInfo {
-                                        index: backend.packets_outgoing.len(),
+                                        index: backend.statistics.network.outgoing_count,
                                         timestamp: SystemTime::now()
                                             .duration_since(UNIX_EPOCH)
                                             .unwrap()
@@ -205,8 +209,12 @@ impl eframe::App for Application {
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                             {
                                 if let Ok(mut backend) = backend.lock() {
+                                    // Increment statistics
+                                    backend.statistics.network.incoming_count += 1;
+
+                                    // Append new packet
                                     let packet = PacketInfo {
-                                        index: backend.packets_incoming.len(),
+                                        index: backend.statistics.network.incoming_count,
                                         timestamp: SystemTime::now()
                                             .duration_since(UNIX_EPOCH)
                                             .unwrap()

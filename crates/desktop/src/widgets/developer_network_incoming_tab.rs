@@ -37,7 +37,7 @@ impl Widget for &mut DeveloperNetworkIncomingTab {
                                 for (index, item) in
                                     backend.lock().unwrap().packets_incoming.iter().enumerate()
                                 {
-                                    if ui.button(item.timestamp.to_string()).clicked() {
+                                    if ui.button(item.index.to_string()).clicked() {
                                         self.selected_item = Some(index);
                                     }
                                 }

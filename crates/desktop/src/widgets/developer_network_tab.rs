@@ -1,4 +1,8 @@
-use eframe::egui::{Response, Ui, Widget};
+use std::sync::{Arc, Mutex};
+
+use eframe::egui::{self, Align, Response, Ui, Widget};
+
+use crate::backend::Backend;
 
 use super::{
     developer_network_incoming_tab::DeveloperNetworkIncomingTab,
@@ -18,6 +22,46 @@ pub struct DeveloperNetworkTab {
 impl Widget for &mut DeveloperNetworkTab {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
+            // Statistics
+            if let Some(backend) = ui.data_mut(|data| {
+                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+            }) {
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::top_down(Align::TOP), |ui| {
+                        ui.label("Incoming Packets");
+                        ui.label(
+                            egui::RichText::new(
+                                backend
+                                    .lock()
+                                    .unwrap()
+                                    .statistics
+                                    .network
+                                    .incoming_count
+                                    .to_string(),
+                            )
+                            .size(32.0),
+                        );
+                    });
+                    ui.with_layout(egui::Layout::top_down(Align::TOP), |ui| {
+                        ui.label("Outgoing Packets");
+                        ui.label(
+                            egui::RichText::new(
+                                backend
+                                    .lock()
+                                    .unwrap()
+                                    .statistics
+                                    .network
+                                    .outgoing_count
+                                    .to_string(),
+                            )
+                            .size(32.0),
+                        );
+                    });
+                });
+            } else {
+                ui.label("Failed to reach application backend.");
+            }
+
             // Tabs
             ui.horizontal(|ui| {
                 for (index, tab) in self.tabs.iter().enumerate() {
@@ -34,8 +78,6 @@ impl Widget for &mut DeveloperNetworkTab {
                     }
                 }
             });
-
-            ui.separator();
 
             // Tab contents
             if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
