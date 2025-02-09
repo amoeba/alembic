@@ -95,8 +95,6 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
     b: u8,
     c: u32,
 ) -> i32 {
-    println!("Hook_AddTextToScroll_Impl_ushort_ptr_ptr");
-
     unsafe {
         match PStringBase::<*const u16>::new(text)
             .and_then(|p| p.to_string())
