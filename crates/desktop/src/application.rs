@@ -15,7 +15,6 @@ use ringbuffer::RingBuffer;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 // Main tabs
-
 #[derive(Clone)]
 pub enum AppPage {
     Wizard,
