@@ -1,7 +1,9 @@
 use std::{env, fs, path::Path};
-use winresource::WindowsResource;
 
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() {
+    use winresource::WindowsResource;
+
     let mut res = WindowsResource::new();
     let icon_path = "assets/alembic.ico";
     res.set_icon(icon_path);
@@ -26,3 +28,6 @@ fn main() {
     fs::copy("assets\\logo.png", final_copy_target)
         .expect("Failed to copy logo.png to build directory");
 }
+
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+fn main() {}

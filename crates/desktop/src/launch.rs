@@ -16,7 +16,9 @@ pub fn try_launch(
 pub fn try_launch(
     client_info: &libalembic::settings::ClientInfo,
     account_info: &libalembic::settings::Account,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<std::num::NonZero<u32>> {
     // TODO: Show some indication we can't launch on this platform
-    Ok(())
+
+    use std::num::NonZero;
+    Ok(NonZero::new(0).unwrap())
 }
