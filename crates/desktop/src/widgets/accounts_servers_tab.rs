@@ -37,6 +37,9 @@ impl Widget for &mut AccountsServersTab {
                     let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
                     let mut did_update = false; // Dirty checking for saving settings
 
+                    // Easy way to get a count from the above iterator
+                    let mut n_accounts = 0;
+
                     TableBuilder::new(ui)
                         .striped(true) // Enable striped rows for readability
                         .resizable(true) // Allow column resizing
@@ -46,17 +49,19 @@ impl Widget for &mut AccountsServersTab {
                         .column(Column::auto()) // Port column
                         .header(text_height, |mut header| {
                             header.col(|ui| {
-                                ui.label("Name");
+                                ui.strong("Name");
                             });
                             header.col(|ui| {
-                                ui.label("Address");
+                                ui.strong("Address");
                             });
                             header.col(|ui| {
-                                ui.label("Port");
+                                ui.strong("Port");
                             });
                         })
                         .body(|mut body| {
                             for server in &mut settings.lock().unwrap().servers {
+                                n_accounts += 1;
+
                                 body.row(text_height, |mut table_row| {
                                     // Editable Name field
                                     table_row.col(|ui| {
@@ -80,6 +85,9 @@ impl Widget for &mut AccountsServersTab {
                             }
                         });
 
+                    if n_accounts == 0 {
+                        ui.label("No servers. Click \"New Server\" to add your first one.");
+                    }
                     // Save but only if we need to
                     if did_update {
                         let _ = settings.lock().unwrap().save();
