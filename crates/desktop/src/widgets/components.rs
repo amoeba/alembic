@@ -70,7 +70,7 @@ impl Widget for &mut ServerPicker {
             let server_names: Vec<String> = settings
                 .servers
                 .iter()
-                .map(|server| server.hostname.clone())
+                .map(|server| server.name.clone())
                 .collect();
 
             let selected_text = if server_names.len() > 0 {
