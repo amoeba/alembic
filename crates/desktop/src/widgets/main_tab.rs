@@ -123,8 +123,7 @@ impl Widget for &mut MainTab {
                         let final_account_info = account_info.unwrap();
 
                         // Verify client exists
-                        // if final_client_info.client_path
-                        match fs::exists(&final_client_info.client_path) {
+                        match fs::exists(&final_client_info.path) {
                             Ok(does_exist) => {
                                 if does_exist {
                                     println!("client path does exist");
@@ -141,10 +140,28 @@ impl Widget for &mut MainTab {
                             final_client_info, final_account_info
                         );
 
+                        // Verify and get DLL path
+                        let dll_path = if let Some(s) = ui.data_mut(|data| {
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                                "settings",
+                            ))
+                        }) {
+                            let settings = s.lock().unwrap();
+
+                            Some(settings.dll.dll_path.clone())
+                        } else {
+                            None
+                        };
+
+                        if dll_path.is_none() {
+                            println!("DLL path is none which means we can't launch.");
+                        }
+
                         match try_launch(
                             &final_client_info,
                             &final_server_info,
                             &final_account_info,
+                            dll_path.unwrap(),
                         ) {
                             Ok(val) => {
                                 println!("Launch succeeded. Launched pid is {val}!");

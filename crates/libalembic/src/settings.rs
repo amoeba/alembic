@@ -171,15 +171,13 @@ pub struct Account {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClientInfo {
-    pub workdir_path: String,
-    pub client_path: String,
+    pub path: String,
 }
 
 impl ClientInfo {
     fn default() -> ClientInfo {
         Self {
-            workdir_path: "C:\\Turbine\\Asheron's Call\\".to_string(),
-            client_path: "C:\\Turbine\\Asheron's Call\\acclient.exe".to_string(),
+            path: "C:\\Turbine\\Asheron's Call\\".to_string(),
         }
     }
 }

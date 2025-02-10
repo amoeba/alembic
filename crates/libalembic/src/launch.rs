@@ -23,16 +23,23 @@ pub struct Launcher {
     client_info: ClientInfo,
     server_info: ServerInfo,
     account_info: Account,
+    dll_path: String,
     client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
 }
 
 impl<'a> Launcher {
-    pub fn new(client_info: &ClientInfo, server_info: &ServerInfo, account_info: &Account) -> Self {
+    pub fn new(
+        client_info: &ClientInfo,
+        server_info: &ServerInfo,
+        account_info: &Account,
+        dll_path: String,
+    ) -> Self {
         Launcher {
             client_info: client_info.clone(),
             server_info: server_info.clone(),
             account_info: account_info.clone(),
+            dll_path: dll_path.clone(),
             client: None,
             injector: None,
         }
@@ -139,7 +146,7 @@ impl<'a> Launcher {
             None => panic!("Could not create InjectionKit."),
         };
 
-        let dll_path = "target\\i686-pc-windows-msvc\\debug\\alembic.dll";
+        let dll_path = "alembic.dll";
 
         if !fs::exists(dll_path)? {
             bail!("Can't find DLL to inject at path {dll_path}. Bailing.");
@@ -173,10 +180,11 @@ impl<'a> Launcher {
         Ok(())
     }
 
+    // Figure out full path
     fn get_cmd_line(&self) -> String {
         format!(
-            "{} -h {} -p {} -a {} -v {}",
-            self.client_info.client_path,
+            "{}\\acclient.exe -h {} -p {} -a {} -v {}",
+            self.client_info.path,
             self.server_info.hostname,
             self.server_info.port,
             self.account_info.username,
@@ -185,6 +193,6 @@ impl<'a> Launcher {
     }
 
     fn get_current_dir(&self) -> String {
-        format!("{}", self.client_info.workdir_path)
+        format!("{}", self.client_info.path)
     }
 }

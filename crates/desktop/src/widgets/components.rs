@@ -108,21 +108,18 @@ pub struct SettingsGameClientPathEdit {}
 impl Widget for &mut SettingsGameClientPathEdit {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
-            ui.label("Game Client Path");
+            ui.label("Game Client Folder Path");
 
             if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
                 let mut settings = s.lock().unwrap();
-                if ui
-                    .text_edit_singleline(&mut settings.client.client_path)
-                    .changed()
-                {
+                if ui.text_edit_singleline(&mut settings.client.path).changed() {
                     let _ = settings.save();
                 }
 
                 // Indicator
-                match fs::exists(settings.client.client_path.clone()) {
+                match fs::exists(settings.client.path.clone()) {
                     Ok(result) => match result {
                         true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
                         false => ui.label(

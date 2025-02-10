@@ -3,10 +3,11 @@ pub fn try_launch(
     client_info: &libalembic::settings::ClientInfo,
     server_info: &libalembic::settings::ServerInfo,
     account_info: &libalembic::settings::Account,
+    dll_path: String,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use libalembic::launch::Launcher;
 
-    let mut launcher = Launcher::new(client_info, server_info, account_info);
+    let mut launcher = Launcher::new(client_info, server_info, account_info, dll_path);
     let pid = launcher.find_or_launch()?;
     launcher.inject()?;
 

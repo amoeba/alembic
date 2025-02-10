@@ -124,12 +124,6 @@ fn ensure_client() -> anyhow::Result<()> {
 }
 
 fn on_attach() -> Result<(), anyhow::Error> {
-    if cfg!(debug_assertions) {
-        unsafe {
-            allocate_console()?;
-        }
-    }
-
     ensure_client()?;
     ensure_channel();
 
