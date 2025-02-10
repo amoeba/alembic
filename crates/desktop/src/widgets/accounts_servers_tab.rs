@@ -88,6 +88,7 @@ impl Widget for &mut AccountsServersTab {
                     if n_accounts == 0 {
                         ui.label("No servers. Click \"New Server\" to add your first one.");
                     }
+
                     // Save but only if we need to
                     if did_update {
                         let _ = settings.lock().unwrap().save();
