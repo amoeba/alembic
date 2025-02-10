@@ -12,6 +12,9 @@ This quickly got very out of hand.
 ## Features
 
 - [x] Desktop GUI written in [egui](https://www.egui.rs)
+  - [x] Complete Servers and Accounts management UI
+  - [x] Shows ingame chat
+  - [x] Shows game client network activity
 - [x] CLI for launching and injecting from the command line
 - [x] Settings system for persisting
 - [x] RPC system for communicating between the game client and the GUI/CLI
