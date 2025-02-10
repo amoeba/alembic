@@ -157,6 +157,7 @@ impl AlembicSettings {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServerInfo {
+    pub name: String,
     pub hostname: String,
     pub port: String,
 }

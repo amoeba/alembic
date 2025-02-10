@@ -20,6 +20,7 @@ impl Widget for &mut AccountsServersTab {
                     // Testing
                     if ui.button("Teting add").clicked() {
                         let new_server = ServerInfo {
+                            name: "Testing".to_string(),
                             hostname: "test".to_string(),
                             port: "9000".to_string(),
                         };
@@ -28,24 +29,21 @@ impl Widget for &mut AccountsServersTab {
                         let _ = settings.lock().unwrap().save();
                     }
 
-                    // List servers
-                    let n_servers = settings.lock().unwrap().servers.iter().len().to_string();
-                    ui.label(format!("n servers: {}", n_servers));
-
-                    // WIP Servers Table
+                    // Servers listing
                     let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-                    let mut settings_mut = settings.lock().unwrap();
-
-                    // Dirty checking
-                    let mut did_update = false;
+                    let mut did_update = false; // Dirty checking for saving settings
 
                     TableBuilder::new(ui)
                         .striped(true) // Enable striped rows for readability
                         .resizable(true) // Allow column resizing
                         .cell_layout(egui::Layout::left_to_right(egui::Align::Center)) // Cell layout
+                        .column(Column::auto()) // Name column
                         .column(Column::auto()) // Address column
                         .column(Column::auto()) // Port column
                         .header(text_height, |mut header| {
+                            header.col(|ui| {
+                                ui.label("Name");
+                            });
                             header.col(|ui| {
                                 ui.label("Address");
                             });
@@ -54,8 +52,14 @@ impl Widget for &mut AccountsServersTab {
                             });
                         })
                         .body(|mut body| {
-                            for server in &mut settings_mut.servers {
+                            for server in &mut settings.lock().unwrap().servers {
                                 body.row(text_height, |mut table_row| {
+                                    // Editable Name field
+                                    table_row.col(|ui| {
+                                        did_update |=
+                                            ui.text_edit_singleline(&mut server.name).changed();
+                                    });
+
                                     // Editable Address field
                                     table_row.col(|ui| {
                                         did_update |=
@@ -72,11 +76,9 @@ impl Widget for &mut AccountsServersTab {
                             }
                         });
 
-                    // WIP: Handle save
+                    // Save but only if we need to
                     if did_update {
-                        println!("Should save...");
-                        // This is deadlocking me, figure it out.
-                        // let _ = settings.lock().unwrap().save();
+                        let _ = settings.lock().unwrap().save();
                     }
                 })
                 .response
