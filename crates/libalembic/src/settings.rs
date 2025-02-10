@@ -162,7 +162,6 @@ pub struct ServerInfo {
     pub port: String,
 }
 
-// TODO: Make this real
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Account {
     pub server_index: usize,
