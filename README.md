@@ -28,8 +28,8 @@ See the [YouTube demo](https://www.youtube.com/watch?v=FYanHXpOclo) to see how i
 
 ## Future Plans
 
-- Initial release. I need to figure out what I consider a reasonable first release. If you'd like to help testing, let me know.
-- Improved network handling (i.e., convert/reassmble packets into game messages)
+- Initial release. I need to figure out what I consider a reasonable first release. If you'd like to help with testing, let me know.
+- Improved network handling (i.e., convert/reassemble packets into game messages)
 - Plugin system, e.g.,
   - Discord relay
   - Web server
