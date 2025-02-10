@@ -42,6 +42,8 @@ The project is managed as a single Cargo Workspace with four subcrates:
 - Plugin system, e.g.,
   - Discord relay
   - Web server
+- Refactor read-heavy shared state from Mutexes to RwLocks. Apparently this is better performance-wise.
+- Hook up tracing/opentelemetry crates instead of the current spotty use of `println!`
 
 ## Building
 
