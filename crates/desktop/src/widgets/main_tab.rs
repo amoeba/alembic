@@ -9,7 +9,6 @@ use crate::{
 };
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 use libalembic::settings::AlembicSettings;
-use tarpc::server;
 
 use super::components::{AccountPicker, ServerPicker};
 
