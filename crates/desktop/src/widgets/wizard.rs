@@ -1,4 +1,3 @@
-
 use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
 
 use crate::application::{AppPage, WizardPage};

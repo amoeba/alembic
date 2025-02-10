@@ -34,7 +34,6 @@ pub struct Application {
     wizard: Wizard,
     about: About,
     settings: Settings,
-    show_about: bool,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
 }
 
@@ -96,7 +95,6 @@ impl Application {
             wizard: Wizard::new(),
             about: About::new(),
             settings: Settings::new(),
-            show_about: false,
             client_server_rx: client_server_rx,
         }
     }
