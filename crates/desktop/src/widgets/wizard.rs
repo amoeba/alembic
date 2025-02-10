@@ -1,10 +1,5 @@
-use std::{
-    fs::{self},
-    sync::{Arc, Mutex},
-};
 
-use eframe::egui::{self, Align, Color32, Layout, Response, RichText, Ui, Widget};
-use libalembic::settings::AlembicSettings;
+use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
 
 use crate::application::{AppPage, WizardPage};
 
