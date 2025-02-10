@@ -13,6 +13,9 @@ This quickly got very out of hand.
 - [x] CLI for launching and injecting from the command line
 - [x] Settings system for persisting
 - [x] RPC system for communicating between the game client and the GUI/CLI
+- [x] Client Hooks
+  - [x] Chat
+  - [x] Networking
 
 ## Future Plans
 
@@ -41,10 +44,10 @@ This will start the desktop GUI which you can then use to launch a game client a
 
 ## Contributing
 
-I can use all the help I can get, please feel issues or reach out to me directly before sending in pull requests though.
+I'm open to contributions through filing issues, asking questions, or submitting pull requests.
 
-Some possible ways to contribute are:
+Some good ways to contribute are:
 
-- I was learning Rust while I wrote most of this so if you see things that could be improved, please let me know
-- File issues with ideas
-- Implement more hooks or client functions
+- Help me with Rust: I was learning Rust while I wrote most of this so if you see things that could be improved, please let me know
+- Improve data handling. For example, network messages aren't yet parsed into fragments or reconstructed into game messages.
+- Make the UI nicer: For example, the packet UI could be way better.
