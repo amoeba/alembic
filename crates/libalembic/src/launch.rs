@@ -12,7 +12,7 @@ use dll_syringe::process::{OwnedProcess, Process};
 use windows::{
     core::PWSTR,
     Win32::{
-        Foundation::{CloseHandle, GetLastError, PROC},
+        Foundation::{CloseHandle, GetLastError},
         System::Threading::{
             CreateProcessW, ResumeThread, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOW,
         },
