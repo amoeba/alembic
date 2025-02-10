@@ -17,10 +17,13 @@ pub fn try_launch(
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub fn try_launch(
     client_info: &libalembic::settings::ClientInfo,
+    server: &libalembic::settings::ServerInfo,
     account_info: &libalembic::settings::Account,
+    dll_path: String,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     // TODO: Show some indication we can't launch on this platform
 
     use std::num::NonZero;
+
     Ok(NonZero::new(0).unwrap())
 }
