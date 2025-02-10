@@ -8,6 +8,8 @@ use libalembic::settings::AlembicSettings;
 
 use crate::application::{AppPage, WizardPage};
 
+use super::components::{SettingsDLLPathEdit, SettingsGameClientPathEdit};
+
 pub struct Wizard {}
 
 impl Wizard {
@@ -37,17 +39,6 @@ impl Widget for &mut Wizard {
                     .show_inside(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
-                                // Update and save settings now
-                                ui.data_mut(|data| {
-                                    if let Some(settings_ref) =
-                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                            let mut settings = settings_ref.lock().unwrap();
-                                            settings.is_configured = true;
-                                            settings.save().expect("Unhandled error: Failed to save settings.")
-                                        }
-                                });
-
-                                // Then progress the view
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
@@ -78,45 +69,27 @@ impl Widget for &mut Wizard {
                     .resizable(false)
                     .show_separator_line(false)
                     .show_inside(ui, |ui| {
-
                         ui.horizontal(|ui| {
                             ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
-                            if ui.button("Exit Setup").clicked() {
-                                // Update and save settings now
-                                ui.data_mut(|data| {
-                                    if let Some(settings_ref) =
-                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                            let mut settings = settings_ref.lock().unwrap();
-                                            settings.is_configured = true;
-                                            settings.save().expect("Unhandled error: Failed to save settings.")
-                                        }
-                                });
-
-                                // Then progress the view
-                                ui.memory_mut(|mem| {
-                                    mem.data
-                                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
-                                });
-                            }
+                                if ui.button("Exit Setup").clicked() {
+                                    ui.memory_mut(|mem| {
+                                        mem.data.insert_persisted(
+                                            egui::Id::new("app_page"),
+                                            AppPage::Main,
+                                        )
+                                    });
+                                }
                             });
 
                             ui.add_space(ui.available_width());
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                                 if ui.button("Continue").clicked() {
-                                    // Save settings now
-                                    ui.data_mut(|data| {
-                                        if let Some(settings_ref) =
-                                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                                let settings = settings_ref.lock().unwrap();
-                                                settings.save().expect("Unhandled error: Failed to save settings.")
-                                            }
-                                    });
-
-                                    // Then progress the view
                                     ui.memory_mut(|mem| {
-                                        mem.data
-                                            .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Done)
+                                        mem.data.insert_persisted(
+                                            egui::Id::new("wizard_page"),
+                                            WizardPage::Done,
+                                        )
                                     });
                                 }
                             });
@@ -126,70 +99,9 @@ impl Widget for &mut Wizard {
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.heading("Setup");
                     ui.add_space(16.0);
-
-                    // Client Path
-                    ui.label("Game Client Path");
-
-                    if let Some(s) = ui.data_mut(|data| {
-                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                    }) {
-                        let mut settings = s.lock().unwrap();
-                        ui.text_edit_singleline(&mut settings.client.client_path);
-
-                        // Indicator
-                        match fs::exists(settings.client.client_path.clone()) {
-                            Ok(result) => match result {
-                                true => {
-                                    ui.label(RichText::new("Path exists.").color(Color32::GREEN))
-                                }
-                                false => ui.label(
-                                    RichText::new(
-                                        "Path does not exist. Please enter a valid path.",
-                                    )
-                                    .color(Color32::YELLOW),
-                                ),
-                            },
-                            Err(_) => ui.label(
-                                RichText::new("Error determining whether path exists. Please report this as a bug.")
-                                    .color(Color32::RED),
-                            ),
-                        };
-                    } else {
-                        ui.label("Failed to get backend.");
-                    }
-
+                    ui.add(&mut SettingsGameClientPathEdit {});
                     ui.add_space(16.0);
-
-                    // DLL Path
-                    ui.label("Alembic DLL Path");
-
-                    if let Some(s) = ui.data_mut(|data| {
-                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                    }) {
-                        let mut settings = s.lock().unwrap();
-                        ui.text_edit_singleline(&mut settings.dll.dll_path);
-
-                        // Indicator
-                        match fs::exists(settings.dll.dll_path.clone()) {
-                            Ok(result) => match result {
-                                true => {
-                                    ui.label(RichText::new("Path exists.").color(Color32::GREEN))
-                                }
-                                false => ui.label(
-                                    RichText::new(
-                                        "Path does not exist. Please enter a valid path.",
-                                    )
-                                    .color(Color32::YELLOW),
-                                ),
-                            },
-                            Err(_) => ui.label(
-                                RichText::new("Error determining whether path exists. Please report this as a bug.")
-                                    .color(Color32::RED),
-                            ),
-                        };
-                    } else {
-                        ui.label("Failed to get backend.");
-                    }
+                    ui.add(&mut SettingsDLLPathEdit {});
                 });
             }
             WizardPage::Done => {
@@ -199,17 +111,6 @@ impl Widget for &mut Wizard {
                     .show_inside(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
-                                // Update and save settings now
-                                ui.data_mut(|data| {
-                                    if let Some(settings_ref) =
-                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                            let mut settings = settings_ref.lock().unwrap();
-                                            settings.is_configured = true;
-                                            settings.save().expect("Unhandled error: Failed to save settings.")
-                                        }
-                                });
-
-                                // Then progress the view
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
@@ -224,17 +125,6 @@ impl Widget for &mut Wizard {
 
                     ui.heading("Finish Setup");
                     if ui.button("Finish").clicked() {
-                        // Update and save settings now
-                        ui.data_mut(|data| {
-                            if let Some(settings_ref) =
-                                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings")) {
-                                    let mut settings = settings_ref.lock().unwrap();
-                                    settings.is_configured = true;
-                                    settings.save().expect("Unhandled error: Failed to save settings.")
-                                }
-                        });
-
-                        // Then progress the view
                         ui.memory_mut(|mem| {
                             mem.data
                                 .insert_persisted(egui::Id::new("app_page"), AppPage::Main)

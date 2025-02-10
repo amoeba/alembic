@@ -115,6 +115,15 @@ impl Application {
                 egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
                     egui::menu::bar(ui, |ui| {
                         ui.menu_button("File", |ui| {
+                            if ui.add(egui::Button::new("Settings")).clicked() {
+                                ui.memory_mut(|mem| {
+                                    mem.data.insert_persisted(
+                                        egui::Id::new("app_page"),
+                                        AppPage::Settings,
+                                    )
+                                });
+                                ui.close_menu();
+                            }
                             if ui.add(egui::Button::new("Exit")).clicked() {
                                 ui.close_menu();
                                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);

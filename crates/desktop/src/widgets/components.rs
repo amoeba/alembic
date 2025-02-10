@@ -1,6 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    fs,
+    sync::{Arc, Mutex},
+};
 
-use eframe::egui::{self, Layout, Response, Ui, Widget};
+use eframe::egui::{self, Color32, Layout, Response, RichText, Ui, Widget};
 use libalembic::settings::AlembicSettings;
 
 pub fn centered_text(ui: &mut Ui, text: &str) {
@@ -97,5 +100,88 @@ impl Widget for &mut ServerPicker {
         } else {
             ui.label("TODO: Bug, please report.")
         }
+    }
+}
+
+pub struct SettingsGameClientPathEdit {}
+
+impl Widget for &mut SettingsGameClientPathEdit {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.vertical(|ui| {
+            ui.label("Game Client Path");
+
+            if let Some(s) = ui.data_mut(|data| {
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            }) {
+                let mut settings = s.lock().unwrap();
+                if ui
+                    .text_edit_singleline(&mut settings.client.client_path)
+                    .changed()
+                {
+                    let _ = settings.save();
+                }
+
+                // Indicator
+                match fs::exists(settings.client.client_path.clone()) {
+                    Ok(result) => match result {
+                        true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
+                        false => ui.label(
+                            RichText::new("Path does not exist. Please enter a valid path.")
+                                .color(Color32::YELLOW),
+                        ),
+                    },
+                    Err(_) => ui.label(
+                        RichText::new(
+                            "Error determining whether path exists. Please report this as a bug.",
+                        )
+                        .color(Color32::RED),
+                    ),
+                };
+            } else {
+                ui.label("Failed to get backend.");
+            }
+        })
+        .response
+    }
+}
+pub struct SettingsDLLPathEdit {}
+
+impl Widget for &mut SettingsDLLPathEdit {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.vertical(|ui| {
+            ui.label("Alembic DLL Path");
+
+            if let Some(s) = ui.data_mut(|data| {
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            }) {
+                let mut settings = s.lock().unwrap();
+                if ui
+                    .text_edit_singleline(&mut settings.dll.dll_path)
+                    .changed()
+                {
+                    let _ = settings.save();
+                }
+
+                // Indicator
+                match fs::exists(settings.dll.dll_path.clone()) {
+                    Ok(result) => match result {
+                        true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
+                        false => ui.label(
+                            RichText::new("Path does not exist. Please enter a valid path.")
+                                .color(Color32::YELLOW),
+                        ),
+                    },
+                    Err(_) => ui.label(
+                        RichText::new(
+                            "Error determining whether path exists. Please report this as a bug.",
+                        )
+                        .color(Color32::RED),
+                    ),
+                };
+            } else {
+                ui.label("Failed to get backend.");
+            }
+        })
+        .response
     }
 }
