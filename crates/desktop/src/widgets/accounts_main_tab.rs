@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
-use libalembic::settings::{Account, AlembicSettings, ServerInfo};
+use libalembic::settings::{Account, AlembicSettings};
 
 use super::components::centered_text;
 
@@ -17,13 +17,11 @@ impl Widget for &mut AccountsMainTab {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
                 ui.group(|ui| {
-                    // Decide what to show for the  ComboBox text
+                    // Server Picker
                     let selected_text = match self.selected_server {
-                        Some(index) => "something",
-                        None => "nothing",
+                        Some(index) => settings.lock().unwrap().servers[index].hostname.clone(),
+                        None => "Pick a server".to_string(),
                     };
-
-                    let mut x = 0;
 
                     egui::ComboBox::from_id_salt("AccountServer")
                         .selected_text(selected_text)
@@ -31,7 +29,11 @@ impl Widget for &mut AccountsMainTab {
                             for (index, server) in
                                 settings.lock().unwrap().servers.iter().enumerate()
                             {
-                                ui.selectable_value(&mut x, index, server.hostname.clone());
+                                ui.selectable_value(
+                                    &mut self.selected_server,
+                                    Some(index),
+                                    server.hostname.clone(),
+                                );
                             }
                         });
 
@@ -48,16 +50,9 @@ impl Widget for &mut AccountsMainTab {
                         let _ = settings.lock().unwrap().save();
                     }
 
-                    // List accounts
-                    let n_accounts = settings.lock().unwrap().accounts.iter().len().to_string();
-                    ui.label(format!("n accounts: {}", n_accounts));
-
-                    // WIP Accounts Table
+                    // Accounts Listing
                     let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-                    let mut settings_mut = settings.lock().unwrap();
-
-                    // Dirty checking
-                    let mut did_update = false;
+                    let mut did_update = false; // Dirty checking for saving settings
 
                     TableBuilder::new(ui)
                         .striped(true) // Enable striped rows for readability
@@ -74,7 +69,17 @@ impl Widget for &mut AccountsMainTab {
                             });
                         })
                         .body(|mut body| {
-                            for account in &mut settings_mut.accounts {
+                            for (_index, account) in settings
+                                .lock()
+                                .unwrap()
+                                .accounts
+                                .iter_mut()
+                                .enumerate()
+                                .filter(|(_, account)| {
+                                    self.selected_server.is_some()
+                                        && account.server_index == self.selected_server.unwrap()
+                                })
+                            {
                                 body.row(text_height, |mut table_row| {
                                     // Editable Username field
                                     table_row.col(|ui| {
@@ -83,33 +88,30 @@ impl Widget for &mut AccountsMainTab {
                                             .changed();
                                     });
 
-                                    // TODO
-                                    // TODO: Handle save on dirty
                                     // Editable Password field (masked by default)
                                     table_row.col(|ui| {
-                                        let mut password_edit =
+                                        let password_id = ui.make_persistent_id(format!(
+                                            "password_{}",
+                                            account.username
+                                        ));
+                                        let is_focused = ui.memory(|m| m.has_focus(password_id));
+
+                                        let password_edit =
                                             egui::TextEdit::singleline(&mut account.password)
-                                                .password(true); // Mask input
+                                                .id(password_id)
+                                                .password(!is_focused);
 
-                                        // if ui
-                                        // .memory()
-                                        // .has_focus(ui.id().with(account.password.clone()))
-                                        // {
-                                        password_edit = password_edit.password(false);
-                                        // Show password when focused
-                                        // }
-
-                                        ui.add(password_edit);
+                                        if ui.add(password_edit).changed() {
+                                            did_update = true;
+                                        }
                                     });
                                 });
                             }
                         });
 
-                    // WIP: Handle save
+                    // Save but only if we need to
                     if did_update {
-                        println!("Should save...");
-                        // This is deadlocking me, figure it out.
-                        // let _ = settings.lock().unwrap().save();
+                        let _ = settings.lock().unwrap().save();
                     }
                 })
                 .response
