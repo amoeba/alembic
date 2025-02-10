@@ -16,10 +16,12 @@ impl Widget for &mut AccountsMainTab {
             ui.heading("Accounts");
             ui.add_space(8.0);
 
-            if let Some(settings) = ui.data_mut(|data| {
+            if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                if settings.lock().unwrap().servers.len() == 0 {
+                let mut settings = s.lock().unwrap();
+
+                if settings.servers.len() == 0 {
                     ui.vertical(|ui| {
                         ui.label("No servers. Switch to the Servers tab to add your first one.");
                     })
@@ -30,16 +32,14 @@ impl Widget for &mut AccountsMainTab {
                         ui.horizontal(|ui| {
                             ui.label("Server:");
                             let selected_text = match self.selected_server {
-                                Some(index) => settings.lock().unwrap().servers[index].name.clone(),
+                                Some(index) => settings.servers[index].name.clone(),
                                 None => "Pick a server".to_string(),
                             };
 
                             egui::ComboBox::from_id_salt("AccountServer")
                                 .selected_text(selected_text)
                                 .show_ui(ui, |ui| {
-                                    for (index, server) in
-                                        settings.lock().unwrap().servers.iter().enumerate()
-                                    {
+                                    for (index, server) in settings.servers.iter().enumerate() {
                                         ui.selectable_value(
                                             &mut self.selected_server,
                                             Some(index),
@@ -60,8 +60,8 @@ impl Widget for &mut AccountsMainTab {
                                     password: "password".to_string(),
                                 };
 
-                                settings.lock().unwrap().accounts.push(new_account);
-                                let _ = settings.lock().unwrap().save();
+                                settings.accounts.push(new_account);
+                                let _ = settings.save();
                             }
 
                             ui.add_space(8.0);
@@ -72,13 +72,15 @@ impl Widget for &mut AccountsMainTab {
                             let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
                             let mut did_update = false; // Dirty checking for saving settings
 
-                            let mut settings_guard = settings.lock().unwrap();
-                            let accounts = settings_guard.accounts.iter_mut().enumerate().filter(
-                                |(_, account)| {
-                                    self.selected_server.is_some()
-                                        && account.server_index == self.selected_server.unwrap()
-                                },
-                            );
+                            let accounts =
+                                settings
+                                    .accounts
+                                    .iter_mut()
+                                    .enumerate()
+                                    .filter(|(_, account)| {
+                                        self.selected_server.is_some()
+                                            && account.server_index == self.selected_server.unwrap()
+                                    });
 
                             // Easy way to get a count from the above iterator
                             let mut n_accounts = 0;
@@ -140,7 +142,7 @@ impl Widget for &mut AccountsMainTab {
 
                             // Save but only if we need to
                             if did_update {
-                                let _ = settings.lock().unwrap().save();
+                                let _ = settings.save();
                             }
                         }
                     })

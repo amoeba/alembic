@@ -15,9 +15,11 @@ impl Widget for &mut AccountsServersTab {
 
             ui.add_space(8.0);
 
-            if let Some(settings) = ui.data_mut(|data| {
+            if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
+                let mut settings = s.lock().unwrap();
+
                 ui.vertical(|ui| {
                     // Add
                     if ui.button("New Server").clicked() {
@@ -27,8 +29,8 @@ impl Widget for &mut AccountsServersTab {
                             port: "9000".to_string(),
                         };
 
-                        settings.lock().unwrap().servers.push(new_server);
-                        let _ = settings.lock().unwrap().save();
+                        settings.servers.push(new_server);
+                        let _ = settings.save();
                     }
 
                     ui.add_space(8.0);
@@ -59,7 +61,7 @@ impl Widget for &mut AccountsServersTab {
                             });
                         })
                         .body(|mut body| {
-                            for server in &mut settings.lock().unwrap().servers {
+                            for server in &mut settings.servers {
                                 n_accounts += 1;
 
                                 body.row(text_height, |mut table_row| {
@@ -91,7 +93,7 @@ impl Widget for &mut AccountsServersTab {
 
                     // Save but only if we need to
                     if did_update {
-                        let _ = settings.lock().unwrap().save();
+                        let _ = settings.save();
                     }
                 })
                 .response
