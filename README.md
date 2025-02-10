@@ -9,6 +9,8 @@ This quickly got very out of hand.
 
 ![](./docs/screenshot_macos.png)
 
+See the [YouTube demo](https://www.youtube.com/watch?v=FYanHXpOclo) to see how it works.
+
 ## Features
 
 - [x] Desktop GUI written in [egui](https://www.egui.rs)
@@ -21,6 +23,7 @@ This quickly got very out of hand.
 - [x] Client Hooks
   - [x] Chat
   - [x] Networking
+- [x] NSIS-based installer
 
 ## Future Plans
 
