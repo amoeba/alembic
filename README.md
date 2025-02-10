@@ -7,6 +7,8 @@ Tiny demonstration of using the [dll-syringe](https://github.com/OpenByteDev/dll
 Built for my curiosity.
 This quickly got very out of hand.
 
+![](./docs/screenshot_macos.png)
+
 ## Features
 
 - [x] Desktop GUI written in [egui](https://www.egui.rs)
