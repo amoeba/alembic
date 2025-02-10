@@ -26,6 +26,15 @@ See the [YouTube demo](https://www.youtube.com/watch?v=FYanHXpOclo) to see how i
   - [x] Networking
 - [x] NSIS-based installer
 
+## Source Code
+
+The project is managed as a single Cargo Workspace with four subcrates:
+
+- **cli:** CLI for launching game clients and injecting
+- **desktop:** Cross-platform egui desktop application for launching game clients and injecting
+- **dll:**: Source for for the injected DLL. Windows-only.
+- **libalembic:** Common and/shared functionality. Lots of code in here.
+
 ## Future Plans
 
 - Initial release. I need to figure out what I consider a reasonable first release. If you'd like to help with testing, let me know.
