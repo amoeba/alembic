@@ -50,19 +50,6 @@ impl Widget for &mut MainTab {
                     false
                 };
 
-                ui.label(format!("have_client: {have_client}"));
-                ui.label(format!("is_injected: {is_injected}"));
-                ui.label(format!("can_launch: {can_launch}"));
-
-                ui.add_enabled_ui(have_client && !is_injected, |ui| {
-                    if ui
-                        .add_sized(Vec2::new(140.0, 35.0), Button::new("Inject"))
-                        .clicked()
-                    {
-                        // TODO
-                    }
-                });
-
                 ui.add_enabled_ui(can_launch, |ui| {
                     if ui
                         .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
