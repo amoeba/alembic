@@ -17,9 +17,10 @@ See the [YouTube demo](https://www.youtube.com/watch?v=FYanHXpOclo) to see how i
   - [x] Complete Servers and Accounts management UI
   - [x] Shows ingame chat
   - [x] Shows game client network activity
+  - [x] Cross-platform support, though it only works fully on Windows
 - [x] CLI for launching and injecting from the command line
 - [x] Settings system for persisting
-- [x] RPC system for communicating between the game client and the GUI/CLI
+- [x] RPC system for communicating between the game client and the GUI/CLI. In theory, the game client could be injected locally but controlled remotely.
 - [x] Client Hooks
   - [x] Chat
   - [x] Networking
