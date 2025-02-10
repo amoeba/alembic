@@ -166,7 +166,6 @@ pub struct ServerInfo {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Account {
     pub server_index: usize,
-    pub name: String,
     pub username: String,
     pub password: String,
 }

@@ -28,7 +28,7 @@ impl Widget for &mut AccountPicker {
                     self.selected_server.is_some()
                         && account.server_index == self.selected_server.unwrap()
                 })
-                .map(|account| account.name.clone())
+                .map(|account| account.username.clone())
                 .collect();
 
             let selected_text = if account_names.len() > 0 {

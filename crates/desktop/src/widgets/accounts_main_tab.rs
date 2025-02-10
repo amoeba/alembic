@@ -13,105 +13,117 @@ pub struct AccountsMainTab {
 impl Widget for &mut AccountsMainTab {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
+            ui.heading("Accounts");
+            ui.add_space(8.0);
+
             if let Some(settings) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                ui.group(|ui| {
+                ui.vertical(|ui| {
                     // Server Picker
-                    let selected_text = match self.selected_server {
-                        Some(index) => settings.lock().unwrap().servers[index].hostname.clone(),
-                        None => "Pick a server".to_string(),
-                    };
+                    ui.horizontal(|ui| {
+                        ui.label("Server:");
+                        let selected_text = match self.selected_server {
+                            Some(index) => settings.lock().unwrap().servers[index].name.clone(),
+                            None => "Pick a server".to_string(),
+                        };
 
-                    egui::ComboBox::from_id_salt("AccountServer")
-                        .selected_text(selected_text)
-                        .show_ui(ui, |ui| {
-                            for (index, server) in
-                                settings.lock().unwrap().servers.iter().enumerate()
-                            {
-                                ui.selectable_value(
-                                    &mut self.selected_server,
-                                    Some(index),
-                                    server.hostname.clone(),
-                                );
-                            }
-                        });
+                        egui::ComboBox::from_id_salt("AccountServer")
+                            .selected_text(selected_text)
+                            .show_ui(ui, |ui| {
+                                for (index, server) in
+                                    settings.lock().unwrap().servers.iter().enumerate()
+                                {
+                                    ui.selectable_value(
+                                        &mut self.selected_server,
+                                        Some(index),
+                                        server.name.clone(),
+                                    );
+                                }
+                            });
+                    });
 
-                    // Testing
-                    if ui.button("Testing add").clicked() {
+                    ui.add_space(8.0);
+
+                    // Add Account
+                    if ui.button("New Account").clicked() {
                         let new_account = Account {
                             server_index: self.selected_server.unwrap_or_default(),
-                            name: "Test".to_string(),
-                            username: "Test".to_string(),
-                            password: "Test".to_string(),
+                            username: "username".to_string(),
+                            password: "password".to_string(),
                         };
 
                         settings.lock().unwrap().accounts.push(new_account);
                         let _ = settings.lock().unwrap().save();
                     }
 
-                    // Accounts Listing
-                    let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-                    let mut did_update = false; // Dirty checking for saving settings
+                    ui.add_space(8.0);
 
-                    TableBuilder::new(ui)
-                        .striped(true) // Enable striped rows for readability
-                        .resizable(true) // Allow column resizing
-                        .cell_layout(egui::Layout::left_to_right(egui::Align::Center)) // Cell layout
-                        .column(Column::auto()) // Username column
-                        .column(Column::auto()) // Password column
-                        .header(text_height, |mut header| {
-                            header.col(|ui| {
-                                ui.label("Username");
-                            });
-                            header.col(|ui| {
-                                ui.label("Password");
-                            });
-                        })
-                        .body(|mut body| {
-                            for (_index, account) in settings
-                                .lock()
-                                .unwrap()
-                                .accounts
-                                .iter_mut()
-                                .enumerate()
-                                .filter(|(_, account)| {
-                                    self.selected_server.is_some()
-                                        && account.server_index == self.selected_server.unwrap()
-                                })
-                            {
-                                body.row(text_height, |mut table_row| {
-                                    // Editable Username field
-                                    table_row.col(|ui| {
-                                        did_update |= ui
-                                            .text_edit_singleline(&mut account.username)
-                                            .changed();
-                                    });
+                    if self.selected_server.is_some() {
+                        // Accounts Listing
+                        let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+                        let mut did_update = false; // Dirty checking for saving settings
 
-                                    // Editable Password field (masked by default)
-                                    table_row.col(|ui| {
-                                        let password_id = ui.make_persistent_id(format!(
-                                            "password_{}",
-                                            account.username
-                                        ));
-                                        let is_focused = ui.memory(|m| m.has_focus(password_id));
-
-                                        let password_edit =
-                                            egui::TextEdit::singleline(&mut account.password)
-                                                .id(password_id)
-                                                .password(!is_focused);
-
-                                        if ui.add(password_edit).changed() {
-                                            did_update = true;
-                                        }
-                                    });
+                        TableBuilder::new(ui)
+                            .striped(true) // Enable striped rows for readability
+                            .resizable(true) // Allow column resizing
+                            .cell_layout(egui::Layout::left_to_right(egui::Align::Center)) // Cell layout
+                            .column(Column::auto()) // Username column
+                            .column(Column::auto()) // Password column
+                            .header(text_height, |mut header| {
+                                header.col(|ui| {
+                                    ui.label("Username");
                                 });
-                            }
-                        });
+                                header.col(|ui| {
+                                    ui.label("Password");
+                                });
+                            })
+                            .body(|mut body| {
+                                for (_index, account) in settings
+                                    .lock()
+                                    .unwrap()
+                                    .accounts
+                                    .iter_mut()
+                                    .enumerate()
+                                    .filter(|(_, account)| {
+                                        self.selected_server.is_some()
+                                            && account.server_index == self.selected_server.unwrap()
+                                    })
+                                {
+                                    body.row(text_height, |mut table_row| {
+                                        // Editable Username field
+                                        table_row.col(|ui| {
+                                            did_update |= ui
+                                                .text_edit_singleline(&mut account.username)
+                                                .changed();
+                                        });
 
-                    // Save but only if we need to
-                    if did_update {
-                        let _ = settings.lock().unwrap().save();
+                                        // Editable Password field (masked by default)
+                                        table_row.col(|ui| {
+                                            let password_id = ui.make_persistent_id(format!(
+                                                "password_{}",
+                                                account.username
+                                            ));
+                                            let is_focused =
+                                                ui.memory(|m| m.has_focus(password_id));
+
+                                            let password_edit =
+                                                egui::TextEdit::singleline(&mut account.password)
+                                                    .id(password_id)
+                                                    .password(!is_focused);
+
+                                            if ui.add(password_edit).changed() {
+                                                did_update = true;
+                                            }
+                                        });
+                                    });
+                                }
+                            });
+
+                        // Save but only if we need to
+                        if did_update {
+                            let _ = settings.lock().unwrap().save();
+                        }
                     }
                 })
                 .response

@@ -11,23 +11,27 @@ pub struct AccountsServersTab {}
 impl Widget for &mut AccountsServersTab {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
-            ui.label("Servers");
+            ui.heading("Servers");
+
+            ui.add_space(8.0);
 
             if let Some(settings) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                ui.group(|ui| {
-                    // Testing
-                    if ui.button("Teting add").clicked() {
+                ui.vertical(|ui| {
+                    // Add
+                    if ui.button("New Server").clicked() {
                         let new_server = ServerInfo {
-                            name: "Testing".to_string(),
-                            hostname: "test".to_string(),
+                            name: "Server".to_string(),
+                            hostname: "hostname or IP address".to_string(),
                             port: "9000".to_string(),
                         };
 
                         settings.lock().unwrap().servers.push(new_server);
                         let _ = settings.lock().unwrap().save();
                     }
+
+                    ui.add_space(8.0);
 
                     // Servers listing
                     let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
