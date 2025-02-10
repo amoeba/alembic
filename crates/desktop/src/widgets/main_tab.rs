@@ -9,6 +9,7 @@ use crate::{
 };
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 use libalembic::settings::AlembicSettings;
+use tarpc::server;
 
 use super::components::{AccountPicker, ServerPicker};
 
@@ -75,6 +76,27 @@ impl Widget for &mut MainTab {
                             return;
                         }
 
+                        // Get server info
+                        let server_info = if let Some(s) = ui.data_mut(|data| {
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                                "settings",
+                            ))
+                        }) {
+                            let settings = s.lock().unwrap();
+
+                            match settings.selected_server {
+                                Some(index) => Some(settings.servers[index].clone()),
+                                None => None,
+                            }
+                        } else {
+                            None
+                        };
+
+                        if server_info.is_none() {
+                            println!("Server info is none");
+                            return;
+                        }
+
                         // Get account info
                         let account_info = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
@@ -97,6 +119,8 @@ impl Widget for &mut MainTab {
                         }
 
                         let final_client_info = client_info.unwrap();
+                        let final_server_info: libalembic::settings::ServerInfo =
+                            server_info.unwrap();
                         let final_account_info = account_info.unwrap();
 
                         // Verify client exists
@@ -118,7 +142,11 @@ impl Widget for &mut MainTab {
                             final_client_info, final_account_info
                         );
 
-                        match try_launch(&final_client_info, &final_account_info) {
+                        match try_launch(
+                            &final_client_info,
+                            &final_server_info,
+                            &final_account_info,
+                        ) {
                             Ok(val) => {
                                 println!("Launch succeeded. Launched pid is {val}!");
 

@@ -5,7 +5,7 @@ use std::{error::Error, ffi::OsString, fs, num::NonZero, os::windows::ffi::OsStr
 
 use crate::{
     inject::InjectionKit,
-    settings::{Account, ClientInfo},
+    settings::{Account, ClientInfo, ServerInfo},
 };
 use anyhow::bail;
 use dll_syringe::process::{OwnedProcess, Process};
@@ -21,15 +21,17 @@ use windows::{
 
 pub struct Launcher {
     client_info: ClientInfo,
+    server_info: ServerInfo,
     account_info: Account,
     client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
 }
 
 impl<'a> Launcher {
-    pub fn new(client_info: &ClientInfo, account_info: &Account) -> Self {
+    pub fn new(client_info: &ClientInfo, server_info: &ServerInfo, account_info: &Account) -> Self {
         Launcher {
             client_info: client_info.clone(),
+            server_info: server_info.clone(),
             account_info: account_info.clone(),
             client: None,
             injector: None,
@@ -175,8 +177,8 @@ impl<'a> Launcher {
         format!(
             "{} -h {} -p {} -a {} -v {}",
             self.client_info.client_path,
-            self.account_info.server_info.hostname,
-            self.account_info.server_info.port,
+            self.server_info.hostname,
+            self.server_info.port,
             self.account_info.username,
             self.account_info.password,
         )

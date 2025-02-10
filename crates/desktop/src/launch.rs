@@ -1,11 +1,12 @@
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub fn try_launch(
     client_info: &libalembic::settings::ClientInfo,
+    server_info: &libalembic::settings::ServerInfo,
     account_info: &libalembic::settings::Account,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use libalembic::launch::Launcher;
 
-    let mut launcher = Launcher::new(client_info, account_info);
+    let mut launcher = Launcher::new(client_info, server_info, account_info);
     let pid = launcher.find_or_launch()?;
     launcher.inject()?;
 
