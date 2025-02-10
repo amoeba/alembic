@@ -1,7 +1,9 @@
 use eframe::egui::{Response, Ui, Widget};
 
 use super::{
-    accounts_tab::AccountsTab,
+    accounts_main_tab::AccountsMainTab,
+    accounts_servers_tab::AccountsServersTab,
+    accounts_tab::{AccountsTab, AccountsTabContent},
     developer_logs_tab::DeveloperLogsTab,
     developer_main_tab_::DeveloperMainTab,
     developer_network_incoming_tab::DeveloperNetworkIncomingTab,
@@ -31,7 +33,15 @@ impl TabContainer {
         Self {
             tabs: vec![
                 TabContent::Main(MainTab {}),
-                TabContent::Accounts(AccountsTab {}),
+                TabContent::Accounts(AccountsTab {
+                    selected_tab: 0,
+                    tabs: vec![
+                        AccountsTabContent::Main(AccountsMainTab {
+                            selected_server: None,
+                        }),
+                        AccountsTabContent::Servers(AccountsServersTab {}),
+                    ],
+                }),
                 TabContent::Game(GameTab {
                     selected_tab: 0,
                     tabs: vec![

@@ -78,8 +78,10 @@ pub struct AlembicSettings {
     pub is_configured: bool,
     pub client: ClientInfo,
     pub dll: DllInfo,
+    pub selected_server: Option<usize>,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
+    pub servers: Vec<ServerInfo>,
 }
 
 impl AlembicSettings {
@@ -90,7 +92,9 @@ impl AlembicSettings {
             client: ClientInfo::default(),
             dll: DllInfo::default(),
             selected_account: None,
+            selected_server: None,
             accounts: vec![],
+            servers: vec![],
         }
     }
 }
@@ -123,7 +127,15 @@ impl AlembicSettings {
         // TODO: DLL
         self.dll = new_settings.dll.clone();
 
-        // TODO: Account
+        // TODO: Servers
+        self.selected_server = new_settings.selected_server.clone();
+        new_settings
+            .servers
+            .iter()
+            .for_each(|a| self.servers.push(a.clone()));
+
+        // TODO: Accounts
+        self.selected_account = new_settings.selected_account.clone();
         new_settings
             .accounts
             .iter()
@@ -146,16 +158,16 @@ impl AlembicSettings {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServerInfo {
     pub hostname: String,
-    pub port: usize,
+    pub port: String,
 }
 
 // TODO: Make this real
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Account {
+    pub server_index: usize,
     pub name: String,
     pub username: String,
     pub password: String,
-    pub server_info: ServerInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

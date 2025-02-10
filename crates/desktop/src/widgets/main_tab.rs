@@ -10,7 +10,7 @@ use crate::{
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 use libalembic::settings::AlembicSettings;
 
-use super::components::AccountPicker;
+use super::components::{AccountPicker, ServerPicker};
 
 pub struct MainTab {}
 
@@ -153,7 +153,18 @@ impl Widget for &mut MainTab {
                     }
                 });
 
-                ui.add(&mut AccountPicker {});
+                let selected_server = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    s.lock().unwrap().selected_server
+                } else {
+                    None
+                };
+
+                ui.add(&mut AccountPicker {
+                    selected_server: selected_server,
+                });
+                ui.add(&mut ServerPicker {});
             });
         })
         .response
