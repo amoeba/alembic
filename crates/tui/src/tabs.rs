@@ -55,20 +55,22 @@ impl AppTab {
 
     pub const fn palette(self) -> tailwind::Palette {
         match self {
-            Self::Tab1 => tailwind::BLUE,
-            Self::Tab2 => tailwind::EMERALD,
+            Self::Tab1 => tailwind::GREEN,
+            Self::Tab2 => tailwind::ROSE,
         }
     }
 
     pub fn previous(self) -> AppTab {
         let current_index = self as usize;
         let next_index = current_index.saturating_sub(1);
+
         Self::from_repr(next_index).unwrap_or(self)
     }
 
     pub fn next(self) -> AppTab {
         let current_index: usize = self as usize;
         let previous_index = current_index.saturating_add(1);
+
         Self::from_repr(previous_index).unwrap_or(self)
     }
 }
