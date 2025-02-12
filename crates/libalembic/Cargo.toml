@@ -1,9 +1,8 @@
 [package]
 name = "libalembic"
-description = "WIP"
-edition = "2021"
-
+description = "Library for Alembic"
 version.workspace = true
+edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

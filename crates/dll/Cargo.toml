@@ -1,7 +1,12 @@
 [package]
 name = "dll"
-version = "0.1.0"
-edition = "2021"
+description = "Injectable DLL for Alembic"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
 
 [lib]
 name = "alembic"

@@ -1,9 +1,8 @@
 [package]
 name = "cli"
 description = "CLI for Alembic"
-edition = "2021"
-
 version.workspace = true
+edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

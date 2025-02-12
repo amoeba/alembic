@@ -1,8 +1,6 @@
 [package]
 name = "desktop"
 description = "Desktop application for Alembic"
-edition = "2021"
-
 version.workspace = true
 authors.workspace = true
 license.workspace = true
