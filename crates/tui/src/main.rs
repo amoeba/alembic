@@ -10,6 +10,12 @@ pub struct App {
 }
 
 impl App {
+    fn new() -> Self {
+        Self {
+            label: "Hello World!".to_string(),
+            exit: false,
+        }
+    }
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         while !self.exit {
             terminal.draw(|frame| {
@@ -22,7 +28,7 @@ impl App {
     }
 
     fn draw(&self, frame: &mut Frame) {
-        frame.render_widget("hello world", frame.area());
+        frame.render_widget(self.label.clone(), frame.area());
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
@@ -47,9 +53,10 @@ impl App {
         self.exit = true;
     }
 }
+
 fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();
-    let app_result = App::default().run(&mut terminal);
+    let app_result = App::new().run(&mut terminal);
 
     ratatui::restore();
 
