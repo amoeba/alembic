@@ -1,7 +1,8 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use crate::tabs::AppTab;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use libalembic::msg::client_server::ClientServerMessage;
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
@@ -10,24 +11,39 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 use strum::IntoEnumIterator;
+use tokio::sync::{
+    mpsc::{error::TryRecvError, Receiver},
+    Mutex,
+};
 
-#[derive(Default)]
 pub struct App {
     title: String,
     exit: bool,
     selected_tab: AppTab,
+    client_server_rx: Arc<Mutex<Receiver<ClientServerMessage>>>,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(client_server_rx: Arc<Mutex<Receiver<ClientServerMessage>>>) -> Self {
         Self {
             title: "Alembic".to_string(),
             exit: false,
             selected_tab: AppTab::Tab1,
+            client_server_rx: client_server_rx,
         }
     }
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         while !self.exit {
+            loop {
+                match self.client_server_rx.try_lock().unwrap().try_recv() {
+                    Ok(_) => todo!(),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        eprintln!("Channel disconnected");
+                        break;
+                    }
+                }
+            }
             terminal.draw(|frame| {
                 self.draw(frame);
             })?;
