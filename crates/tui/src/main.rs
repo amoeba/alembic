@@ -1,7 +1,15 @@
 use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::{DefaultTerminal, Frame};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::Stylize,
+    symbols::border,
+    text::{Line, Text},
+    widgets::{Block, Paragraph, Widget},
+    DefaultTerminal, Frame,
+};
 
 #[derive(Debug, Default)]
 pub struct App {
@@ -28,7 +36,7 @@ impl App {
     }
 
     fn draw(&self, frame: &mut Frame) {
-        frame.render_widget(self.label.clone(), frame.area());
+        frame.render_widget(self, frame.area());
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
@@ -51,6 +59,22 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
+    }
+}
+
+impl Widget for &App {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let title = Line::from(" Alembic ".bold());
+        let instructions = Line::from(vec![" Quit ".into(), "<q> ".blue().bold()]);
+
+        let block = Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::THICK);
+
+        Paragraph::new(self.label.clone())
+            .block(block)
+            .render(area, buf);
     }
 }
 
