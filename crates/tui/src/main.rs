@@ -1,6 +1,6 @@
 use std::io;
 
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
 #[derive(Debug, Default)]
@@ -25,8 +25,26 @@ impl App {
         frame.render_widget("hello world", frame.area());
     }
 
-    fn handle_events(&self) -> io::Result<()> {
+    fn handle_events(&mut self) -> io::Result<()> {
+        match event::read()? {
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                self.handle_key_event(key_event);
+            }
+            _ => {}
+        }
+
         Ok(())
+    }
+
+    fn handle_key_event(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Char('q') => self.exit(),
+            _ => {}
+        }
+    }
+
+    fn exit(&mut self) {
+        self.exit = true;
     }
 }
 fn main() -> io::Result<()> {
