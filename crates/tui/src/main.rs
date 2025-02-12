@@ -1,24 +1,39 @@
-use color_eyre::Result;
+use std::io;
+
 use crossterm::event::{self, Event};
 use ratatui::{DefaultTerminal, Frame};
 
-fn main() -> Result<()> {
-    color_eyre::install()?;
-    let terminal = ratatui::init();
-    let result = run(terminal);
-    ratatui::restore();
-    result
+#[derive(Debug, Default)]
+pub struct App {
+    label: String,
+    exit: bool,
 }
 
-fn run(mut terminal: DefaultTerminal) -> Result<()> {
-    loop {
-        terminal.draw(render)?;
-        if matches!(event::read()?, Event::Key(_)) {
-            break Ok(());
+impl App {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        while !self.exit {
+            terminal.draw(|frame| {
+                self.draw(frame);
+            })?;
+            self.handle_events()?;
         }
+
+        Ok(())
+    }
+
+    fn draw(&self, frame: &mut Frame) {
+        frame.render_widget("hello world", frame.area());
+    }
+
+    fn handle_events(&self) -> io::Result<()> {
+        Ok(())
     }
 }
+fn main() -> io::Result<()> {
+    let mut terminal = ratatui::init();
+    let app_result = App::default().run(&mut terminal);
 
-fn render(frame: &mut Frame) {
-    frame.render_widget("hello world", frame.area());
+    ratatui::restore();
+
+    app_result
 }
