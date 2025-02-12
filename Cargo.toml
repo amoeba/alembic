@@ -8,7 +8,7 @@ repository = "https://github.com/amoeba/alembic"
 readme = "README.md"
 
 [workspace]
-members = ["crates/cli", "crates/libalembic", "crates/desktop", "crates/dll"]
+members = ["crates/cli", "crates/libalembic", "crates/desktop", "crates/dll", "crates/tui"]
 resolver = "2"
 
 [workspace.dependencies]
