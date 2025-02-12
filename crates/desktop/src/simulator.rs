@@ -7,7 +7,6 @@ use std::{
     thread,
     time::Duration,
 };
-
 use libalembic::rpc::WorldClient;
 use rand::Rng;
 use tarpc::{client, context, tokio_serde::formats::Json};
