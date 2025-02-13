@@ -29,7 +29,7 @@ impl App {
             title: "Alembic".to_string(),
             exit: false,
             selected_tab: AppTab::Tab1,
-            client_server_rx: client_server_rx,
+            client_server_rx,
         }
     }
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
