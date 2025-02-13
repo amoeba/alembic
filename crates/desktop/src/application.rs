@@ -90,6 +90,21 @@ impl Application {
             }
         }
 
+        // Fonts
+        let mut fonts = egui::FontDefinitions::default();
+        fonts.font_data.insert(
+            "InterVariable".to_owned(),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/InterVariable.ttf"
+            ))),
+        );
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, "InterVariable".to_owned());
+        cc.egui_ctx.set_fonts(fonts);
+
         Self {
             tab_container: TabContainer::new(),
             wizard: Wizard::new(),
