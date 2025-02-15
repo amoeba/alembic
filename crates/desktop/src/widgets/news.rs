@@ -1,5 +1,4 @@
 use std::{
-    fmt::Debug,
     sync::{Arc, Mutex},
     time::SystemTime,
 };
@@ -7,23 +6,65 @@ use std::{
 use chrono::{DateTime, Local};
 use eframe::egui::{self, Response, Ui, Widget};
 
-use crate::backend::{self, Backend};
+use crate::{backend::Backend, FetchRequest};
 
 pub struct News {
-    fetch_period: std::time::Duration,
+    num_retry_attempts: usize,
+    max_retry_attempts: usize,
+    retry_interval: std::time::Duration,
     last_fetched: Option<std::time::SystemTime>,
+    is_resolved: bool,
 }
 
 impl News {
     pub fn default() -> Self {
         Self {
-            fetch_period: std::time::Duration::from_secs(10),
+            num_retry_attempts: 0,
+            max_retry_attempts: 3,
+            retry_interval: std::time::Duration::from_secs(1),
             last_fetched: None,
+            is_resolved: false,
         }
     }
 }
 impl Widget for &mut News {
     fn ui(self, ui: &mut Ui) -> Response {
+        // Handle news update signalling
+        if !self.is_resolved {
+            // First we check if the were were resolved externally
+            if let Some(b) = ui.data_mut(|data| {
+                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+            }) {
+                let backend = b.lock().unwrap();
+
+                if backend.news.is_some() {
+                    self.is_resolved = true;
+                }
+            }
+
+            // If we're due to check, check
+            let retry_not_exhausted = self.max_retry_attempts > self.num_retry_attempts;
+            let due_for_retry = self.last_fetched.is_none()
+                || self.last_fetched.unwrap() + self.retry_interval < SystemTime::now();
+
+            if retry_not_exhausted && due_for_retry {
+                self.last_fetched = Some(SystemTime::now());
+
+                if let Some(sender) = ui.data_mut(|data| {
+                    data.get_persisted::<std::sync::mpsc::Sender<FetchRequest>>(egui::Id::new(
+                        "background_fetch_sender",
+                    ))
+                }) {
+                    sender
+                        .send(FetchRequest::FetchNews)
+                        .expect("Failed to send fetch request");
+                }
+
+                self.num_retry_attempts += 1;
+            }
+        }
+
+        // Regular UI code continues here
         ui.vertical(|ui| {
             ui.heading("Community Updates");
 
@@ -42,7 +83,7 @@ impl Widget for &mut News {
                         .entries
                         .iter()
                         .for_each(|entry| {
-                            let datetime: DateTime<Local> = entry.datetime.into();
+                            let datetime: DateTime<Local> = entry.created_at.into();
 
                             egui::ScrollArea::vertical()
                                 .auto_shrink(true)

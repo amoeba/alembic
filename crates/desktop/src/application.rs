@@ -1,12 +1,12 @@
 use std::{
-    sync::Arc,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
     backend::{Backend, ChatMessage, LogEntry, PacketInfo},
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
+    FetchRequest, UpdateMessage,
 };
 
 use eframe::egui::{self};
@@ -35,12 +35,16 @@ pub struct Application {
     about: About,
     settings: Settings,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
+    background_fetch_sender: std::sync::mpsc::Sender<FetchRequest>,
+    background_update_receiver: std::sync::mpsc::Receiver<UpdateMessage>,
 }
 
 impl Application {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
+        background_fetch_sender: std::sync::mpsc::Sender<FetchRequest>,
+        background_update_receiver: std::sync::mpsc::Receiver<UpdateMessage>,
     ) -> Self {
         // Inject a new, shared Backend object into the egui_ctx (Context)
         let backend: Arc<Mutex<Backend>> = Arc::new(Mutex::new(Backend::new()));
@@ -57,6 +61,14 @@ impl Application {
 
         cc.egui_ctx
             .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), alembic_settings));
+
+        // Background data fetching
+        cc.egui_ctx.data_mut(|data| {
+            data.insert_persisted(
+                egui::Id::new("background_fetch_sender"),
+                background_fetch_sender.clone(),
+            );
+        });
 
         // Set up view state
         //
@@ -111,6 +123,8 @@ impl Application {
             about: About::new(),
             settings: Settings::new(),
             client_server_rx: client_server_rx,
+            background_fetch_sender,
+            background_update_receiver,
         }
     }
 
@@ -294,6 +308,29 @@ impl eframe::App for Application {
                     break;
                 }
             }
+        }
+
+        loop {
+            match self.background_update_receiver.try_recv() {
+                Ok(update) => match update {
+                    UpdateMessage::NewsUpdate(news) => {
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                backend.lock().unwrap().news = Some(news);
+                            }
+                        });
+                    }
+                },
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    eprintln!("Channel disconnected");
+                    break;
+                }
+            }
+
+            break;
         }
 
         self.ui(ctx);

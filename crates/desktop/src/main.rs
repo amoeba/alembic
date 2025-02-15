@@ -2,11 +2,13 @@
 
 mod application;
 mod backend;
+mod fetching;
 mod launch;
 mod simulator;
 mod widgets;
 
 use std::{
+    io::Read,
     net::{IpAddr, Ipv4Addr},
     sync::Arc,
     thread,
@@ -14,7 +16,9 @@ use std::{
 };
 
 use application::Application;
+use backend::News;
 use eframe::egui::{self, IconData};
+use fetching::{FetchRequest, NewsResponse, UpdateMessage, NEWS_URL};
 use futures::{future, StreamExt};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
@@ -41,6 +45,47 @@ fn main() -> eframe::Result {
     let (server_gui_tx, server_gui_rx) = channel::<ServerGuiMessage>(32);
     let server_gui_tx_ref = Arc::new(Mutex::new(server_gui_tx));
     let server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
+
+    // Channels for background data fetching
+    let (background_fetch_sender, fetch_receiver) = std::sync::mpsc::channel::<FetchRequest>();
+    let (update_sender, background_update_receiver) = std::sync::mpsc::channel::<UpdateMessage>();
+
+    thread::spawn(move || {
+        while let Ok(request) = fetch_receiver.recv() {
+            match request {
+                FetchRequest::FetchNews => {
+                    let req = reqwest::blocking::get(NEWS_URL);
+                    let mut body: String = String::new();
+
+                    match req {
+                        Ok(mut resp) => {
+                            let read_result = resp.read_to_string(&mut body);
+
+                            if read_result.is_err() {
+                                println!("Failed to read body: {:?}.", read_result.err());
+                                continue;
+                            }
+
+                            let news_resp: Result<NewsResponse, serde_json::Error> =
+                                serde_json::from_str(&body);
+
+                            if news_resp.is_err() {
+                                println!("Failed to parse as JSON: {:?}.", news_resp.err());
+                                continue;
+                            }
+
+                            update_sender
+                                .send(UpdateMessage::NewsUpdate(News {
+                                    entries: news_resp.unwrap().news.records,
+                                }))
+                                .expect("Failed to send update. This is a serious bug and should be reported.");
+                        }
+                        Err(_) => todo!(),
+                    }
+                }
+            }
+        }
+    });
 
     // tarpc
     let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -131,7 +176,12 @@ fn main() -> eframe::Result {
 
             egui_extras::install_image_loaders(&cc.egui_ctx);
 
-            let app: Application = Application::new(cc, Arc::clone(&client_server_rx_ref));
+            let app: Application = Application::new(
+                cc,
+                Arc::clone(&client_server_rx_ref),
+                background_fetch_sender,
+                background_update_receiver,
+            );
 
             Ok(Box::new(app))
         }),

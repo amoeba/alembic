@@ -1,6 +1,8 @@
 use std::{fmt::Display, num::NonZero, time::SystemTime};
 
 use ringbuffer::AllocRingBuffer;
+use serde::Deserialize;
+use serde_with::serde_as;
 
 #[allow(unused)]
 pub struct LogEntry {
@@ -44,10 +46,13 @@ impl Display for PacketInfo {
     }
 }
 
+#[serde_as]
+#[derive(Deserialize, Debug)]
 pub struct NewsEntry {
     pub title: String,
     pub author: String,
-    pub datetime: std::time::SystemTime,
+    #[serde_as(as = "serde_with::TimestampSeconds")]
+    pub created_at: std::time::SystemTime,
     pub body: String,
 }
 
@@ -96,14 +101,7 @@ impl Backend {
     pub fn new() -> Self {
         Self {
             status_message: None,
-            news: Some(News {
-                entries: vec![NewsEntry {
-                    title: "Testing".to_string(),
-                    author: "Testing Person".to_string(),
-                    datetime: SystemTime::now(),
-                    body: "Testing news...".to_string(),
-                }],
-            }),
+            news: None,
             client: None,
             is_injected: false,
             logs: AllocRingBuffer::<LogEntry>::new(10000),

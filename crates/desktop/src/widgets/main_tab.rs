@@ -23,12 +23,14 @@ use super::{
 
 pub struct MainTab {
     sidebar_width: f32,
+    news: News,
 }
 
 impl MainTab {
     pub fn default() -> Self {
         Self {
             sidebar_width: 200.0,
+            news: News::default(),
         }
     }
 }
@@ -42,7 +44,7 @@ impl Widget for &mut MainTab {
                         ui.available_width() - self.sidebar_width,
                         ui.available_height(),
                     ),
-                    |ui| ui.add(&mut News::default()),
+                    |ui| ui.add(&mut self.news),
                 );
             });
             ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
