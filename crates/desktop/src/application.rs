@@ -5,8 +5,8 @@ use std::{
 
 use crate::{
     backend::{Backend, ChatMessage, LogEntry, PacketInfo},
+    fetching::{BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper},
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
-    FetchRequest, UpdateMessage,
 };
 
 use eframe::egui::{self};
@@ -35,16 +35,16 @@ pub struct Application {
     about: About,
     settings: Settings,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
-    background_fetch_sender: std::sync::mpsc::Sender<FetchRequest>,
-    background_update_receiver: std::sync::mpsc::Receiver<UpdateMessage>,
+    background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
+    background_update_receiver: std::sync::mpsc::Receiver<BackgroundFetchUpdateMessage>,
 }
 
 impl Application {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
-        background_fetch_sender: std::sync::mpsc::Sender<FetchRequest>,
-        background_update_receiver: std::sync::mpsc::Receiver<UpdateMessage>,
+        background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
+        background_update_receiver: std::sync::mpsc::Receiver<BackgroundFetchUpdateMessage>,
     ) -> Self {
         // Inject a new, shared Backend object into the egui_ctx (Context)
         let backend: Arc<Mutex<Backend>> = Arc::new(Mutex::new(Backend::new()));
@@ -313,12 +313,12 @@ impl eframe::App for Application {
         loop {
             match self.background_update_receiver.try_recv() {
                 Ok(update) => match update {
-                    UpdateMessage::NewsUpdate(news) => {
+                    BackgroundFetchUpdateMessage::NewsUpdate(wrapper) => {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                             {
-                                backend.lock().unwrap().news = Some(news);
+                                backend.lock().unwrap().news = wrapper;
                             }
                         });
                     }

@@ -6,7 +6,10 @@ use std::{
 use chrono::{DateTime, Local};
 use eframe::egui::{self, Response, Ui, Widget};
 
-use crate::{backend::Backend, FetchRequest};
+use crate::{
+    backend::Backend,
+    fetching::{BackgroundFetchRequest, FetchWrapper},
+};
 
 pub struct News {
     num_retry_attempts: usize,
@@ -37,7 +40,7 @@ impl Widget for &mut News {
             }) {
                 let backend = b.lock().unwrap();
 
-                if backend.news.is_some() {
+                if matches!(&backend.news, FetchWrapper::Success(_news)) {
                     self.is_resolved = true;
                 }
             }
@@ -51,12 +54,12 @@ impl Widget for &mut News {
                 self.last_fetched = Some(SystemTime::now());
 
                 if let Some(sender) = ui.data_mut(|data| {
-                    data.get_persisted::<std::sync::mpsc::Sender<FetchRequest>>(egui::Id::new(
-                        "background_fetch_sender",
-                    ))
+                    data.get_persisted::<std::sync::mpsc::Sender<BackgroundFetchRequest>>(
+                        egui::Id::new("background_fetch_sender"),
+                    )
                 }) {
                     sender
-                        .send(FetchRequest::FetchNews)
+                        .send(BackgroundFetchRequest::FetchNews)
                         .expect("Failed to send fetch request");
                 }
 
@@ -73,27 +76,40 @@ impl Widget for &mut News {
             }) {
                 let backend = b.lock().unwrap();
 
-                if backend.news.is_none() || backend.news.as_ref().unwrap().entries.len() == 0 {
-                    ui.label("No news to show");
-                } else {
-                    backend
-                        .news
-                        .as_ref()
-                        .unwrap()
-                        .entries
-                        .iter()
-                        .for_each(|entry| {
-                            let datetime: DateTime<Local> = entry.created_at.into();
+                match &backend.news {
+                    FetchWrapper::NotStarted => {
+                        ui.label("Not yet fetched.");
+                    }
+                    FetchWrapper::Started => {
+                        ui.label("Fetching...");
+                    }
+                    FetchWrapper::Retrying(_) => {
+                        ui.label("Retrying...");
+                    }
+                    FetchWrapper::Success(news) => {
+                        if news.entries.len() <= 0 {
+                            ui.label("No news to show");
+                        } else {
+                            news.entries.iter().for_each(|entry| {
+                                let datetime: DateTime<Local> = entry.created_at.into();
 
-                            egui::ScrollArea::vertical()
-                                .auto_shrink(true)
-                                .max_height(105.0) // Help last line be cut off to indicate
-                                // the need to scroll
-                                .show(ui, |ui| {
-                                    ui.label(format!("{}", datetime.format("%Y-%m-%d %H:%M:%S")));
-                                    ui.label(entry.body.clone())
-                                });
-                        });
+                                egui::ScrollArea::vertical()
+                                    .auto_shrink(true)
+                                    .max_height(105.0) // Help last line be cut off to indicate
+                                    // the need to scroll
+                                    .show(ui, |ui| {
+                                        ui.label(format!(
+                                            "{}",
+                                            datetime.format("%Y-%m-%d %H:%M:%S")
+                                        ));
+                                        ui.label(entry.body.clone())
+                                    });
+                            });
+                        }
+                    }
+                    FetchWrapper::Failed(error) => {
+                        ui.label(format!("Error: {}", error));
+                    }
                 }
             } else {
                 ui.label("Failed to get backend.");

@@ -8,6 +8,8 @@ mod simulator;
 mod widgets;
 
 use std::{
+    boxed,
+    error::Error,
     io::Read,
     net::{IpAddr, Ipv4Addr},
     sync::Arc,
@@ -18,7 +20,10 @@ use std::{
 use application::Application;
 use backend::News;
 use eframe::egui::{self, IconData};
-use fetching::{FetchRequest, NewsResponse, UpdateMessage, NEWS_URL};
+use fetching::{
+    fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper, NewsResponse,
+    NEWS_URL,
+};
 use futures::{future, StreamExt};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
@@ -47,40 +52,33 @@ fn main() -> eframe::Result {
     let server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
 
     // Channels for background data fetching
-    let (background_fetch_sender, fetch_receiver) = std::sync::mpsc::channel::<FetchRequest>();
-    let (update_sender, background_update_receiver) = std::sync::mpsc::channel::<UpdateMessage>();
+    let (background_fetch_sender, fetch_receiver) =
+        std::sync::mpsc::channel::<BackgroundFetchRequest>();
+    let (update_sender, background_update_receiver) =
+        std::sync::mpsc::channel::<BackgroundFetchUpdateMessage>();
 
     thread::spawn(move || {
         while let Ok(request) = fetch_receiver.recv() {
             match request {
-                FetchRequest::FetchNews => {
-                    let req = reqwest::blocking::get(NEWS_URL);
-                    let mut body: String = String::new();
+                BackgroundFetchRequest::FetchNews => {
+                    update_sender
+                        .send(BackgroundFetchUpdateMessage::NewsUpdate(
+                            FetchWrapper::Started,
+                        ))
+                        .expect("Failed to send BackgroundFetchUpdateMessage::NewsUpdate. This is a serious bug and should be reported.");
 
-                    match req {
-                        Ok(mut resp) => {
-                            let read_result = resp.read_to_string(&mut body);
-
-                            if read_result.is_err() {
-                                println!("Failed to read body: {:?}.", read_result.err());
-                                continue;
-                            }
-
-                            let news_resp: Result<NewsResponse, serde_json::Error> =
-                                serde_json::from_str(&body);
-
-                            if news_resp.is_err() {
-                                println!("Failed to parse as JSON: {:?}.", news_resp.err());
-                                continue;
-                            }
-
+                    match fetch_news() {
+                        Ok(news) => {
                             update_sender
-                                .send(UpdateMessage::NewsUpdate(News {
-                                    entries: news_resp.unwrap().news.records,
-                                }))
-                                .expect("Failed to send update. This is a serious bug and should be reported.");
+                                .send(BackgroundFetchUpdateMessage::NewsUpdate(FetchWrapper::Success(News {entries: news.news.records }))).expect(
+                            "Failed to send BackgroundFetchUpdateMessage::NewsUpdate. This is a serious bug and should be reported.");
                         }
-                        Err(_) => todo!(),
+                        Err(err) => {
+                            update_sender
+                                .send(BackgroundFetchUpdateMessage::NewsUpdate(FetchWrapper::Failed(err.to_string().into()))).expect(
+                            "Failed to send BackgroundFetchUpdateMessage::NewsUpdate. This is a serious bug and should be reported.",
+                        );
+                        }
                     }
                 }
             }

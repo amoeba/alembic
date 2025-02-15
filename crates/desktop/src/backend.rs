@@ -1,8 +1,11 @@
-use std::{fmt::Display, num::NonZero, time::SystemTime};
+use std::error::Error;
+use std::{fmt::Display, num::NonZero};
 
 use ringbuffer::AllocRingBuffer;
 use serde::Deserialize;
 use serde_with::serde_as;
+
+use crate::fetching::FetchWrapper;
 
 #[allow(unused)]
 pub struct LogEntry {
@@ -56,6 +59,7 @@ pub struct NewsEntry {
     pub body: String,
 }
 
+#[derive(Debug)]
 pub struct News {
     pub entries: Vec<NewsEntry>,
 }
@@ -87,7 +91,7 @@ impl Statistics {
 }
 pub struct Backend {
     pub status_message: Option<String>,
-    pub news: Option<News>,
+    pub news: FetchWrapper<News>,
     pub client: Option<Client>,
     pub is_injected: bool,
     pub logs: AllocRingBuffer<LogEntry>,
@@ -101,7 +105,7 @@ impl Backend {
     pub fn new() -> Self {
         Self {
             status_message: None,
-            news: None,
+            news: FetchWrapper::NotStarted,
             client: None,
             is_injected: false,
             logs: AllocRingBuffer::<LogEntry>::new(10000),
