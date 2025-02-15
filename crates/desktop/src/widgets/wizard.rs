@@ -1,4 +1,7 @@
+use std::sync::{Arc, Mutex};
+
 use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
+use libalembic::settings::AlembicSettings;
 
 use crate::application::{AppPage, WizardPage};
 
@@ -33,6 +36,17 @@ impl Widget for &mut Wizard {
                     .show_inside(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
+                                // Save is_configured
+                                if let Some(s) = ui.data_mut(|data| {
+                                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(
+                                        egui::Id::new("settings"),
+                                    )
+                                }) {
+                                    let mut settings = s.lock().unwrap();
+                                    settings.is_configured = true;
+                                    let _ = settings.save();
+                                };
+
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
@@ -66,6 +80,17 @@ impl Widget for &mut Wizard {
                         ui.horizontal(|ui| {
                             ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                                 if ui.button("Exit Setup").clicked() {
+                                    // Save is_configured
+                                    if let Some(s) = ui.data_mut(|data| {
+                                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(
+                                            egui::Id::new("settings"),
+                                        )
+                                    }) {
+                                        let mut settings = s.lock().unwrap();
+                                        settings.is_configured = true;
+                                        let _ = settings.save();
+                                    };
+
                                     ui.memory_mut(|mem| {
                                         mem.data.insert_persisted(
                                             egui::Id::new("app_page"),
@@ -105,6 +130,17 @@ impl Widget for &mut Wizard {
                     .show_inside(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
+                                // Save is_configured
+                                if let Some(s) = ui.data_mut(|data| {
+                                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(
+                                        egui::Id::new("settings"),
+                                    )
+                                }) {
+                                    let mut settings = s.lock().unwrap();
+                                    settings.is_configured = true;
+                                    let _ = settings.save();
+                                };
+
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
@@ -119,6 +155,17 @@ impl Widget for &mut Wizard {
 
                     ui.heading("Finish Setup");
                     if ui.button("Finish").clicked() {
+                        // Save is_configured
+                        if let Some(s) = ui.data_mut(|data| {
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                                "settings",
+                            ))
+                        }) {
+                            let mut settings = s.lock().unwrap();
+                            settings.is_configured = true;
+                            let _ = settings.save();
+                        };
+
                         ui.memory_mut(|mem| {
                             mem.data
                                 .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
