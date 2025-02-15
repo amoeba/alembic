@@ -7,7 +7,12 @@ use crate::{
     backend::{Backend, Client},
     launch::try_launch,
 };
-use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
+use eframe::{
+    egui::{
+        self, Align, Button, CentralPanel, Layout, Response, Sense, SidePanel, Ui, Vec2, Widget,
+    },
+    epaint::text::layout,
+};
 use libalembic::settings::AlembicSettings;
 
 use super::components::{AccountPicker, ServerPicker};
@@ -16,8 +21,17 @@ pub struct MainTab {}
 
 impl Widget for &mut MainTab {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
-            ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
+        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            ui.with_layout(Layout::top_down(Align::Min), |ui| {
+                ui.allocate_ui(
+                    Vec2::new(ui.available_width() - 200.0, ui.available_height()),
+                    |ui| {
+                        ui.label("Left");
+                    },
+                );
+            });
+            ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
+                ui.set_max_width(200.0);
                 let have_client = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
