@@ -8,9 +8,6 @@ mod simulator;
 mod widgets;
 
 use std::{
-    boxed,
-    error::Error,
-    io::Read,
     net::{IpAddr, Ipv4Addr},
     sync::Arc,
     thread,
@@ -19,11 +16,8 @@ use std::{
 
 use application::Application;
 use backend::News;
-use eframe::egui::{self, IconData};
-use fetching::{
-    fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper, NewsResponse,
-    NEWS_URL,
-};
+use eframe::egui::IconData;
+use fetching::{fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper};
 use futures::{future, StreamExt};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
@@ -135,7 +129,7 @@ fn main() -> eframe::Result {
     };
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder {
+        viewport: eframe::egui::ViewportBuilder {
             icon: icon_data,
             ..Default::default()
         }

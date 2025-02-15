@@ -52,11 +52,12 @@ impl Display for PacketInfo {
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct NewsEntry {
-    pub title: String,
+    pub subject: String,
+    pub body: String,
     pub author: String,
+    pub source_url: String,
     #[serde_as(as = "serde_with::TimestampSeconds")]
     pub created_at: std::time::SystemTime,
-    pub body: String,
 }
 
 #[derive(Debug)]

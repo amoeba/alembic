@@ -4,7 +4,8 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use eframe::egui::{self, Response, Ui, Widget};
+use eframe::egui::{Id, Response, RichText, ScrollArea, Ui, Widget};
+use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 use crate::{
     backend::Backend,
@@ -17,6 +18,7 @@ pub struct News {
     retry_interval: std::time::Duration,
     last_fetched: Option<std::time::SystemTime>,
     is_resolved: bool,
+    commonmark_cache: CommonMarkCache,
 }
 
 impl News {
@@ -27,6 +29,7 @@ impl News {
             retry_interval: std::time::Duration::from_secs(1),
             last_fetched: None,
             is_resolved: false,
+            commonmark_cache: CommonMarkCache::default(),
         }
     }
 }
@@ -35,9 +38,9 @@ impl Widget for &mut News {
         // Handle news update signalling
         if !self.is_resolved {
             // First we check if the were were resolved externally
-            if let Some(b) = ui.data_mut(|data| {
-                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
-            }) {
+            if let Some(b) =
+                ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::new("backend")))
+            {
                 let backend = b.lock().unwrap();
 
                 if matches!(&backend.news, FetchWrapper::Success(_news)) {
@@ -53,10 +56,10 @@ impl Widget for &mut News {
             if retry_not_exhausted && due_for_retry {
                 self.last_fetched = Some(SystemTime::now());
 
-                if let Some(sender) = ui.data_mut(|data| {
-                    data.get_persisted::<std::sync::mpsc::Sender<BackgroundFetchRequest>>(
-                        egui::Id::new("background_fetch_sender"),
-                    )
+                if let Some(sender) = ui.data_mut(|data| -> _ {
+                    data.get_persisted::<std::sync::mpsc::Sender<BackgroundFetchRequest>>(Id::new(
+                        "background_fetch_sender",
+                    ))
                 }) {
                     sender
                         .send(BackgroundFetchRequest::FetchNews)
@@ -71,9 +74,9 @@ impl Widget for &mut News {
         ui.vertical(|ui| {
             ui.heading("Community Updates");
 
-            if let Some(b) = ui.data_mut(|data| {
-                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
-            }) {
+            if let Some(b) =
+                ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::new("backend")))
+            {
                 let backend = b.lock().unwrap();
 
                 match &backend.news {
@@ -90,25 +93,36 @@ impl Widget for &mut News {
                         if news.entries.len() <= 0 {
                             ui.label("No news to show");
                         } else {
-                            news.entries.iter().for_each(|entry| {
-                                let datetime: DateTime<Local> = entry.created_at.into();
+                            ScrollArea::vertical().auto_shrink(true).show(ui, |ui| {
+                                news.entries.iter().for_each(|entry| {
+                                    let datetime: DateTime<Local> = entry.created_at.into();
 
-                                egui::ScrollArea::vertical()
-                                    .auto_shrink(true)
-                                    .max_height(105.0) // Help last line be cut off to indicate
-                                    // the need to scroll
-                                    .show(ui, |ui| {
+                                    ui.label(RichText::new(entry.subject.clone()).strong());
+                                    ui.horizontal_wrapped(|ui| {
                                         ui.label(format!(
-                                            "{}",
+                                            "Posted by {} on {}",
+                                            entry.author,
                                             datetime.format("%Y-%m-%d %H:%M:%S")
                                         ));
-                                        ui.label(entry.body.clone())
+                                        ui.hyperlink_to(
+                                            "Source".to_string(),
+                                            entry.source_url.clone(),
+                                        );
                                     });
+
+                                    CommonMarkViewer::new().show(
+                                        ui,
+                                        &mut self.commonmark_cache,
+                                        &entry.body,
+                                    );
+                                    ui.separator();
+                                    ui.add_space(8.0);
+                                });
                             });
                         }
                     }
                     FetchWrapper::Failed(error) => {
-                        ui.label(format!("Error: {}", error));
+                        ui.label(format!("Error fetching news: {}", error));
                     }
                 }
             } else {
