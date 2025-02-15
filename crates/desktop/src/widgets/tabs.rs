@@ -32,7 +32,7 @@ impl TabContainer {
     pub fn new() -> Self {
         Self {
             tabs: vec![
-                TabContent::Main(MainTab {}),
+                TabContent::Main(MainTab::default()),
                 TabContent::Accounts(AccountsTab {
                     selected_tab: 0,
                     tabs: vec![

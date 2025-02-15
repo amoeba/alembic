@@ -13,6 +13,7 @@ pub mod game_chat_tab;
 pub mod game_main_tab;
 pub mod game_tab;
 pub mod main_tab;
+pub mod news;
 pub mod settings;
 pub mod tabs;
 pub mod wizard;
