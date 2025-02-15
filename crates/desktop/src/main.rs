@@ -32,12 +32,12 @@ use tokio::sync::{
 fn main() -> eframe::Result {
     env_logger::init();
 
-    // Channel: ClientServer
+    // Channel: Client (i.e., plugin) to Server
     let (client_server_tx, client_server_rx) = channel::<ClientServerMessage>(32);
     let client_server_tx_ref = Arc::new(Mutex::new(client_server_tx));
     let client_server_rx_ref = Arc::new(Mutex::new(client_server_rx));
 
-    // Channel: Painting
+    // Channel: Server to GUI
     let (server_gui_tx, server_gui_rx) = channel::<ServerGuiMessage>(32);
     let server_gui_tx_ref = Arc::new(Mutex::new(server_gui_tx));
     let server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
