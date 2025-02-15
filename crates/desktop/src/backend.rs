@@ -1,4 +1,4 @@
-use std::{fmt::Display, num::NonZero};
+use std::{fmt::Display, num::NonZero, time::SystemTime};
 
 use ringbuffer::AllocRingBuffer;
 
@@ -44,6 +44,17 @@ impl Display for PacketInfo {
     }
 }
 
+pub struct NewsEntry {
+    pub title: String,
+    pub author: String,
+    pub datetime: std::time::SystemTime,
+    pub body: String,
+}
+
+pub struct News {
+    pub entries: Vec<NewsEntry>,
+}
+
 #[derive(Clone)]
 pub struct Client {
     pub pid: NonZero<u32>,
@@ -71,6 +82,7 @@ impl Statistics {
 }
 pub struct Backend {
     pub status_message: Option<String>,
+    pub news: Option<News>,
     pub client: Option<Client>,
     pub is_injected: bool,
     pub logs: AllocRingBuffer<LogEntry>,
@@ -84,6 +96,14 @@ impl Backend {
     pub fn new() -> Self {
         Self {
             status_message: None,
+            news: Some(News {
+                entries: vec![NewsEntry {
+                    title: "Testing".to_string(),
+                    author: "Testing Person".to_string(),
+                    datetime: SystemTime::now(),
+                    body: "Testing news...".to_string(),
+                }],
+            }),
             client: None,
             is_injected: false,
             logs: AllocRingBuffer::<LogEntry>::new(10000),
