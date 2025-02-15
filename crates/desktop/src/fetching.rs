@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::backend::{News, NewsEntry};
 
 // URLs
-pub const NEWS_URL : &str = "https://gist.githubusercontent.com/amoeba/cb65198f3c1c59ba945daea6f5484161/raw/10c3de96f8b41166ce2d81aa00b79163ab2b8b73/news.json";
+pub const NEWS_URL : &str = "https://gist.githubusercontent.com/amoeba/cb65198f3c1c59ba945daea6f5484161/raw/bf1965a1c6b1bcba923c28e295156e51d2b18ed4/news.json";
 
 // Wrapper around fetch requests
 pub enum FetchWrapper<T> {
