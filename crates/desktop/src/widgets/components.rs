@@ -78,7 +78,7 @@ impl Widget for &mut ServerPicker {
 
             let selected_text = if server_names.len() > 0 {
                 settings
-                    .selected_account
+                    .selected_server
                     .and_then(|index| server_names.get(index).cloned())
                     .unwrap_or_else(|| "Pick a server".to_string())
             } else {
