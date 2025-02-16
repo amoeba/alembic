@@ -65,6 +65,27 @@ pub struct News {
     pub entries: Vec<NewsEntry>,
 }
 
+// Community Servers list structures
+#[derive(Debug, Deserialize)]
+pub struct CommunityServersServerItem {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub emu: String,
+    pub server_host: String,
+    pub server_port: String,
+    pub r#type: String,
+    pub status: String,
+    pub website_url: Option<String>,
+    pub discord_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommunityServers {
+    #[serde(rename = "ServerItem")]
+    pub servers: Vec<CommunityServersServerItem>,
+}
+
 #[derive(Clone)]
 pub struct Client {
     pub pid: NonZero<u32>,
@@ -93,6 +114,7 @@ impl Statistics {
 pub struct Backend {
     pub status_message: Option<String>,
     pub news: FetchWrapper<News>,
+    pub community_servers: FetchWrapper<CommunityServers>,
     pub client: Option<Client>,
     pub is_injected: bool,
     pub logs: AllocRingBuffer<LogEntry>,
@@ -107,6 +129,7 @@ impl Backend {
         Self {
             status_message: None,
             news: FetchWrapper::NotStarted,
+            community_servers: FetchWrapper::NotStarted,
             client: None,
             is_injected: false,
             logs: AllocRingBuffer::<LogEntry>::new(10000),

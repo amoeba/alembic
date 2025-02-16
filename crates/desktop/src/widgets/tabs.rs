@@ -1,6 +1,7 @@
 use eframe::egui::{Response, Ui, Widget};
 
 use super::{
+    accounts_community_servers_tab::AccountsCommunityServersTab,
     accounts_main_tab::AccountsMainTab,
     accounts_servers_tab::AccountsServersTab,
     accounts_tab::{AccountsTab, AccountsTabContent},
@@ -40,6 +41,7 @@ impl TabContainer {
                             selected_server: None,
                         }),
                         AccountsTabContent::Servers(AccountsServersTab {}),
+                        AccountsTabContent::CommunityServers(AccountsCommunityServersTab::default()),
                     ],
                 }),
                 TabContent::Game(GameTab {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use eframe::egui::{FontFamily, Id, Response, RichText, ScrollArea, Ui, Widget};
+use eframe::egui::{Id, Response, RichText, ScrollArea, Ui, Widget};
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 use crate::{
@@ -26,7 +26,7 @@ impl News {
         Self {
             num_retry_attempts: 0,
             max_retry_attempts: 3,
-            retry_interval: std::time::Duration::from_secs(1),
+            retry_interval: std::time::Duration::from_secs(60),
             last_fetched: None,
             is_resolved: false,
             commonmark_cache: CommonMarkCache::default(),

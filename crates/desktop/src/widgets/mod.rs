@@ -1,4 +1,5 @@
 pub mod about;
+pub mod accounts_community_servers_tab;
 pub mod accounts_main_tab;
 pub mod accounts_servers_tab;
 pub mod accounts_tab;

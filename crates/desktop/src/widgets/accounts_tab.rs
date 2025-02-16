@@ -1,10 +1,14 @@
 use eframe::egui::{Response, Ui, Widget};
 
-use super::{accounts_main_tab::AccountsMainTab, accounts_servers_tab::AccountsServersTab};
+use super::{
+    accounts_community_servers_tab::AccountsCommunityServersTab,
+    accounts_main_tab::AccountsMainTab, accounts_servers_tab::AccountsServersTab,
+};
 
 pub enum AccountsTabContent {
     Main(AccountsMainTab),
     Servers(AccountsServersTab),
+    CommunityServers(AccountsCommunityServersTab),
 }
 
 pub struct AccountsTab {
@@ -21,6 +25,7 @@ impl Widget for &mut AccountsTab {
                     let label = match tab {
                         AccountsTabContent::Main(_) => "Accounts",
                         AccountsTabContent::Servers(_) => "Servers",
+                        AccountsTabContent::CommunityServers(_) => "Community Servers",
                     };
 
                     if ui
@@ -41,6 +46,9 @@ impl Widget for &mut AccountsTab {
                         ui.add(tab);
                     }
                     AccountsTabContent::Servers(tab) => {
+                        ui.add(tab);
+                    }
+                    AccountsTabContent::CommunityServers(tab) => {
                         ui.add(tab);
                     }
                 }

@@ -322,6 +322,16 @@ impl eframe::App for Application {
                             }
                         });
                     }
+                    BackgroundFetchUpdateMessage::CommunityServersUpdate(wrapper) => {
+                        println!("App got servers list:");
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                backend.lock().unwrap().community_servers = wrapper;
+                            }
+                        });
+                    }
                 },
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {

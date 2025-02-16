@@ -17,7 +17,10 @@ use std::{
 use application::Application;
 use backend::News;
 use eframe::egui::IconData;
-use fetching::{fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper};
+use fetching::{
+    fetch_community_servers_list, fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage,
+    FetchWrapper,
+};
 use futures::{future, StreamExt};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
@@ -72,6 +75,31 @@ fn main() -> eframe::Result {
                                 .send(BackgroundFetchUpdateMessage::NewsUpdate(FetchWrapper::Failed(err.to_string().into()))).expect(
                             "Failed to send BackgroundFetchUpdateMessage::NewsUpdate. This is a serious bug and should be reported.",
                         );
+                        }
+                    }
+                }
+                BackgroundFetchRequest::FetchCommunityServers => {
+                    println!("Got request to fetch community servers");
+
+                    update_sender
+                    .send(BackgroundFetchUpdateMessage::CommunityServersUpdate(
+                        FetchWrapper::Started,
+                    ))
+                    .expect("Failed to send BackgroundFetchUpdateMessage::CommunityServersUpdate. This is a serious bug and should be reported.");
+
+                    match fetch_community_servers_list() {
+                        Ok(list) => {
+                            println!("got list: {:?}", list);
+
+                            update_sender
+                            .send(BackgroundFetchUpdateMessage::CommunityServersUpdate(FetchWrapper::Success(list))).expect(
+                        "Failed to send BackgroundFetchUpdateMessage::CommunityServersUpdate. This is a serious bug and should be reported.");
+                        }
+                        Err(err) => {
+                            update_sender
+                            .send(BackgroundFetchUpdateMessage::CommunityServersUpdate(FetchWrapper::Failed(err.to_string().into()))).expect(
+                        "Failed to send BackgroundFetchUpdateMessage::CommunityServersUpdate. This is a serious bug and should be reported.",
+                    );
                         }
                     }
                 }

@@ -1130,6 +1130,7 @@ dependencies = [
  "reqwest",
  "ringbuffer",
  "serde",
+ "serde-xml-rs",
  "serde_json",
  "serde_with",
  "tarpc",
@@ -4140,6 +4141,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-xml-rs"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb3aa78ecda1ebc9ec9847d5d3aba7d618823446a049ba2491940506da6e2782"
+dependencies = [
+ "log",
+ "serde",
+ "thiserror 1.0.69",
+ "xml-rs",
 ]
 
 [[package]]
