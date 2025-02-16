@@ -49,6 +49,7 @@ impl Widget for &mut AccountsServersTab {
                         .column(Column::auto()) // Name column
                         .column(Column::auto()) // Address column
                         .column(Column::auto()) // Port column
+                        .column(Column::auto()) // Delete
                         .header(text_height, |mut header| {
                             header.col(|ui| {
                                 ui.strong("Name");
@@ -59,29 +60,44 @@ impl Widget for &mut AccountsServersTab {
                             header.col(|ui| {
                                 ui.strong("Port");
                             });
+                            header.col(|ui| {
+                                ui.strong("Delete");
+                            });
                         })
                         .body(|mut body| {
-                            for server in &mut settings.servers {
+                            let indices: Vec<usize> = (0..settings.servers.len()).collect();
+
+                            for i in indices {
                                 n_accounts += 1;
 
                                 body.row(text_height, |mut table_row| {
                                     // Editable Name field
                                     table_row.col(|ui| {
-                                        did_update |=
-                                            ui.text_edit_singleline(&mut server.name).changed();
+                                        did_update |= ui
+                                            .text_edit_singleline(&mut settings.servers[i].name)
+                                            .changed();
                                     });
 
                                     // Editable Address field
                                     table_row.col(|ui| {
-                                        did_update |=
-                                            ui.text_edit_singleline(&mut server.hostname).changed();
+                                        did_update |= ui
+                                            .text_edit_singleline(&mut settings.servers[i].hostname)
+                                            .changed();
                                     });
 
                                     // Editable Port field
                                     // todo
                                     table_row.col(|ui| {
-                                        did_update |=
-                                            ui.text_edit_singleline(&mut server.port).changed();
+                                        did_update |= ui
+                                            .text_edit_singleline(&mut settings.servers[i].port)
+                                            .changed();
+                                    });
+
+                                    table_row.col(|ui| {
+                                        if ui.button("Delete").clicked() {
+                                            settings.servers.remove(i);
+                                            did_update = true;
+                                        }
                                     });
                                 });
                             }
