@@ -47,11 +47,16 @@ impl Widget for &mut AccountPicker {
                 .selected_text(selected_text)
                 .show_ui(ui, |ui| {
                     for (index, name) in account_names.iter().enumerate() {
-                        ui.selectable_value(
-                            &mut settings.selected_account,
-                            Some(index),
-                            name.clone(),
-                        );
+                        if ui
+                            .selectable_value(
+                                &mut settings.selected_account,
+                                Some(index),
+                                name.clone(),
+                            )
+                            .changed()
+                        {
+                            let _ = settings.save();
+                        };
                     }
                 })
                 .response
@@ -89,11 +94,16 @@ impl Widget for &mut ServerPicker {
                 .selected_text(selected_text)
                 .show_ui(ui, |ui| {
                     for (index, name) in server_names.iter().enumerate() {
-                        ui.selectable_value(
-                            &mut settings.selected_server,
-                            Some(index),
-                            name.clone(),
-                        );
+                        if ui
+                            .selectable_value(
+                                &mut settings.selected_server,
+                                Some(index),
+                                name.clone(),
+                            )
+                            .changed()
+                        {
+                            let _ = settings.save();
+                        };
                     }
                 })
                 .response
