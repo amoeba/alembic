@@ -9,7 +9,7 @@ This quickly got very out of hand.
 
 ![](./docs/screenshot_macos.png)
 
-See the [YouTube demo](https://www.youtube.com/watch?v=FYanHXpOclo) to see how it works.
+See the [Alembic Walkthrough](https://www.youtube.com/watch?v=Q9_YcRT3qpg) to see how it works.
 
 ## Features
 
