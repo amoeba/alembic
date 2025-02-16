@@ -9,7 +9,7 @@ use crate::{
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 
-use eframe::egui::{self};
+use eframe::egui::{self, vec2, Align, Align2, Layout, Vec2};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use ringbuffer::RingBuffer;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
@@ -208,6 +208,47 @@ impl Application {
                     ui.add(&mut self.about);
                 });
             }
+        }
+
+        let current_modal = if let Some(backend_ref) =
+            ctx.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
+        {
+            let backend = backend_ref.lock().unwrap();
+
+            backend.current_modal.clone()
+        } else {
+            None
+        };
+
+        if current_modal.is_some() {
+            let modal = current_modal.unwrap();
+
+            egui::Window::new(modal.title)
+                .enabled(true)
+                .collapsible(false)
+                .resizable(false)
+                .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                .show(ctx, |ui| {
+                    ui.set_max_width(240.0); // Adjust this value as needed
+
+                    ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
+                        ui.label(modal.text);
+                        ui.add_space(16.0);
+                        ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                            if ui.button("Close").clicked() {
+                                if let Some(backend_ref) = ctx.data_mut(|data| {
+                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                                        "backend",
+                                    ))
+                                }) {
+                                    let mut backend = backend_ref.lock().unwrap();
+
+                                    backend.current_modal = None;
+                                }
+                            }
+                        });
+                    });
+                });
         }
     }
 }

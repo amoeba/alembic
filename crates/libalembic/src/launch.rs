@@ -30,16 +30,16 @@ pub struct Launcher {
 
 impl<'a> Launcher {
     pub fn new(
-        client_info: &ClientInfo,
-        server_info: &ServerInfo,
-        account_info: &Account,
+        client_info: ClientInfo,
+        server_info: ServerInfo,
+        account_info: Account,
         dll_path: String,
     ) -> Self {
         Launcher {
-            client_info: client_info.clone(),
-            server_info: server_info.clone(),
-            account_info: account_info.clone(),
-            dll_path: dll_path.clone(),
+            client_info: client_info,
+            server_info: server_info,
+            account_info: account_info,
+            dll_path: dll_path,
             client: None,
             injector: None,
         }
@@ -59,8 +59,6 @@ impl<'a> Launcher {
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
-        println!("cmdline {}", self.get_cmd_line());
-        println!("current_dir {}", self.get_current_dir());
 
         unsafe {
             let result = CreateProcessW(
@@ -146,15 +144,16 @@ impl<'a> Launcher {
             None => panic!("Could not create InjectionKit."),
         };
 
-        let dll_path = "alembic.dll";
-
-        if !fs::exists(dll_path)? {
-            bail!("Can't find DLL to inject at path {dll_path}. Bailing.");
+        if !fs::exists(&self.dll_path)? {
+            bail!(
+                "Can't find DLL to inject at path {}. Bailing.",
+                self.dll_path
+            );
         }
 
         match self.injector.as_mut() {
             Some(kit) => {
-                kit.inject(dll_path)?;
+                kit.inject(&self.dll_path)?;
             }
             None => panic!("Could not get access to underlying injector to inject DLL."),
         }

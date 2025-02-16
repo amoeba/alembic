@@ -4,13 +4,12 @@ use std::{
 };
 
 use crate::{
-    backend::{Backend, Client},
+    backend::{AppModal, Backend, Client},
     launch::try_launch,
 };
-use eframe::egui::{
-        self, Align, Button, Layout, Response, Ui, Vec2, Widget,
-    };
+use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 use libalembic::settings::AlembicSettings;
+use tarpc::client;
 
 use super::{
     components::{AccountPicker, ServerPicker},
@@ -84,7 +83,7 @@ impl Widget for &mut MainTab {
                     {
                         println!("Launch clicked.");
 
-                        // Get client info
+                        // Client Info
                         let client_info = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
                                 "settings",
@@ -97,12 +96,7 @@ impl Widget for &mut MainTab {
                             None
                         };
 
-                        if client_info.is_none() {
-                            println!("Client info is none");
-                            return;
-                        }
-
-                        // Get server info
+                        // Server Info
                         let server_info = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
                                 "settings",
@@ -118,12 +112,7 @@ impl Widget for &mut MainTab {
                             None
                         };
 
-                        if server_info.is_none() {
-                            println!("Server info is none");
-                            return;
-                        }
-
-                        // Get account info
+                        // Account Info
                         let account_info = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
                                 "settings",
@@ -139,35 +128,7 @@ impl Widget for &mut MainTab {
                             None
                         };
 
-                        if account_info.is_none() {
-                            println!("Account info is none");
-                            return;
-                        }
-
-                        let final_client_info = client_info.unwrap();
-                        let final_server_info: libalembic::settings::ServerInfo =
-                            server_info.unwrap();
-                        let final_account_info = account_info.unwrap();
-
-                        // Verify client exists
-                        match fs::exists(&final_client_info.path) {
-                            Ok(does_exist) => {
-                                if does_exist {
-                                    println!("client path does exist");
-                                } else {
-                                    println!("client path does not exist");
-                                    return;
-                                }
-                            }
-                            Err(err) => todo!(),
-                        }
-
-                        println!(
-                            "Trying launch with client {:?} and account {:?}",
-                            final_client_info, final_account_info
-                        );
-
-                        // Verify and get DLL path
+                        // Alembic DLL Path
                         let dll_path = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
                                 "settings",
@@ -180,16 +141,7 @@ impl Widget for &mut MainTab {
                             None
                         };
 
-                        if dll_path.is_none() {
-                            println!("DLL path is none which means we can't launch.");
-                        }
-
-                        match try_launch(
-                            &final_client_info,
-                            &final_server_info,
-                            &final_account_info,
-                            dll_path.unwrap(),
-                        ) {
+                        match try_launch(&client_info, &server_info, &account_info, dll_path) {
                             Ok(val) => {
                                 println!("Launch succeeded. Launched pid is {val}!");
 
@@ -204,7 +156,22 @@ impl Widget for &mut MainTab {
                                     backend.is_injected = true;
                                 }
                             }
-                            Err(error) => println!("Launch failed with error: {error}"),
+                            Err(error) => {
+                                println!("Launch failed with error: {error}");
+
+                                if let Some(backend_ref) = ui.data_mut(|data| {
+                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                                        "backend",
+                                    ))
+                                }) {
+                                    let mut backend = backend_ref.lock().unwrap();
+
+                                    backend.current_modal = Some(AppModal {
+                                        title: "Error Launching".to_string(),
+                                        text: format!("The following error was encountered when trying to launch:\n\n{}\n\nPlease check your settings and try again.", error.to_string()),
+                                    });
+                                }
+                            }
                         }
 
                         println!("Launch process is over.");

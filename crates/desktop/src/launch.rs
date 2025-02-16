@@ -1,25 +1,69 @@
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub fn try_launch(
-    client_info: &libalembic::settings::ClientInfo,
-    server_info: &libalembic::settings::ServerInfo,
-    account_info: &libalembic::settings::Account,
-    dll_path: String,
+    client_info: &Option<libalembic::settings::ClientInfo>,
+    server_info: &Option<libalembic::settings::ServerInfo>,
+    account_info: &Option<libalembic::settings::Account>,
+    dll_path: Option<String>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
+    use std::fs;
+
+    use anyhow::bail;
     use libalembic::launch::Launcher;
 
-    let mut launcher = Launcher::new(client_info, server_info, account_info, dll_path);
+    // Validate arguments and return an error if any checks fail
+    match client_info {
+        Some(value) => match fs::exists(&value.path) {
+            Ok(exists) => {
+                if !exists {
+                    bail!("Client does not exist at path '{}'.", value.path);
+                }
+            }
+            Err(_) => bail!("Couldn't determine whether client exists or not."),
+        },
+        None => bail!("Couldn't get client information."),
+    }
+
+    match server_info {
+        Some(_) => {}
+        None => bail!("Couldn't get server information."),
+    }
+
+    match account_info {
+        Some(_) => {}
+        None => bail!("Couldn't get account information."),
+    }
+
+    match &dll_path {
+        Some(value) => match fs::exists(&value) {
+            Ok(exists) => {
+                if !exists {
+                    bail!("Alembic DLL does not exist at path '{}'.", value);
+                }
+            }
+            Err(_) => bail!("Couldn't determine Alembic DLL exists or not."),
+        },
+        None => bail!("Couldn't get DLL information."),
+    }
+
+    let mut launcher = Launcher::new(
+        client_info.clone().unwrap(),
+        server_info.clone().unwrap(),
+        account_info.clone().unwrap(),
+        dll_path.unwrap().clone(),
+    );
     let pid = launcher.find_or_launch()?;
     launcher.inject()?;
+    // TODO: How to handle deinject. i.e., store the launch app-wide
 
     Ok(pid)
 }
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub fn try_launch(
-    client_info: &libalembic::settings::ClientInfo,
-    server: &libalembic::settings::ServerInfo,
-    account_info: &libalembic::settings::Account,
-    dll_path: String,
+    client_info: &Option<libalembic::settings::ClientInfo>,
+    server: &Option<libalembic::settings::ServerInfo>,
+    account_info: &Option<libalembic::settings::Account>,
+    dll_path: Option<String>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     // TODO: Show some indication we can't launch on this platform
 

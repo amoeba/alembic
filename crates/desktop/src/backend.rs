@@ -111,7 +111,15 @@ impl Statistics {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct AppModal {
+    pub title: String,
+    pub text: String,
+}
+
 pub struct Backend {
+    pub current_modal: Option<AppModal>,
     pub status_message: Option<String>,
     pub news: FetchWrapper<News>,
     pub community_servers: FetchWrapper<CommunityServers>,
@@ -127,6 +135,7 @@ pub struct Backend {
 impl Backend {
     pub fn new() -> Self {
         Self {
+            current_modal: None,
             status_message: None,
             news: FetchWrapper::NotStarted,
             community_servers: FetchWrapper::NotStarted,
