@@ -1,5 +1,5 @@
 use std::{
-    default, fs,
+    fs,
     sync::{Arc, Mutex},
 };
 
@@ -7,13 +7,9 @@ use crate::{
     backend::{Backend, Client},
     launch::try_launch,
 };
-use eframe::{
-    egui::{
-        self, text::LayoutJob, Align, Button, CentralPanel, Color32, Layout, Response, Sense,
-        SidePanel, TextFormat, Ui, Vec2, Widget,
-    },
-    epaint::text::layout,
-};
+use eframe::egui::{
+        self, Align, Button, Layout, Response, Ui, Vec2, Widget,
+    };
 use libalembic::settings::AlembicSettings;
 
 use super::{

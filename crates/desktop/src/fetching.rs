@@ -1,4 +1,4 @@
-use std::{error::Error, io::Read, time::Duration};
+use std::{error::Error, io::Read};
 
 use serde::Deserialize;
 

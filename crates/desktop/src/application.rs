@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     backend::{Backend, ChatMessage, LogEntry, PacketInfo},
-    fetching::{BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper},
+    fetching::{BackgroundFetchRequest, BackgroundFetchUpdateMessage},
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 

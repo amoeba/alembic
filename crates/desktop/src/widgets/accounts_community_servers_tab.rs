@@ -84,7 +84,7 @@ impl Widget for &mut AccountsCommunityServersTab {
                 if let Some(b) = ui.data_mut(|data: &mut egui::util::IdTypeMap| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
-                    let mut backend = b.lock().unwrap();
+                    let backend = b.lock().unwrap();
 
                     match &backend.community_servers {
                         FetchWrapper::NotStarted => {
