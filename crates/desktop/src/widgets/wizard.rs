@@ -153,7 +153,8 @@ impl Widget for &mut Wizard {
                     ui.heading("Setup");
                     ui.add_space(16.0);
 
-                    ui.heading("Finish Setup");
+                    ui.label("Alembic is currently in beta and is really only meant to be a prototype. Things may not work as expected. Bug reports and feature requests are welcome.");
+                    ui.add_space(16.0);
                     if ui.button("Finish").clicked() {
                         // Save is_configured
                         if let Some(s) = ui.data_mut(|data| {
