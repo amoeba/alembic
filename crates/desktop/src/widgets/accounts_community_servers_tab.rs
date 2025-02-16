@@ -168,11 +168,20 @@ impl Widget for &mut AccountsCommunityServersTab {
                                                         }) {
                                                             let mut settings = s.lock().unwrap();
 
-                                                            settings.servers.push(ServerInfo {
+                                                            let to_import = ServerInfo {
                                                                 name: server.name.clone(),
                                                                 hostname: server.server_host.clone(),
                                                                 port: server.server_port.clone(),
-                                                            });
+                                                            };
+
+                                                            match settings.servers.iter().position(|s| s.name == server.name) {
+                                                                Some(idx) => {
+                                                                    settings.servers[idx] = to_import;
+                                                                },
+                                                                None =>  {
+                                                                    settings.servers.push(to_import);
+                                                                }
+                                                            }
 
                                                             let _ = settings.save();
                                                         } else {
