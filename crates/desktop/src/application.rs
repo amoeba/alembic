@@ -338,8 +338,6 @@ impl eframe::App for Application {
                     break;
                 }
             }
-
-            break;
         }
 
         self.ui(ctx);
