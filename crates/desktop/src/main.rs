@@ -79,8 +79,6 @@ fn main() -> eframe::Result {
                     }
                 }
                 BackgroundFetchRequest::FetchCommunityServers => {
-                    println!("Got request to fetch community servers");
-
                     update_sender
                     .send(BackgroundFetchUpdateMessage::CommunityServersUpdate(
                         FetchWrapper::Started,
@@ -89,8 +87,6 @@ fn main() -> eframe::Result {
 
                     match fetch_community_servers_list() {
                         Ok(list) => {
-                            println!("got list: {:?}", list);
-
                             update_sender
                             .send(BackgroundFetchUpdateMessage::CommunityServersUpdate(FetchWrapper::Success(list))).expect(
                         "Failed to send BackgroundFetchUpdateMessage::CommunityServersUpdate. This is a serious bug and should be reported.");

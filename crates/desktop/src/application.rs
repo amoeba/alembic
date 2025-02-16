@@ -323,7 +323,6 @@ impl eframe::App for Application {
                         });
                     }
                     BackgroundFetchUpdateMessage::CommunityServersUpdate(wrapper) => {
-                        println!("App got servers list:");
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
