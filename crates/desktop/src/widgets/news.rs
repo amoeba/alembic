@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use eframe::egui::{Id, Response, RichText, ScrollArea, Ui, Widget};
+use eframe::egui::{FontFamily, Id, Response, RichText, ScrollArea, Ui, Widget};
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 use crate::{
@@ -73,7 +73,7 @@ impl Widget for &mut News {
         // Regular UI code continues here
         ui.vertical(|ui| {
             ui.heading("Community Updates");
-
+            ui.add_space(8.0);
             if let Some(b) =
                 ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::new("backend")))
             {
@@ -109,7 +109,7 @@ impl Widget for &mut News {
                                             entry.source_url.clone(),
                                         );
                                     });
-
+                                    ui.add_space(4.0);
                                     CommonMarkViewer::new().show(
                                         ui,
                                         &mut self.commonmark_cache,
