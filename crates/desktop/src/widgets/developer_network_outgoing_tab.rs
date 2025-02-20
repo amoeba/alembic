@@ -5,7 +5,7 @@ use ringbuffer::RingBuffer;
 
 use crate::backend::Backend;
 
-use super::components::centered_text;
+use super::{binary_viewer::BinaryViewer, components::centered_text};
 
 pub struct DeveloperNetworkOutgoingTab {
     selected_item: Option<usize>,
@@ -48,16 +48,12 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
 
                     egui::CentralPanel::default().show_inside(ui, |ui| {
                         if let Some(item) = &self.selected_item {
-                            egui::Frame::dark_canvas(ui.style())
-                                .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke)
-                                .show(ui, |ui| {
-                                    ui.label(format!(
-                                        "{:?}",
-                                        backend.lock().unwrap().packets_outgoing[*item].data
-                                    ));
-                                });
+                            ui.add(&mut BinaryViewer::new(
+                                "packets_outgoing".to_string(),
+                                backend.lock().unwrap().packets_outgoing[*item].data.clone(),
+                            ))
                         } else {
-                            centered_text(ui, "Select a packet.");
+                            centered_text(ui, "Select a packet.")
                         }
                     });
                 }

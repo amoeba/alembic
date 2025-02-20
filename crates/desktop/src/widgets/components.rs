@@ -6,11 +6,12 @@ use std::{
 use eframe::egui::{self, Color32, Layout, Response, RichText, Ui, Widget};
 use libalembic::settings::AlembicSettings;
 
-pub fn centered_text(ui: &mut Ui, text: &str) {
+pub fn centered_text(ui: &mut Ui, text: &str) -> Response {
     ui.with_layout(
         Layout::centered_and_justified(egui::Direction::TopDown),
         |ui| ui.label(text),
-    );
+    )
+    .response
 }
 
 pub struct AccountPicker {
