@@ -18,3 +18,4 @@ pub mod news;
 pub mod settings;
 pub mod tabs;
 pub mod wizard;
+pub mod binary_viewer;
