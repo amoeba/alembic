@@ -131,7 +131,7 @@ impl Widget for &mut MainTab {
                 };
 
                 if ui.button("Inject").clicked() {
-                    println!("Inject clicked");
+                    println!("Inject clicked, launch is {:?}", self.current_launcher);
 
                     if self.current_launcher.is_none() {
                         println!("Must launch first.")
