@@ -4,6 +4,7 @@ use dll_syringe::{
     error::EjectError, process::BorrowedProcessModule, process::OwnedProcess, Syringe,
 };
 
+#[derive(Debug)]
 pub struct InjectionKit {
     syringe: Syringe,                                // Owns the Syringe
     payload: Option<BorrowedProcessModule<'static>>, // Stores the injected payload

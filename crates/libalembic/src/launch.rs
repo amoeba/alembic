@@ -19,12 +19,13 @@ use windows::{
     },
 };
 
+#[derive(Debug)]
 pub struct Launcher {
     client_info: ClientInfo,
     server_info: ServerInfo,
     account_info: Account,
     dll_path: String,
-    client: Option<OwnedProcess>,
+    pub client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
 }
 
@@ -45,7 +46,7 @@ impl<'a> Launcher {
         }
     }
 
-    fn launch(&self) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
+    pub fn launch(&self) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
         let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
         let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
@@ -95,7 +96,7 @@ impl<'a> Launcher {
         }
     }
 
-    fn find(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn find(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
         }

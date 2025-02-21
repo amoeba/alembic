@@ -7,8 +7,8 @@ use crate::{
     backend::{AppModal, Backend, Client},
     launch::try_launch,
 };
-use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
-use libalembic::settings::AlembicSettings;
+use eframe::egui::{self, style::DebugOptions, Align, Button, Layout, Response, Ui, Vec2, Widget};
+use libalembic::{launch::Launcher, settings::AlembicSettings};
 use tarpc::client;
 
 use super::{
@@ -19,6 +19,7 @@ use super::{
 pub struct MainTab {
     sidebar_width: f32,
     news: News,
+    current_launcher: Option<Launcher>,
 }
 
 impl MainTab {
@@ -26,6 +27,7 @@ impl MainTab {
         Self {
             sidebar_width: 200.0,
             news: News::default(),
+            current_launcher: None,
         }
     }
 }
@@ -44,6 +46,8 @@ impl Widget for &mut MainTab {
             });
             ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
                 ui.set_max_width(self.sidebar_width);
+
+                // TODO: Wrap this up somewhere else outside of the UI render code
                 let have_client = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
@@ -76,107 +80,150 @@ impl Widget for &mut MainTab {
                     false
                 };
 
-                ui.add_enabled_ui(can_launch, |ui| {
-                    if ui
-                        .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
-                        .clicked()
-                    {
-                        println!("Launch clicked.");
+                // Client Info
+                let client_info = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    let settings = s.lock().unwrap();
 
-                        // Client Info
-                        let client_info = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
-                                "settings",
-                            ))
-                        }) {
-                            let settings = s.lock().unwrap();
+                    Some(settings.client.clone())
+                } else {
+                    None
+                };
 
-                            Some(settings.client.clone())
-                        } else {
-                            None
-                        };
+                // Server Info
+                let server_info = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    let settings = s.lock().unwrap();
 
-                        // Server Info
-                        let server_info = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
-                                "settings",
-                            ))
-                        }) {
-                            let settings = s.lock().unwrap();
-
-                            match settings.selected_server {
-                                Some(index) => Some(settings.servers[index].clone()),
-                                None => None,
-                            }
-                        } else {
-                            None
-                        };
-
-                        // Account Info
-                        let account_info = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
-                                "settings",
-                            ))
-                        }) {
-                            let settings = s.lock().unwrap();
-
-                            match settings.selected_account {
-                                Some(index) => Some(settings.accounts[index].clone()),
-                                None => None,
-                            }
-                        } else {
-                            None
-                        };
-
-                        // Alembic DLL Path
-                        let dll_path = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
-                                "settings",
-                            ))
-                        }) {
-                            let settings = s.lock().unwrap();
-
-                            Some(settings.dll.dll_path.clone())
-                        } else {
-                            None
-                        };
-
-                        match try_launch(&client_info, &server_info, &account_info, dll_path) {
-                            Ok(val) => {
-                                println!("Launch succeeded. Launched pid is {val}!");
-
-                                if let Some(backend_ref) = ui.data_mut(|data| {
-                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
-                                        "backend",
-                                    ))
-                                }) {
-                                    let mut backend = backend_ref.lock().unwrap();
-
-                                    backend.client = Some(Client { pid: val });
-                                    backend.is_injected = true;
-                                }
-                            }
-                            Err(error) => {
-                                println!("Launch failed with error: {error}");
-
-                                if let Some(backend_ref) = ui.data_mut(|data| {
-                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
-                                        "backend",
-                                    ))
-                                }) {
-                                    let mut backend = backend_ref.lock().unwrap();
-
-                                    backend.current_modal = Some(AppModal {
-                                        title: "Error Launching".to_string(),
-                                        text: format!("The following error was encountered when trying to launch:\n\n{}\n\nPlease check your settings and try again.", error.to_string()),
-                                    });
-                                }
-                            }
-                        }
-
-                        println!("Launch process is over.");
+                    match settings.selected_server {
+                        Some(index) => Some(settings.servers[index].clone()),
+                        None => None,
                     }
-                });
+                } else {
+                    None
+                };
+
+                // Account Info
+                let account_info = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    let settings = s.lock().unwrap();
+
+                    match settings.selected_account {
+                        Some(index) => Some(settings.accounts[index].clone()),
+                        None => None,
+                    }
+                } else {
+                    None
+                };
+
+                // Alembic DLL Path
+                let dll_path = if let Some(s) = ui.data_mut(|data| {
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                }) {
+                    let settings = s.lock().unwrap();
+
+                    Some(settings.dll.dll_path.clone())
+                } else {
+                    None
+                };
+
+                if ui.button("Inject").clicked() {
+                    println!("Inject clicked");
+
+                    if self.current_launcher.is_none() {
+                        println!("Must launch first.")
+                    } else {
+                        match self.current_launcher.as_mut().unwrap().inject() {
+                            Ok(_) => println!("inject succes"),
+                            Err(e) => println!("inject error: {:?}", e),
+                        }
+                    }
+                }
+
+                if ui.button("Eject").clicked() {
+                    println!("Eject clicked");
+
+                    if self.current_launcher.is_none() {
+                        println!("Must launch first.")
+                    } else {
+                        match self.current_launcher.as_mut().unwrap().eject() {
+                            Ok(_) => println!("Eject succes"),
+                            Err(e) => println!("Eject error: {:?}", e),
+                        }
+                    }
+                }
+
+                if ui.button("FindOrLaunch").clicked() {
+                    self.current_launcher = Some(Launcher::new(
+                        client_info.clone().unwrap(),
+                        server_info.clone().unwrap(),
+                        account_info.clone().unwrap(),
+                        dll_path.unwrap().clone(),
+                    ));
+
+                    println!(
+                        "FindOrLaunch clicked with launcher {:?}",
+                        self.current_launcher
+                    );
+
+                    match &mut self.current_launcher {
+                        Some(launcher) => match launcher.find_or_launch() {
+                            Ok(info) => println!(
+                                "FindOrLaunch success, proc is {:?}, client is {:?}",
+                                info, launcher.client
+                            ),
+                            Err(e) => println!("FindOrLaunch error: {:?}", e),
+                        },
+                        None => todo!(),
+                    }
+                }
+
+                // ui.add_enabled_ui(can_launch, |ui| {
+                //     if ui
+                //         .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
+                //         .clicked()
+                //     {
+                //         println!("Launch clicked.");
+
+                //         match try_launch(&client_info, &server_info, &account_info, dll_path) {
+                //             Ok(val) => {
+                //                 println!("Launch succeeded. Launched pid is {val}!");
+
+                //                 if let Some(backend_ref) = ui.data_mut(|data| {
+                //                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                //                         "backend",
+                //                     ))
+                //                 }) {
+                //                     let mut backend = backend_ref.lock().unwrap();
+
+                //                     backend.client = Some(Client { pid: val });
+                //                     backend.is_injected = true;
+                //                 }
+                //             }
+                //             Err(error) => {
+                //                 println!("Launch failed with error: {error}");
+
+                //                 if let Some(backend_ref) = ui.data_mut(|data| {
+                //                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                //                         "backend",
+                //                     ))
+                //                 }) {
+                //                     let mut backend = backend_ref.lock().unwrap();
+
+                //                     backend.current_modal = Some(AppModal {
+                //                         title: "Error Launching".to_string(),
+                //                         text: format!("The following error was encountered when trying to launch:\n\n{}\n\nPlease check your settings and try again.", error.to_string()),
+                //                     });
+                //                 }
+                //             }
+                //         }
+
+                //         println!("Launch process is over.");
+                //     }
+                // });
 
                 let selected_server = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
