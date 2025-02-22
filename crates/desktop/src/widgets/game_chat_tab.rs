@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use super::components::centered_text;
 use crate::backend::Backend;
+use chrono::{DateTime, Local, TimeZone};
 use eframe::egui::{self, Button, Rect, Response, ScrollArea, TextEdit, TextStyle, Ui, Widget};
 use ringbuffer::RingBuffer;
 
@@ -26,7 +27,9 @@ impl Widget for &mut GameChatTab {
                 centered_text(ui, "No chat messages yet.")
             } else {
                 ui.vertical(|ui| {
-                    let total_rows = backend.lock().unwrap().chat_messages.len() as usize;
+                    let backend_lock: std::sync::MutexGuard<'_, Backend> = backend.lock().unwrap();
+
+                    let total_rows = backend_lock.chat_messages.len() as usize;
                     let text_style = TextStyle::Body;
                     let row_height = ui.text_style_height(&text_style);
                     let num_rows_to_show = 10;
@@ -41,11 +44,18 @@ impl Widget for &mut GameChatTab {
                                 .stick_to_bottom(true)
                                 .show_rows(ui, row_height, total_rows, |ui, row_range| {
                                     ui.set_min_height(row_height * num_rows_to_show as f32);
-
                                     for row in row_range {
+                                        let datetime: DateTime<Local> = Local
+                                            .timestamp_opt(
+                                                backend_lock.chat_messages[row].timestamp as i64,
+                                                0,
+                                            )
+                                            .unwrap();
+
                                         let text = format!(
-                                            "[TODO] {}",
-                                            backend.lock().unwrap().chat_messages[row].text
+                                            "[{}] {}",
+                                            datetime.format("%Y-%m-%d %H:%M:%S"),
+                                            backend_lock.chat_messages[row].text
                                         );
                                         ui.label(text);
                                     }
