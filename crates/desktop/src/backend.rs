@@ -119,7 +119,7 @@ pub struct AppModal {
 }
 
 pub struct Backend {
-    injected: bool,
+    pub injected: bool,
     pub current_modal: Option<AppModal>,
     pub status_message: Option<String>,
     pub news: FetchWrapper<News>,
