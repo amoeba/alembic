@@ -48,7 +48,7 @@ impl TabContainer {
                     selected_tab: 0,
                     tabs: vec![
                         GameTabContent::Main(GameMainTab {}),
-                        GameTabContent::Chat(GameChatTab {}),
+                        GameTabContent::Chat(GameChatTab::default()),
                     ],
                 }),
                 TabContent::Developer(DeveloperTab {
