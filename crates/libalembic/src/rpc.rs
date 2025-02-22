@@ -13,12 +13,12 @@ pub trait World {
 }
 
 #[derive(Clone)]
-pub struct HelloServer {
+pub struct AlembicServer {
     pub server_gui_tx: Arc<Mutex<Sender<ServerGuiMessage>>>,
     pub client_server_tx: Arc<Mutex<Sender<ClientServerMessage>>>,
 }
 
-impl World for HelloServer {
+impl World for AlembicServer {
     async fn append_log(self, _context: ::tarpc::context::Context, value: String) -> String {
         match self
             .client_server_tx

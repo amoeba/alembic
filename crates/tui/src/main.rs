@@ -9,16 +9,13 @@ use app::App;
 use futures::{future, StreamExt};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
-    rpc::{spawn, HelloServer, World},
+    rpc::{spawn, AlembicServer, World},
 };
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
 };
-use tokio::sync::{
-    mpsc::channel,
-    Mutex,
-};
+use tokio::sync::{mpsc::channel, Mutex};
 
 pub mod app;
 pub mod tabs;
@@ -47,7 +44,7 @@ fn main() -> io::Result<()> {
             .filter_map(|r| future::ready(r.ok()))
             .map(server::BaseChannel::with_defaults)
             .map(|channel| {
-                let server = HelloServer {
+                let server = AlembicServer {
                     server_gui_tx: Arc::clone(&server_gui_tx_ref),
                     client_server_tx: Arc::clone(&client_server_tx_ref),
                 };

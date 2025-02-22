@@ -24,7 +24,7 @@ use fetching::{
 use futures::{future, StreamExt};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
-    rpc::{spawn, HelloServer, World},
+    rpc::{spawn, AlembicServer, World},
 };
 use tarpc::{
     server::{self, Channel},
@@ -116,7 +116,7 @@ fn main() -> eframe::Result {
             .filter_map(|r| future::ready(r.ok()))
             .map(server::BaseChannel::with_defaults)
             .map(|channel| {
-                let server = HelloServer {
+                let server = AlembicServer {
                     server_gui_tx: Arc::clone(&server_gui_tx_ref),
                     client_server_tx: Arc::clone(&client_server_tx_ref),
                 };
