@@ -259,6 +259,29 @@ impl eframe::App for Application {
         loop {
             match self.client_server_rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
+                    ClientServerMessage::ClientInjected() => {
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    backend.injected = true;
+                                }
+                            }
+                        });
+                    }
+                    ClientServerMessage::ClientEjected() => {
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    backend.is_injected = false;
+                                }
+                            }
+                        });
+                    }
+
                     ClientServerMessage::AppendLog(value) => {
                         let log = LogEntry {
                             timestamp: SystemTime::now()

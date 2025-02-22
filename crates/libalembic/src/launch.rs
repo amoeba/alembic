@@ -1,4 +1,3 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
 #![allow(dead_code)]
 
 use std::{error::Error, ffi::OsString, fs, num::NonZero, os::windows::ffi::OsStrExt};
@@ -18,7 +17,6 @@ use windows::{
         },
     },
 };
-
 #[derive(Debug)]
 pub struct Launcher {
     client_info: ClientInfo,
@@ -28,7 +26,7 @@ pub struct Launcher {
     pub client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
 }
-
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 impl<'a> Launcher {
     pub fn new(
         client_info: ClientInfo,
@@ -195,4 +193,25 @@ impl<'a> Launcher {
     fn get_current_dir(&self) -> String {
         format!("{}", self.client_info.path)
     }
+}
+
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+impl<'a> Launcher {
+    pub fn new(
+        client_info: ClientInfo,
+        server_info: ServerInfo,
+        account_info: Account,
+        dll_path: String,
+    ) -> Self {
+        Launcher {
+            client_info: client_info,
+            server_info: server_info,
+            account_info: account_info,
+            dll_path: dll_path,
+            client: None,
+            injector: None,
+        }
+    }
+
+    pub fn launch(&self) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {}
 }

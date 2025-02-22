@@ -119,6 +119,7 @@ pub struct AppModal {
 }
 
 pub struct Backend {
+    injected: bool,
     pub current_modal: Option<AppModal>,
     pub status_message: Option<String>,
     pub news: FetchWrapper<News>,
@@ -135,6 +136,7 @@ pub struct Backend {
 impl Backend {
     pub fn new() -> Self {
         Self {
+            injected: false,
             current_modal: None,
             status_message: None,
             news: FetchWrapper::NotStarted,

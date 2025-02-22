@@ -8,7 +8,7 @@ use crate::{
     launch::try_launch,
 };
 use eframe::egui::{self, style::DebugOptions, Align, Button, Layout, Response, Ui, Vec2, Widget};
-use libalembic::{launch::Launcher, settings::AlembicSettings};
+use libalembic::settings::AlembicSettings;
 use tarpc::client;
 
 use super::{

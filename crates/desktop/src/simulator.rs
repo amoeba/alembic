@@ -1,3 +1,5 @@
+use libalembic::rpc::WorldClient;
+use rand::Rng;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
@@ -7,8 +9,6 @@ use std::{
     thread,
     time::Duration,
 };
-use libalembic::rpc::WorldClient;
-use rand::Rng;
 use tarpc::{client, context, tokio_serde::formats::Json};
 
 #[allow(unused)]
@@ -46,6 +46,11 @@ async fn main() -> anyhow::Result<()> {
         wc.handle_chat(context::current(), "hello from simulator".to_string())
             .await
             .unwrap();
+
+        wc.client_injected(context::current()).await.unwrap();
+        thread::sleep(Duration::from_millis(1000));
+        wc.client_ejected(context::current()).await.unwrap();
+        thread::sleep(Duration::from_millis(1000));
 
         thread::sleep(Duration::from_millis(delay_ms));
     }
