@@ -3,7 +3,7 @@
 use std::{error::Error, ffi::OsString, fs, num::NonZero, os::windows::ffi::OsStrExt};
 
 use crate::{
-    inject::InjectionKit,
+    injection_kit::InjectionKit,
     settings::{AccountInfo, ClientInfo, DllInfo, ServerInfo},
 };
 use anyhow::bail;

@@ -1,7 +1,7 @@
 pub mod acclient;
 pub mod async_runtime;
-pub mod inject;
 pub mod launcher;
+pub mod injection_kit;
 pub mod msg;
 pub mod rpc;
 pub mod settings;
