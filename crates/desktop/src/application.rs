@@ -9,7 +9,7 @@ use crate::{
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 
-use eframe::egui::{self, vec2, Align, Align2, Layout, Vec2};
+use eframe::egui::{self, vec2, Align, Align2, Layout};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use ringbuffer::RingBuffer;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};

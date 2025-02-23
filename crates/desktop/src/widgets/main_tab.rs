@@ -1,14 +1,7 @@
-use std::{
-    fs,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
-use crate::{
-    backend::{AppModal, Backend, Client},
-    launch::try_launch,
-};
-use eframe::egui::{self, style::DebugOptions, Align, Button, Layout, Response, Ui, Vec2, Widget};
-use image::Luma;
+use crate::backend::Backend;
+use eframe::egui::{self, Align, Layout, Response, Ui, Vec2, Widget};
 use libalembic::{
     launcher::{
         launcher::{Launcher, LauncherImpl},
@@ -16,7 +9,6 @@ use libalembic::{
     },
     settings::{AlembicSettings, DllInfo},
 };
-use tarpc::client;
 
 use super::{
     components::{AccountPicker, ServerPicker},
