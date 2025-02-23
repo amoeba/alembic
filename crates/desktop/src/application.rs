@@ -35,7 +35,7 @@ pub struct Application {
     about: About,
     settings: Settings,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
-    background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
+    _background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
     background_update_receiver: std::sync::mpsc::Receiver<BackgroundFetchUpdateMessage>,
 }
 
@@ -123,7 +123,7 @@ impl Application {
             about: About::new(),
             settings: Settings::new(),
             client_server_rx: client_server_rx,
-            background_fetch_sender,
+            _background_fetch_sender: background_fetch_sender,
             background_update_receiver,
         }
     }

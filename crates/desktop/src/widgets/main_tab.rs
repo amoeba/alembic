@@ -47,7 +47,7 @@ impl Widget for &mut MainTab {
                 ui.set_max_width(self.sidebar_width);
 
                 // TODO: Wrap this up somewhere else outside of the UI render code
-                let have_client = if let Some(s) = ui.data_mut(|data| {
+                let _have_client = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
                     let backend = s.lock().unwrap();
@@ -56,7 +56,7 @@ impl Widget for &mut MainTab {
                 } else {
                     false
                 };
-                let is_injected = if let Some(s) = ui.data_mut(|data| {
+                let _is_injected = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
                     let backend = s.lock().unwrap();
@@ -66,7 +66,7 @@ impl Widget for &mut MainTab {
                     false
                 };
 
-                let can_launch = if let Some(s) = ui.data_mut(|data| {
+                let _can_launch = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
                 }) {
                     let settings = s.lock().unwrap();
@@ -146,10 +146,10 @@ impl Widget for &mut MainTab {
                                 Err(e) => println!("inject error: {:?}", e),
                             },
                             libalembic::launcher::launcher::LauncherImpl::WineLauncher(
-                                wine_launcher,
+                                _wine_launcher,
                             ) => todo!(),
                             libalembic::launcher::launcher::LauncherImpl::NoopLauncher(
-                                noop_launcher,
+                                _noop_launcher,
                             ) => todo!(),
                         }
                     }
@@ -168,8 +168,8 @@ impl Widget for &mut MainTab {
                                     Err(e) => println!("Eject error: {:?}", e),
                                 }
                             }
-                            LauncherImpl::WineLauncher(wine_launcher) => todo!(),
-                            LauncherImpl::NoopLauncher(noop_launcher) => todo!(),
+                            LauncherImpl::WineLauncher(_wine_launcher) => todo!(),
+                            LauncherImpl::NoopLauncher(_noop_launcher) => todo!(),
                         }
                     }
                 }
@@ -199,8 +199,8 @@ impl Widget for &mut MainTab {
                                     Err(e) => println!("FindOrLaunch error: {:?}", e),
                                 }
                             }
-                            LauncherImpl::WineLauncher(wine_launcher) => todo!(),
-                            LauncherImpl::NoopLauncher(noop_launcher) => todo!(),
+                            LauncherImpl::WineLauncher(_wine_launcher) => todo!(),
+                            LauncherImpl::NoopLauncher(_noop_launcher) => todo!(),
                         },
                         None => todo!(),
                     }

@@ -10,6 +10,7 @@ pub const COMMUNITY_SERVERS_LIST_URL: &str =
     "https://raw.githubusercontent.com/acresources/serverslist/refs/heads/master/Servers.xml";
 
 // Wrapper around fetch requests
+#[allow(dead_code)]
 pub enum FetchWrapper<T> {
     NotStarted,
     Started,

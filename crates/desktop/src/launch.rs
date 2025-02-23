@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub fn try_launch(
     client_info: &Option<libalembic::settings::ClientInfo>,

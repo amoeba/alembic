@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
 const SETTINGS_FILE_NAME: &str = "config.json";
-const ENV_PREFIX: &str = "ALEMBIC";
 
 #[allow(dead_code)]
 pub struct SettingsManager {
@@ -25,7 +24,7 @@ static SETTINGS: Lazy<SettingsManager> =
 impl SettingsManager {
     pub fn new() -> anyhow::Result<Self> {
         let final_settings = AlembicSettings::new();
-        let loaded_settings = ensure_settings()?;
+        let _loaded_settings = ensure_settings()?;
 
         // TODO Merge loaded_settings into final settings object
 
