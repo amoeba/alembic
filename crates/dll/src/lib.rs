@@ -90,6 +90,12 @@ fn ensure_client() -> anyhow::Result<()> {
         loop {
             match rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
+                    ClientServerMessage::ClientInjected() => {
+                        todo!();
+                    }
+                    ClientServerMessage::ClientEjected() => {
+                        todo!();
+                    }
                     ClientServerMessage::HandleSendTo(vec) => {
                         match client.handle_sendto(context::current(), vec).await {
                             Ok(_) => {}
