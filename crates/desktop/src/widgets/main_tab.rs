@@ -14,7 +14,7 @@ use libalembic::{
         launcher::{Launcher, LauncherImpl},
         windows::WindowsLauncher,
     },
-    settings::AlembicSettings,
+    settings::{AlembicSettings, DllInfo},
 };
 use tarpc::client;
 
@@ -127,15 +127,18 @@ impl Widget for &mut MainTab {
                 };
 
                 // Alembic DLL Path
-                let dll_info = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                }) {
-                    let settings = s.lock().unwrap();
+                // let dll_info = if let Some(s) = ui.data_mut(|data| {
+                //     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                // }) {
+                //     let settings = s.lock().unwrap();
 
-                    Some(settings.dll.clone())
-                } else {
-                    None
-                };
+                //     Some(settings.dll.clone())
+                // } else {
+                //     None
+                // };
+                let dll_info = Some(DllInfo {
+                    dll_path: r"target\i686-pc-windows-msvc/debug/alembic.dll".to_string(),
+                });
 
                 if ui.button("Inject").clicked() {
                     println!("Inject clicked, launch is {:?}", self.current_launcher);
