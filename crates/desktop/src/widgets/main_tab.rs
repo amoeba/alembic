@@ -164,7 +164,7 @@ impl Widget for &mut MainTab {
                         match self.current_launcher.as_mut().unwrap() {
                             LauncherImpl::WindowsLauncher(windows_launcher) => {
                                 match windows_launcher.eject() {
-                                    Ok(_) => println!("Eject succes"),
+                                    Ok(_) => println!("Eject success"),
                                     Err(e) => println!("Eject error: {:?}", e),
                                 }
                             }
