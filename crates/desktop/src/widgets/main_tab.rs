@@ -8,7 +8,14 @@ use crate::{
     launch::try_launch,
 };
 use eframe::egui::{self, style::DebugOptions, Align, Button, Layout, Response, Ui, Vec2, Widget};
-use libalembic::settings::AlembicSettings;
+use image::Luma;
+use libalembic::{
+    launcher::{
+        launcher::{Launcher, LauncherImpl},
+        windows::WindowsLauncher,
+    },
+    settings::AlembicSettings,
+};
 use tarpc::client;
 
 use super::{
@@ -19,7 +26,7 @@ use super::{
 pub struct MainTab {
     sidebar_width: f32,
     news: News,
-    current_launcher: Option<Launcher>,
+    current_launcher: Option<libalembic::launcher::launcher::LauncherImpl>,
 }
 
 impl MainTab {
@@ -120,12 +127,12 @@ impl Widget for &mut MainTab {
                 };
 
                 // Alembic DLL Path
-                let dll_path = if let Some(s) = ui.data_mut(|data| {
+                let dll_info = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
                 }) {
                     let settings = s.lock().unwrap();
 
-                    Some(settings.dll.dll_path.clone())
+                    Some(settings.dll.clone())
                 } else {
                     None
                 };
@@ -136,9 +143,19 @@ impl Widget for &mut MainTab {
                     if self.current_launcher.is_none() {
                         println!("Must launch first.")
                     } else {
-                        match self.current_launcher.as_mut().unwrap().inject() {
-                            Ok(_) => println!("inject succes"),
-                            Err(e) => println!("inject error: {:?}", e),
+                        match self.current_launcher.as_mut().unwrap() {
+                            libalembic::launcher::launcher::LauncherImpl::WindowsLauncher(
+                                windows_launcher,
+                            ) => match windows_launcher.inject() {
+                                Ok(_) => println!("inject success"),
+                                Err(e) => println!("inject error: {:?}", e),
+                            },
+                            libalembic::launcher::launcher::LauncherImpl::WineLauncher(
+                                wine_launcher,
+                            ) => todo!(),
+                            libalembic::launcher::launcher::LauncherImpl::NoopLauncher(
+                                noop_launcher,
+                            ) => todo!(),
                         }
                     }
                 }
@@ -149,20 +166,27 @@ impl Widget for &mut MainTab {
                     if self.current_launcher.is_none() {
                         println!("Must launch first.")
                     } else {
-                        match self.current_launcher.as_mut().unwrap().eject() {
-                            Ok(_) => println!("Eject succes"),
-                            Err(e) => println!("Eject error: {:?}", e),
+                        match self.current_launcher.as_mut().unwrap() {
+                            LauncherImpl::WindowsLauncher(windows_launcher) => {
+                                match windows_launcher.eject() {
+                                    Ok(_) => println!("Eject succes"),
+                                    Err(e) => println!("Eject error: {:?}", e),
+                                }
+                            }
+                            LauncherImpl::WineLauncher(wine_launcher) => todo!(),
+                            LauncherImpl::NoopLauncher(noop_launcher) => todo!(),
                         }
                     }
                 }
 
                 if ui.button("FindOrLaunch").clicked() {
-                    self.current_launcher = Some(Launcher::new(
-                        client_info.clone().unwrap(),
-                        server_info.clone().unwrap(),
-                        account_info.clone().unwrap(),
-                        dll_path.unwrap().clone(),
-                    ));
+                    self.current_launcher =
+                        Some(LauncherImpl::WindowsLauncher(WindowsLauncher::new(
+                            client_info.clone().unwrap(),
+                            server_info.clone().unwrap(),
+                            account_info.clone().unwrap(),
+                            dll_info.unwrap().clone(),
+                        )));
 
                     println!(
                         "FindOrLaunch clicked with launcher {:?}",
@@ -170,12 +194,18 @@ impl Widget for &mut MainTab {
                     );
 
                     match &mut self.current_launcher {
-                        Some(launcher) => match launcher.find_or_launch() {
-                            Ok(info) => println!(
-                                "FindOrLaunch success, proc is {:?}, client is {:?}",
-                                info, launcher.client
-                            ),
-                            Err(e) => println!("FindOrLaunch error: {:?}", e),
+                        Some(launcher) => match launcher {
+                            LauncherImpl::WindowsLauncher(windows_launcher) => {
+                                match windows_launcher.find_or_launch() {
+                                    Ok(info) => println!(
+                                        "FindOrLaunch success, proc is {:?}, client is {:?}",
+                                        info, windows_launcher.client
+                                    ),
+                                    Err(e) => println!("FindOrLaunch error: {:?}", e),
+                                }
+                            }
+                            LauncherImpl::WineLauncher(wine_launcher) => todo!(),
+                            LauncherImpl::NoopLauncher(noop_launcher) => todo!(),
                         },
                         None => todo!(),
                     }

@@ -80,7 +80,7 @@ pub struct AlembicSettings {
     pub dll: DllInfo,
     pub selected_server: Option<usize>,
     pub selected_account: Option<usize>,
-    pub accounts: Vec<Account>,
+    pub accounts: Vec<AccountInfo>,
     pub servers: Vec<ServerInfo>,
 }
 
@@ -163,7 +163,7 @@ pub struct ServerInfo {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Account {
+pub struct AccountInfo {
     pub server_index: usize,
     pub username: String,
     pub password: String,
