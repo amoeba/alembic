@@ -1,7 +1,9 @@
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() -> anyhow::Result<()> {
-    use libalembic::{launch::Launcher, settings::SettingsManager};
-    let _settings = SettingsManager::to_string()?;
+    use libalembic::{launcher::{launcher::Launcher, windows::WindowsLauncher}, settings::AlembicSettings};
+
+    let mut settings = AlembicSettings::new();
+    let _ = settings.load();
 
     use std::sync::mpsc::channel;
 
@@ -9,10 +11,13 @@ fn main() -> anyhow::Result<()> {
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel."))
         .expect("Error setting Ctrl-C handler");
 
-    // TODO: Pull config from somewhere
-    // TODO: Make following code use that config
+    let mut launcher = WindowsLauncher::new(
+        settings.client,
+        settings.servers[settings.accounts[0].server_index].clone(),
+        settings.accounts[0].clone(),
+        settings.dll.clone()
+    );
 
-    let mut launcher = Launcher::new();
     launcher.find_or_launch()?;
     launcher.inject()?;
 
@@ -20,9 +25,10 @@ fn main() -> anyhow::Result<()> {
     rx.recv().expect("Could not receive from channel.");
     println!("ctrl+c received...");
 
+    println!("Ejecting DLL and exiting...");
     launcher.eject()?;
 
-    println!("Exiting.");
+    println!("Done. Exiting.");
 
     Ok(())
 }
