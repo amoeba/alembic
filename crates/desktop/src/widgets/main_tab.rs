@@ -18,7 +18,7 @@ use super::{
 pub struct MainTab {
     sidebar_width: f32,
     news: News,
-    current_launcher: Option<libalembic::launcher::launcher::LauncherImpl>,
+    launcher: Option<libalembic::launcher::launcher::LauncherImpl>,
 }
 
 impl MainTab {
@@ -26,7 +26,7 @@ impl MainTab {
         Self {
             sidebar_width: 200.0,
             news: News::default(),
-            current_launcher: None,
+            launcher: None,
         }
     }
 }
@@ -46,7 +46,6 @@ impl Widget for &mut MainTab {
             ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
                 ui.set_max_width(self.sidebar_width);
 
-                // TODO: Wrap this up somewhere else outside of the UI render code
                 let _have_client = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
@@ -79,66 +78,32 @@ impl Widget for &mut MainTab {
                     false
                 };
 
-                // Client Info
-                let client_info = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                }) {
-                    let settings = s.lock().unwrap();
+                if ui.button("Eject").clicked() {
+                    println!("Eject clicked");
 
-                    Some(settings.client.clone())
-                } else {
-                    None
-                };
-
-                // Server Info
-                let server_info = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                }) {
-                    let settings = s.lock().unwrap();
-
-                    match settings.selected_server {
-                        Some(index) => Some(settings.servers[index].clone()),
-                        None => None,
+                    if self.launcher.is_none() {
+                        println!("No launcher. Must launch first.")
+                    } else {
+                        match self.launcher.as_mut().unwrap() {
+                            LauncherImpl::WindowsLauncher(windows_launcher) => {
+                                match windows_launcher.eject() {
+                                    Ok(_) => println!("Eject success"),
+                                    Err(e) => println!("Eject error: {:?}", e),
+                                }
+                            }
+                            LauncherImpl::WineLauncher(_wine_launcher) => todo!(),
+                            LauncherImpl::NoopLauncher(_noop_launcher) => todo!(),
+                        }
                     }
-                } else {
-                    None
-                };
-
-                // Account Info
-                let account_info = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                }) {
-                    let settings = s.lock().unwrap();
-
-                    match settings.selected_account {
-                        Some(index) => Some(settings.accounts[index].clone()),
-                        None => None,
-                    }
-                } else {
-                    None
-                };
-
-                // Alembic DLL Path
-                // let dll_info = if let Some(s) = ui.data_mut(|data| {
-                //     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                // }) {
-                //     let settings = s.lock().unwrap();
-
-                //     Some(settings.dll.clone())
-                // } else {
-                //     None
-                // };
-                let dll_info = Some(DllInfo {
-                    dll_path: r"target\i686-pc-windows-msvc/debug/alembic.dll".to_string(),
-                });
+                }
 
                 if ui.button("Inject").clicked() {
-                    println!("Inject clicked, launch is {:?}", self.current_launcher);
+                    println!("Inject clicked, launch is {:?}", self.launcher);
 
-                    if self.current_launcher.is_none() {
+                    if self.launcher.is_none() {
                         println!("Must launch first.")
                     } else {
-                        match self.current_launcher.as_mut().unwrap() {
+                        match self.launcher.as_mut().unwrap() {
                             libalembic::launcher::launcher::LauncherImpl::WindowsLauncher(
                                 windows_launcher,
                             ) => match windows_launcher.inject() {
@@ -155,40 +120,67 @@ impl Widget for &mut MainTab {
                     }
                 }
 
-                if ui.button("Eject").clicked() {
-                    println!("Eject clicked");
-
-                    if self.current_launcher.is_none() {
-                        println!("Must launch first.")
-                    } else {
-                        match self.current_launcher.as_mut().unwrap() {
-                            LauncherImpl::WindowsLauncher(windows_launcher) => {
-                                match windows_launcher.eject() {
-                                    Ok(_) => println!("Eject success"),
-                                    Err(e) => println!("Eject error: {:?}", e),
-                                }
-                            }
-                            LauncherImpl::WineLauncher(_wine_launcher) => todo!(),
-                            LauncherImpl::NoopLauncher(_noop_launcher) => todo!(),
-                        }
-                    }
-                }
-
                 if ui.button("FindOrLaunch").clicked() {
-                    self.current_launcher =
-                        Some(LauncherImpl::WindowsLauncher(WindowsLauncher::new(
-                            client_info.clone().unwrap(),
-                            server_info.clone().unwrap(),
-                            account_info.clone().unwrap(),
-                            dll_info.unwrap().clone(),
-                        )));
+                    // Client Info
+                    let client_info = if let Some(s) = ui.data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    }) {
+                        let settings = s.lock().unwrap();
 
-                    println!(
-                        "FindOrLaunch clicked with launcher {:?}",
-                        self.current_launcher
-                    );
+                        Some(settings.client.clone())
+                    } else {
+                        None
+                    };
 
-                    match &mut self.current_launcher {
+                    // Server Info
+                    let server_info = if let Some(s) = ui.data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    }) {
+                        let settings = s.lock().unwrap();
+
+                        match settings.selected_server {
+                            Some(index) => Some(settings.servers[index].clone()),
+                            None => None,
+                        }
+                    } else {
+                        None
+                    };
+
+                    // Account Info
+                    let account_info = if let Some(s) = ui.data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    }) {
+                        let settings = s.lock().unwrap();
+
+                        match settings.selected_account {
+                            Some(index) => Some(settings.accounts[index].clone()),
+                            None => None,
+                        }
+                    } else {
+                        None
+                    };
+
+                    // Alembic DLL Path
+                    let dll_info = if let Some(s) = ui.data_mut(|data| {
+                        data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    }) {
+                        let settings = s.lock().unwrap();
+
+                        Some(settings.dll.clone())
+                    } else {
+                        None
+                    };
+
+                    // Create our launcher
+                    self.launcher = Some(LauncherImpl::WindowsLauncher(WindowsLauncher::new(
+                        client_info.clone().unwrap(),
+                        server_info.clone().unwrap(),
+                        account_info.clone().unwrap(),
+                        dll_info.unwrap().clone(),
+                    )));
+
+                    println!("FindOrLaunch clicked with launcher {:?}", self.launcher);
+                    match &mut self.launcher {
                         Some(launcher) => match launcher {
                             LauncherImpl::WindowsLauncher(windows_launcher) => {
                                 match windows_launcher.find_or_launch() {

@@ -130,8 +130,9 @@ fn ensure_client() -> anyhow::Result<()> {
 }
 
 fn on_attach() -> Result<(), anyhow::Error> {
-    ensure_client()?;
-    ensure_channel();
+    // ensure_client()?;
+    // ensure_channel();
+    unsafe { allocate_console() }?;
 
     unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable().unwrap() }
     unsafe { crate::hooks::net::Hook_Network_SendTo.enable().unwrap() }
@@ -165,24 +166,43 @@ fn on_detach() -> anyhow::Result<()> {
 
 #[no_mangle]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
-    match reason {
+    let result = match reason {
         DLL_PROCESS_ATTACH => {
             println!("In DllMain, reason=DLL_PROCESS_ATTACH. initializing hooks now.");
+
             match on_attach() {
-                Ok(_) => println!("on_attach succeeded"),
-                Err(error) => println!("on_attach failed with error: {error}"),
+                Ok(()) => {
+                    println!("on_attach succeeded");
+
+                    true
+                },
+                Err(error) => {
+                    println!("on_attach failed with error: {error}");
+
+                    false
+                },
             }
         }
         DLL_PROCESS_DETACH => {
             println!("In DllMain, reason=DLL_PROCESS_DETACH. removing hooks now.");
+
             match on_detach() {
-                Ok(_) => println!("on_detach succeeded"),
-                Err(error) => println!("on_detach failed with error: {error}"),
+                Ok(_) => {
+                    println!("on_detach succeeded");
+
+                    true
+                },
+                Err(error) => {
+                    println!("on_detach failed with error: {error}");
+
+                    false
+                },
             }
         }
-        DLL_THREAD_ATTACH => {}
-        DLL_THREAD_DETACH => {}
-        _ => {}
+        _ => {
+            true
+        }
     };
-    return BOOL::from(true);
+
+    return BOOL::from(result);
 }

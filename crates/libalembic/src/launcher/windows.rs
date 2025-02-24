@@ -150,11 +150,6 @@ impl<'a> WindowsLauncher {
     }
 
     pub fn inject(&mut self) -> Result<(), anyhow::Error> {
-        self.injector = match &self.client {
-            Some(client) => Some(InjectionKit::new(client.try_clone().unwrap())),
-            None => panic!("Could not create InjectionKit."),
-        };
-
         if !fs::exists(&self.dll_info.dll_path)? {
             bail!(
                 "Can't find DLL to inject at path {}. Bailing.",
@@ -162,12 +157,26 @@ impl<'a> WindowsLauncher {
             );
         }
 
+        // Only create a new InjectionKit if we need to in order to support
+        // repeated inject/eject
+        if self.injector.is_none() {
+            println!("No previous injector found, creating a new one.");
+
+            self.injector = match &self.client {
+                Some(client) => Some(InjectionKit::new(client.try_clone().unwrap())),
+                None => panic!("Could not create InjectionKit for client {:?}", self.client),
+            };
+        }
+
+        // Finally, try to inject
         match self.injector.as_mut() {
             Some(kit) => {
                 kit.inject(&self.dll_info.dll_path)?;
             }
             None => panic!("Could not get access to underlying injector to inject DLL."),
         }
+
+        println!("Injection succeeded");
 
         Ok(())
     }
