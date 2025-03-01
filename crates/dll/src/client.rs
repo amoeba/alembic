@@ -69,7 +69,7 @@ pub fn ensure_client() -> anyhow::Result<()> {
             thread::sleep(Duration::from_millis(16));
         }
 
-        // Cleanup connection
+        // Clean up connection
         drop(client);
     });
 
