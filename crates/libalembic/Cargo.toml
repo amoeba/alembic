@@ -24,7 +24,7 @@ tarpc = { workspace = true }
 tokio = { workspace = true }
 
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
-dll-syringe = "0.15.2"
+dll-syringe = { version = "0.15.2", features = ["payload-utils"] }
 retour = { workspace = true }
 widestring = "1.1.0"
 windows = { workspace = true }

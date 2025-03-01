@@ -21,5 +21,6 @@ tarpc = { workspace = true }
 tokio = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
+dll-syringe = { version = "0.15.2", features = ["payload-utils"] }
 retour = { workspace = true }
 windows = { workspace = true }

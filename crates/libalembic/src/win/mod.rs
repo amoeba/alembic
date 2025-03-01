@@ -3,15 +3,18 @@
 use std::{ffi::CString, iter};
 
 use windows::{
-    core::PCSTR,
-    core::PCWSTR,
+    core::{PCSTR, PCWSTR},
     Win32::{
         Foundation::HANDLE,
         Storage::FileSystem::{
             CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
         },
-        System::Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
-        System::LibraryLoader::{GetModuleHandleW, GetProcAddress},
+        System::{
+            Console::{
+                AllocConsole, FreeConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE,
+            },
+            LibraryLoader::{GetModuleHandleW, GetProcAddress},
+        },
     },
 };
 
@@ -51,6 +54,10 @@ pub unsafe fn allocate_console() -> anyhow::Result<()> {
     eprintln!("This is an error message test.");
 
     Ok(())
+}
+
+pub unsafe fn deallocate_console() -> anyhow::Result<()> {
+    unsafe { Ok(FreeConsole()?) }
 }
 
 pub fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {

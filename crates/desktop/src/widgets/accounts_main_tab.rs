@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
-use libalembic::settings::{Account, AlembicSettings};
+use libalembic::settings::{AccountInfo, AlembicSettings};
 
 use super::components::centered_text;
 
@@ -54,7 +54,7 @@ impl Widget for &mut AccountsMainTab {
                         // Add Account
                         if self.selected_server.is_some() {
                             if ui.button("New Account").clicked() {
-                                let new_account = Account {
+                                let new_account = AccountInfo {
                                     server_index: self.selected_server.unwrap_or_default(),
                                     username: "username".to_string(),
                                     password: "password".to_string(),

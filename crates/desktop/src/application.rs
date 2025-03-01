@@ -9,7 +9,7 @@ use crate::{
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 
-use eframe::egui::{self, vec2, Align, Align2, Layout, Vec2};
+use eframe::egui::{self, vec2, Align, Align2, Layout};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use ringbuffer::RingBuffer;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
@@ -35,7 +35,7 @@ pub struct Application {
     about: About,
     settings: Settings,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
-    background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
+    _background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
     background_update_receiver: std::sync::mpsc::Receiver<BackgroundFetchUpdateMessage>,
 }
 
@@ -123,7 +123,7 @@ impl Application {
             about: About::new(),
             settings: Settings::new(),
             client_server_rx: client_server_rx,
-            background_fetch_sender,
+            _background_fetch_sender: background_fetch_sender,
             background_update_receiver,
         }
     }
@@ -259,6 +259,29 @@ impl eframe::App for Application {
         loop {
             match self.client_server_rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
+                    ClientServerMessage::ClientInjected() => {
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    backend.injected = true;
+                                }
+                            }
+                        });
+                    }
+                    ClientServerMessage::ClientEjected() => {
+                        ctx.data_mut(|data| {
+                            if let Some(backend) =
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            {
+                                if let Ok(mut backend) = backend.lock() {
+                                    backend.is_injected = false;
+                                }
+                            }
+                        });
+                    }
+
                     ClientServerMessage::AppendLog(value) => {
                         let log = LogEntry {
                             timestamp: SystemTime::now()

@@ -1,11 +1,10 @@
 #![cfg(all(target_os = "windows", target_env = "msvc"))]
-#![allow(dead_code)]
 
 use std::{error::Error, ffi::OsString, fs, num::NonZero, os::windows::ffi::OsStrExt};
 
 use crate::{
-    inject::InjectionKit,
-    settings::{Account, ClientInfo, ServerInfo},
+    injection_kit::InjectionKit,
+    settings::{AccountInfo, ClientInfo, DllInfo, ServerInfo},
 };
 use anyhow::bail;
 use dll_syringe::process::{OwnedProcess, Process};
@@ -19,33 +18,39 @@ use windows::{
     },
 };
 
-pub struct Launcher {
+use super::launcher::{LaunchResult, Launcher};
+
+/// WindowsLauncher
+///
+/// Launcher implementation for Windows that supports launching and injecting.
+#[derive(Debug)]
+pub struct WindowsLauncher {
     client_info: ClientInfo,
     server_info: ServerInfo,
-    account_info: Account,
-    dll_path: String,
-    client: Option<OwnedProcess>,
+    account_info: AccountInfo,
+    dll_info: DllInfo,
+    pub client: Option<OwnedProcess>,
     injector: Option<InjectionKit>,
 }
 
-impl<'a> Launcher {
-    pub fn new(
+impl<'a> Launcher for WindowsLauncher {
+    fn new(
         client_info: ClientInfo,
         server_info: ServerInfo,
-        account_info: Account,
-        dll_path: String,
+        account_info: AccountInfo,
+        dll_info: DllInfo,
     ) -> Self {
-        Launcher {
+        WindowsLauncher {
             client_info: client_info,
             server_info: server_info,
             account_info: account_info,
-            dll_path: dll_path,
+            dll_info: dll_info,
             client: None,
             injector: None,
         }
     }
 
-    fn launch(&self) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
+    fn launch(&self) -> Result<LaunchResult, Box<dyn Error>> {
         let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
         let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
@@ -85,7 +90,7 @@ impl<'a> Launcher {
                     let _ = CloseHandle(process_info.hThread);
                     let _ = CloseHandle(process_info.hProcess);
 
-                    Ok(process_info)
+                    Ok(LaunchResult::ProcessInformation(process_info))
                 }
                 Err(error) => {
                     eprintln!("CreateProcessW failure: {error:?}");
@@ -94,8 +99,13 @@ impl<'a> Launcher {
             }
         }
     }
+}
 
-    fn find(&mut self) -> Result<(), Box<dyn Error>> {
+// Non-trait implementations. As needed, move whatever of these into the trait
+// once I decide on implementing them in a cross-platform way.
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+impl<'a> WindowsLauncher {
+    pub fn find(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
         }
@@ -118,11 +128,12 @@ impl<'a> Launcher {
         println!("Couldn't find existing client to inject into. Launching instead.");
 
         match self.launch() {
-            Ok(process_info) => {
-                self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap());
-
-                Ok(NonZero::new(process_info.dwProcessId).unwrap())
-            }
+            Ok(result) => match result {
+                LaunchResult::ProcessInformation(info) => {
+                    self.client = Some(OwnedProcess::from_pid(info.dwProcessId).unwrap());
+                    Ok(NonZero::new(info.dwProcessId).unwrap())
+                }
+            },
             Err(error) => Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 error.to_string(),
@@ -139,32 +150,43 @@ impl<'a> Launcher {
     }
 
     pub fn inject(&mut self) -> Result<(), anyhow::Error> {
-        self.injector = match &self.client {
-            Some(client) => Some(InjectionKit::new(client.try_clone().unwrap())),
-            None => panic!("Could not create InjectionKit."),
-        };
-
-        if !fs::exists(&self.dll_path)? {
+        if !fs::exists(&self.dll_info.dll_path)? {
             bail!(
                 "Can't find DLL to inject at path {}. Bailing.",
-                self.dll_path
+                self.dll_info.dll_path
             );
         }
 
+        // Only create a new InjectionKit if we need to in order to support
+        // repeated inject/eject
+        if self.injector.is_none() {
+            println!("No previous injector found, creating a new one.");
+
+            self.injector = match &self.client {
+                Some(client) => Some(InjectionKit::new(client.try_clone().unwrap())),
+                None => panic!("Could not create InjectionKit for client {:?}", self.client),
+            };
+        }
+
+        // Finally, try to inject
         match self.injector.as_mut() {
             Some(kit) => {
-                kit.inject(&self.dll_path)?;
+                kit.inject(&self.dll_info.dll_path)?;
+                kit.call_startup()?;
             }
             None => panic!("Could not get access to underlying injector to inject DLL."),
         }
+
+        println!("Injection succeeded");
 
         Ok(())
     }
 
     pub fn eject(&mut self) -> Result<(), anyhow::Error> {
         match self.injector.as_mut() {
-            Some(injector) => {
-                injector.eject()?;
+            Some(kit) => {
+                kit.call_shutdown()?;
+                kit.eject()?;
             }
             None => bail!("Eject called with no active injector."),
         }
