@@ -7,7 +7,7 @@ use libalembic::{
         launcher::{Launcher, LauncherImpl},
         windows::WindowsLauncher,
     },
-    settings::{AlembicSettings, DllInfo},
+    settings::AlembicSettings,
 };
 
 use super::{

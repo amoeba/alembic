@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use super::components::centered_text;
 use crate::backend::Backend;
 use chrono::{DateTime, Local, TimeZone};
-use eframe::egui::{self, Button, Rect, Response, ScrollArea, TextEdit, TextStyle, Ui, Widget};
+use eframe::egui::{self, Button, Response, ScrollArea, TextEdit, TextStyle, Ui, Widget};
 use ringbuffer::RingBuffer;
 
 pub struct GameChatTab {
