@@ -67,23 +67,18 @@ fn detach_hooks() -> anyhow::Result<()> {
 payload_procedure! {
     pub fn dll_startup() {
         match on_attach() {
-            Ok(_) => unsafe { log_message("on_attach call succeeded") },
-            Err(_) => unsafe { log_message("on_attach call failed") },
+            Ok(_) => unsafe { log_message("Alembic Startup succeeded.") },
+            Err(_) => unsafe { log_message("Alembic Startup failed.") },
         }
-
-        unsafe { log_message("startup done"); }
-
     }
 }
 
 payload_procedure! {
     pub fn dll_shutdown() {
         match on_detach() {
-            Ok(_) => unsafe { log_message("on_detach call succeeded") },
-            Err(_) => unsafe { log_message("on_detach call failed") },
+            Ok(_) => unsafe { log_message("Alembic Shutdown succeeded.") },
+            Err(_) => unsafe { log_message("Alembic Shutdown failed.") },
         }
-
-        unsafe { log_message("shutdown done"); }
     }
 }
 
