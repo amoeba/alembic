@@ -21,17 +21,17 @@ impl<T> PStringBase<T> {
 }
 
 impl PStringBase<i8> {
-    pub unsafe fn to_string(&self) -> Result<String, &'static str> {
+    pub unsafe fn to_string(&self) -> Result<String, &'static str> { unsafe {
         let char_ptr = self.ptr as *const i8;
         CStr::from_ptr(char_ptr)
             .to_str()
             .map(|s| s.to_string())
             .map_err(|_| "Invalid UTF-8 sequence")
-    }
+    }}
 }
 
 impl PStringBase<*const i8> {
-    pub unsafe fn to_string(&self) -> Result<String, &'static str> {
+    pub unsafe fn to_string(&self) -> Result<String, &'static str> { unsafe {
         let char_ptr_ptr = self.ptr as *const *const i8;
         let char_ptr = *char_ptr_ptr;
         if char_ptr.is_null() {
@@ -42,11 +42,11 @@ impl PStringBase<*const i8> {
             .to_str()
             .map(|s| s.to_string())
             .map_err(|_| "Invalid UTF-8 sequence")
-    }
+    }}
 }
 
 impl PStringBase<*const u16> {
-    pub unsafe fn to_string(&self) -> Result<String, &'static str> {
+    pub unsafe fn to_string(&self) -> Result<String, &'static str> { unsafe {
         let ushort_ptr_ptr = self.ptr as *const *const u16;
         let ushort_ptr = *ushort_ptr_ptr;
         if ushort_ptr.is_null() {
@@ -60,5 +60,5 @@ impl PStringBase<*const u16> {
 
         let utf16_slice = slice::from_raw_parts(ushort_ptr, len);
         String::from_utf16(utf16_slice).map_err(|_| "Invalid UTF-16 sequence")
-    }
+    }}
 }
