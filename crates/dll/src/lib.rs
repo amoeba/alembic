@@ -19,6 +19,7 @@ use libalembic::msg::client_server::ClientServerMessage;
 use libalembic::rpc::WorldClient;
 use logging::log_message;
 
+use tarpc::tokio_util::sync::CancellationToken;
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::error::TryRecvError;
@@ -28,7 +29,7 @@ use windows::Win32::System::SystemServices::{
     DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
 
-// Create and manage a Tokio async runtime in this thread
+/// Runtime
 static mut rt: Option<Runtime> = None;
 static rt_init: Once = Once::new();
 #[allow(static_mut_refs)]
@@ -41,6 +42,17 @@ fn ensure_runtime() -> &'static Runtime {
     }
 }
 
+fn shutdown_runtime() -> anyhow::Result<()> {
+    unsafe {
+        rt.take()
+            .unwrap()
+            .shutdown_timeout(Duration::from_millis(100));
+    }
+
+    Ok(())
+}
+
+/// Hooks <-> TARPC Channel
 static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<ClientServerMessage>>>> = None;
 static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<ClientServerMessage>>>> = None;
 static channel_init: Once = Once::new();
@@ -63,12 +75,27 @@ pub fn ensure_channel() -> (
         (dll_tx.as_ref().unwrap(), dll_rx.as_ref().unwrap())
     }
 }
+
+/// Shutdown coordination
+static mut SHUTDOWN_TOKEN: Option<CancellationToken> = None;
+static token_init: Once = Once::new();
+
+fn ensure_shutdown_token() -> &'static CancellationToken {
+    unsafe {
+        token_init.call_once(|| {
+            SHUTDOWN_TOKEN = Some(CancellationToken::new());
+        });
+        SHUTDOWN_TOKEN.as_ref().unwrap()
+    }
+}
+
+/// TARPC
 fn ensure_client() -> anyhow::Result<()> {
     let (_tx, rx) = ensure_channel();
-
     let runtime = ensure_runtime();
+    let token = ensure_shutdown_token().clone();
 
-    runtime.spawn(async {
+    runtime.spawn(async move {
         let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
         let transport = tarpc::serde_transport::tcp::connect(&addr, Json::default);
         let client: WorldClient = WorldClient::new(
@@ -78,6 +105,11 @@ fn ensure_client() -> anyhow::Result<()> {
         .spawn();
 
         loop {
+            // Check if shutdown was requested
+            if token.is_cancelled() {
+                break;
+            }
+
             match rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
                     ClientServerMessage::HandleSendTo(vec) => {
@@ -110,18 +142,44 @@ fn ensure_client() -> anyhow::Result<()> {
 
             thread::sleep(Duration::from_millis(16));
         }
+
+        // Cleanup connection
+        drop(client);
     });
 
     Ok(())
 }
 
+fn shutdown_client() -> anyhow::Result<()> {
+    if let Some(token) = unsafe { SHUTDOWN_TOKEN.as_ref() } {
+        token.cancel();
+    }
+
+    Ok(())
+}
+
 fn on_attach() -> Result<(), anyhow::Error> {
-    // TODO: Decide how/when to allocate a console
-    // unsafe { allocate_console() }?;
+    attach_hooks()?;
 
-    ensure_client()?;
+    ensure_runtime();
     ensure_channel();
+    ensure_client()?;
 
+    Ok(())
+}
+
+fn on_detach() -> anyhow::Result<()> {
+    detach_hooks()?;
+    shutdown_client()?;
+
+    // Give tasks time to cleanup
+    thread::sleep(Duration::from_millis(100));
+    shutdown_runtime()?;
+
+    Ok(())
+}
+
+fn attach_hooks() -> anyhow::Result<()> {
     unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable()? }
     unsafe { crate::hooks::net::Hook_Network_SendTo.enable()? }
     unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.enable()? }
@@ -129,69 +187,44 @@ fn on_attach() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn on_detach() -> anyhow::Result<()> {
+fn detach_hooks() -> anyhow::Result<()> {
     unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable()? }
     unsafe { crate::hooks::net::Hook_Network_SendTo.disable()? }
     unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.disable()? }
 
-    // TODO: Rest of cleanup
-
-    // TODO: Decide how/when to allocate a console
-    // unsafe { deallocate_console() }?;
     Ok(())
 }
 
-// WIP: RPCs to lazy init DLL internals
 payload_procedure! {
     pub fn dll_startup() {
-        unsafe { log_message("startup"); }
+        match on_attach() {
+            Ok(_) => unsafe { log_message("on_attach call succeeded") },
+            Err(_) => unsafe { log_message("on_attach call failed") },
+        }
+
+        unsafe { log_message("startup done"); }
+
     }
 }
 
 payload_procedure! {
     pub fn dll_shutdown() {
-        unsafe { log_message("shutdown"); }
+        match on_detach() {
+            Ok(_) => unsafe { log_message("on_detach call succeeded") },
+            Err(_) => unsafe { log_message("on_detach call failed") },
+        }
+
+        unsafe { log_message("shutdown done"); }
     }
 }
+
 #[no_mangle]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {
-        DLL_PROCESS_ATTACH => {
-            log_message("In DllMain, reason=DLL_PROCESS_ATTACH. initializing hooks now.");
-
-            match on_attach() {
-                Ok(_) => log_message("on_attach succeeded"),
-                Err(error) => {
-                    let message = format!("on_attach failed with error: {error}");
-                    log_message(message.as_str())
-                }
-            }
-
-            BOOL::from(true)
-        }
-        DLL_PROCESS_DETACH => {
-            log_message("In DllMain, reason=DLL_PROCESS_DETACH. removing hooks now.");
-
-            match on_detach() {
-                Ok(_) => log_message("on_detach succeeded"),
-                Err(error) => {
-                    let message = format!("on_detach failed with error: {error}");
-                    log_message(message.as_str())
-                }
-            }
-
-            BOOL::from(true)
-        }
-        DLL_THREAD_ATTACH => {
-            log_message("DLL_THREAD_ATTACH");
-
-            BOOL::from(true)
-        }
-        DLL_THREAD_DETACH => {
-            log_message("DLL_THREAD_DETACH");
-
-            BOOL::from(true)
-        }
+        DLL_PROCESS_ATTACH => BOOL::from(true),
+        DLL_PROCESS_DETACH => BOOL::from(true),
+        DLL_THREAD_ATTACH => BOOL::from(true),
+        DLL_THREAD_DETACH => BOOL::from(true),
         _ => BOOL::from(true),
     }
 }
