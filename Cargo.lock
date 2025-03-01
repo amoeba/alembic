@@ -1200,6 +1200,7 @@ name = "dll"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dll-syringe",
  "libalembic",
  "once_cell",
  "retour",

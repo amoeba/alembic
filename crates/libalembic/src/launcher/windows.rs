@@ -172,6 +172,7 @@ impl<'a> WindowsLauncher {
         match self.injector.as_mut() {
             Some(kit) => {
                 kit.inject(&self.dll_info.dll_path)?;
+                kit.call_startup()?;
             }
             None => panic!("Could not get access to underlying injector to inject DLL."),
         }
@@ -183,8 +184,9 @@ impl<'a> WindowsLauncher {
 
     pub fn eject(&mut self) -> Result<(), anyhow::Error> {
         match self.injector.as_mut() {
-            Some(injector) => {
-                injector.eject()?;
+            Some(kit) => {
+                kit.call_shutdown()?;
+                kit.eject()?;
             }
             None => bail!("Eject called with no active injector."),
         }

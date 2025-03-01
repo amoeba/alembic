@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{ffi::c_void, sync::Once, thread};
 
+use dll_syringe::payload_procedure;
 use libalembic::msg::client_server::ClientServerMessage;
 use libalembic::rpc::WorldClient;
 use logging::log_message;
@@ -140,6 +141,18 @@ fn on_detach() -> anyhow::Result<()> {
     Ok(())
 }
 
+// WIP: RPCs to lazy init DLL internals
+payload_procedure! {
+    pub fn dll_startup() {
+        unsafe { log_message("startup"); }
+    }
+}
+
+payload_procedure! {
+    pub fn dll_shutdown() {
+        unsafe { log_message("shutdown"); }
+    }
+}
 #[no_mangle]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {

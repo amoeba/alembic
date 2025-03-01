@@ -1,7 +1,10 @@
 #![cfg(all(target_os = "windows", target_env = "msvc"))]
 
 use dll_syringe::{
-    error::EjectError, process::BorrowedProcessModule, process::OwnedProcess, Syringe,
+    error::EjectError,
+    process::{BorrowedProcessModule, OwnedProcess},
+    rpc::PayloadRpcError,
+    Syringe,
 };
 
 #[derive(Debug)]
@@ -33,5 +36,33 @@ impl InjectionKit {
         }
 
         Ok(())
+    }
+
+    pub fn call_startup(&mut self) -> Result<(), PayloadRpcError> {
+        println!("call_startup");
+
+        let remote_startup = unsafe {
+            self.syringe
+                .get_payload_procedure::<fn()>(self.payload.unwrap_unchecked(), "dll_startup")
+        }
+        .unwrap()
+        .unwrap();
+
+        println!("Calling remote startup...");
+        Ok(remote_startup.call()?)
+    }
+
+    pub fn call_shutdown(&mut self) -> Result<(), PayloadRpcError> {
+        println!("call_shutdown");
+
+        let remote_shutdown = unsafe {
+            self.syringe
+                .get_payload_procedure::<fn()>(self.payload.unwrap_unchecked(), "dll_shutdown")
+        }
+        .unwrap()
+        .unwrap();
+
+        println!("Calling remote shutdown...");
+        Ok(remote_shutdown.call()?)
     }
 }
