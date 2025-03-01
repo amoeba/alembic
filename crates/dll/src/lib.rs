@@ -82,7 +82,7 @@ payload_procedure! {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {
         DLL_PROCESS_ATTACH => BOOL::from(true),

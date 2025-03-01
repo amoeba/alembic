@@ -13,5 +13,5 @@ pub unsafe fn log_message(message: &str) {
                           // are \0 so in that case we just don't log it.
     };
 
-    OutputDebugStringA(windows::core::PCSTR(c_string.as_ptr() as _));
+    unsafe { OutputDebugStringA(windows::core::PCSTR(c_string.as_ptr() as _)) };
 }
