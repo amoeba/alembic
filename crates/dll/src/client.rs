@@ -76,6 +76,7 @@ pub fn ensure_client() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(static_mut_refs)]
 pub fn shutdown_client() -> anyhow::Result<()> {
     if let Some(token) = unsafe { SHUTDOWN_TOKEN.as_ref() } {
         token.cancel();
@@ -84,6 +85,7 @@ pub fn shutdown_client() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(static_mut_refs)]
 pub fn ensure_shutdown_token() -> &'static CancellationToken {
     unsafe {
         token_init.call_once(|| {
