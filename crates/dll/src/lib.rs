@@ -6,150 +6,177 @@
     non_camel_case_types
 )]
 
-mod dll_state;
 mod hooks;
+mod logging;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::{
-    ffi::c_void,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Once,
-    },
-    thread,
-    time::Duration,
-};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
+use std::time::Duration;
+use std::{ffi::c_void, sync::Once, thread};
 
-use libalembic::{
-    msg::client_server::ClientServerMessage,
-    rpc::WorldClient,
-    win::{allocate_console, deallocate_console},
-};
+use libalembic::msg::client_server::ClientServerMessage;
+use libalembic::rpc::WorldClient;
+use logging::log_message;
+
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
-use tokio::{
-    runtime::Runtime,
-    sync::{
-        mpsc::{self, error::TryRecvError},
-        Mutex,
-    },
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::{mpsc, Mutex};
+use windows::Win32::Foundation::{BOOL, HANDLE};
+use windows::Win32::System::SystemServices::{
+    DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
 
-use windows::Win32::{
-    Foundation::{BOOL, HANDLE},
-    System::SystemServices::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH},
-};
-
-static INIT_RESULT: AtomicBool = AtomicBool::new(false);
-static mut INIT_ERROR: Option<String> = None;
-
-static mut DLL_STATE: Option<DllState> = None;
-static DLL_STATE_INIT: Once = Once::new();
-
-fn shutdown_client() {
-    // WIP
-    shutdown_runtime();
+// Create and manage a Tokio async runtime in this thread
+static mut rt: Option<Runtime> = None;
+static rt_init: Once = Once::new();
+#[allow(static_mut_refs)]
+fn ensure_runtime() -> &'static Runtime {
+    unsafe {
+        rt_init.call_once(|| {
+            rt = Some(Runtime::new().expect("Failed to create Tokio runtime"));
+        });
+        rt.as_ref().unwrap()
+    }
 }
 
+static mut dll_tx: Option<Arc<Mutex<mpsc::UnboundedSender<ClientServerMessage>>>> = None;
+static mut dll_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<ClientServerMessage>>>> = None;
+static channel_init: Once = Once::new();
 #[allow(static_mut_refs)]
-fn shutdown_runtime() {
-    println!("shutdown_client called");
+pub fn ensure_channel() -> (
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedSender<ClientServerMessage>>>,
+    &'static Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<ClientServerMessage>>>,
+) {
+    unsafe {
+        channel_init.call_once(|| {
+            let (tx, rx): (
+                mpsc::UnboundedSender<ClientServerMessage>,
+                mpsc::UnboundedReceiver<ClientServerMessage>,
+            ) = mpsc::unbounded_channel();
 
-    if !SHUTDOWN_INITIATED.swap(true, Ordering::SeqCst) {
-        unsafe {
-            if let Some(runtime) = rt.take() {
-                // Shutdown the runtime
-                println!("shutting down runtime ");
+            dll_tx = Some(Arc::new(Mutex::new(tx)));
+            dll_rx = Some(Arc::new(Mutex::new(rx)));
+        });
 
-                runtime.shutdown_background();
-                println!("done shutting down runtime ");
-
-                // Or use runtime.shutdown_timeout(Duration::from_secs(10))
-                // if you want to wait for tasks to complete
-            }
-        }
+        (dll_tx.as_ref().unwrap(), dll_rx.as_ref().unwrap())
     }
+}
+fn ensure_client() -> anyhow::Result<()> {
+    let (_tx, rx) = ensure_channel();
+
+    let runtime = ensure_runtime();
+
+    runtime.spawn(async {
+        let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
+        let transport = tarpc::serde_transport::tcp::connect(&addr, Json::default);
+        let client: WorldClient = WorldClient::new(
+            tarcp_client::Config::default(),
+            transport.await.expect("oops"),
+        )
+        .spawn();
+
+        loop {
+            match rx.try_lock().unwrap().try_recv() {
+                Ok(msg) => match msg {
+                    ClientServerMessage::HandleSendTo(vec) => {
+                        match client.handle_sendto(context::current(), vec).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
+                    }
+                    ClientServerMessage::HandleRecvFrom(vec) => {
+                        match client.handle_recvfrom(context::current(), vec).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
+                    }
+                    ClientServerMessage::HandleAddTextToScroll(text) => {
+                        match client.handle_chat(context::current(), text).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
+                    }
+                    ClientServerMessage::AppendLog(_) => todo!(),
+                    ClientServerMessage::ClientInjected() => todo!(),
+                    ClientServerMessage::ClientEjected() => todo!(),
+                },
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    break;
+                }
+            }
+
+            thread::sleep(Duration::from_millis(16));
+        }
+    });
+
+    Ok(())
 }
 
 fn on_attach() -> Result<(), anyhow::Error> {
-    ensure_client()?;
+    // TODO: Decide how/when to allocate a console
+    // unsafe { allocate_console() }?;
 
-    unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable().unwrap() }
-    unsafe { crate::hooks::net::Hook_Network_SendTo.enable().unwrap() }
-    unsafe {
-        crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr
-            .enable()
-            .unwrap()
-    }
+    ensure_client()?;
+    ensure_channel();
+
+    unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable()? }
+    unsafe { crate::hooks::net::Hook_Network_SendTo.enable()? }
+    unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.enable()? }
 
     Ok(())
 }
 
 fn on_detach() -> anyhow::Result<()> {
-    let dll_state = ensure_dll_state();
-    dll_state.shutdown();
+    unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable()? }
+    unsafe { crate::hooks::net::Hook_Network_SendTo.disable()? }
+    unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.disable()? }
 
-    unsafe {
-        match FreeConsole() {
-            Ok(_) => println!("Call to FreeConsole succeeded"),
-            Err(error) => println!("Call to FreeConsole failed: {error:?}"),
-        }
-    }
+    // TODO: Rest of cleanup
 
-    unsafe {
-        crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr
-            .disable()
-            .unwrap()
-    }
-    unsafe { crate::hooks::net::Hook_Network_SendTo.disable().unwrap() }
-    unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable().unwrap() }
-
-    // WIP
-    shutdown_client();
-
-    unsafe { deallocate_console() }?;
-
+    // TODO: Decide how/when to allocate a console
+    // unsafe { deallocate_console() }?;
     Ok(())
 }
 
 #[no_mangle]
-unsafe extern "system" fn DllMain(hinst: HANDLE, reason: u32, reserved: *mut c_void) -> BOOL {
+unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {
         DLL_PROCESS_ATTACH => {
-            log_event("DLL_PROCESS_ATTACH");
+            log_message("In DllMain, reason=DLL_PROCESS_ATTACH. initializing hooks now.");
 
-            // Spawn a thread to do initialization to avoid loader lock issues
-            if reserved.is_null() {
-                // Static load
-                thread::spawn(|| {
-                    INIT_RESULT.store(initialize_dll(), Ordering::SeqCst);
-                });
-            } else {
-                // Dynamic load
-                INIT_RESULT.store(initialize_dll(), Ordering::SeqCst);
+            match on_attach() {
+                Ok(_) => log_message("on_attach succeeded"),
+                Err(error) => {
+                    let message = format!("on_attach failed with error: {error}");
+                    log_message(message.as_str())
+                }
             }
 
             BOOL::from(true)
         }
         DLL_PROCESS_DETACH => {
-            log_event("DLL_PROCESS_DETACH");
+            log_message("In DllMain, reason=DLL_PROCESS_DETACH. removing hooks now.");
 
-            // Only clean up if we successfully initialized
-            if INIT_RESULT.load(Ordering::SeqCst) {
-                if let Err(e) = on_detach() {
-                    log_event(&format!("DLL cleanup failed: {}", e));
-                    return BOOL::from(false);
+            match on_detach() {
+                Ok(_) => log_message("on_detach succeeded"),
+                Err(error) => {
+                    let message = format!("on_detach failed with error: {error}");
+                    log_message(message.as_str())
                 }
             }
 
             BOOL::from(true)
         }
         DLL_THREAD_ATTACH => {
-            log_event("DLL_THREAD_ATTACH");
+            log_message("DLL_THREAD_ATTACH");
+
             BOOL::from(true)
         }
         DLL_THREAD_DETACH => {
-            log_event("DLL_THREAD_DETACH");
+            log_message("DLL_THREAD_DETACH");
+
             BOOL::from(true)
         }
         _ => BOOL::from(true),
