@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     path::PathBuf,
     sync::{Arc, RwLock},
@@ -8,6 +9,8 @@ use anyhow::bail;
 use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+
+use crate::LaunchMode;
 
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
@@ -24,10 +27,19 @@ static SETTINGS: Lazy<SettingsManager> =
 
 impl SettingsManager {
     pub fn new() -> anyhow::Result<Self> {
-        let final_settings = AlembicSettings::new();
+        let mut final_settings = AlembicSettings::new();
         let loaded_settings = ensure_settings()?;
 
-        // TODO Merge loaded_settings into final settings object
+        // Merge loaded_settings into final settings object
+        final_settings.version = loaded_settings.version;
+        final_settings.is_configured = loaded_settings.is_configured;
+        final_settings.launch_mode = loaded_settings.launch_mode;
+        final_settings.client = loaded_settings.client;
+        final_settings.launch_config = loaded_settings.launch_config;
+        final_settings.selected_server = loaded_settings.selected_server;
+        final_settings.selected_account = loaded_settings.selected_account;
+        final_settings.accounts = loaded_settings.accounts;
+        final_settings.servers = loaded_settings.servers;
 
         Ok(Self {
             settings: Arc::new(RwLock::new(final_settings)),
@@ -61,9 +73,16 @@ impl SettingsManager {
     where
         F: FnOnce(&mut AlembicSettings),
     {
-        let mut settings = SETTINGS.settings.write().unwrap();
-        f(&mut settings);
-        Self::save()
+        let settings_path = ensure_settings_file()?;
+
+        let serialized = {
+            let mut settings = SETTINGS.settings.write().unwrap();
+            f(&mut settings);
+            serde_json::to_string_pretty(&*settings)?
+        }; // Write lock is released here
+
+        fs::write(settings_path, serialized)?;
+        Ok(())
     }
 
     pub fn to_string() -> Result<std::string::String, serde_json::Error> {
@@ -76,8 +95,9 @@ impl SettingsManager {
 pub struct AlembicSettings {
     pub version: u32,
     pub is_configured: bool,
+    pub launch_mode: LaunchMode,
     pub client: ClientInfo,
-    pub dll: DllInfo,
+    pub launch_config: LaunchConfig,
     pub selected_server: Option<usize>,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
@@ -89,8 +109,9 @@ impl AlembicSettings {
         AlembicSettings {
             version: SETTINGS_VERSION,
             is_configured: false,
+            launch_mode: LaunchMode::Windows,
             client: ClientInfo::default(),
-            dll: DllInfo::default(),
+            launch_config: LaunchConfig::default(),
             selected_account: None,
             selected_server: None,
             accounts: vec![],
@@ -120,12 +141,13 @@ impl AlembicSettings {
         // TODO: Top level
         self.version = new_settings.version.clone();
         self.is_configured = new_settings.is_configured.clone();
+        self.launch_mode = new_settings.launch_mode.clone();
 
         // TODO: Client
         self.client = new_settings.client.clone();
 
-        // TODO: DLL
-        self.dll = new_settings.dll.clone();
+        // TODO: Launch Config
+        self.launch_config = new_settings.launch_config.clone();
 
         // TODO: Servers
         self.selected_server = new_settings.selected_server.clone();
@@ -183,14 +205,25 @@ impl ClientInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct DllInfo {
-    pub dll_path: String,
+pub struct LaunchConfig {
+    /// For Windows: path to Alembic.dll
+    /// For Wine: path to wine64/wine executable
+    pub launcher_path: String,
+
+    /// For Windows: not used
+    /// For Wine: WINEPREFIX directory
+    pub prefix_path: Option<String>,
+
+    /// Environment variables to set during launch
+    pub environment_variables: HashMap<String, String>,
 }
 
-impl DllInfo {
-    fn default() -> DllInfo {
+impl LaunchConfig {
+    fn default() -> LaunchConfig {
         Self {
-            dll_path: "Alembic.dll".to_string(),
+            launcher_path: "Alembic.dll".to_string(),
+            prefix_path: None,
+            environment_variables: HashMap::new(),
         }
     }
 }
