@@ -122,7 +122,12 @@ impl<'a> Launcher {
     }
 
     fn launch_wine(&self) -> Result<u32, Box<dyn Error>> {
-        let wine_exe = &self.launch_config.launcher_path;
+        // Get wine executable from environment variables, fallback to wine64
+        let wine_exe = self.launch_config.environment_variables
+            .get("WINE")
+            .map(|s| s.as_str())
+            .unwrap_or("wine64");
+
         let client_path = &self.client_info.path;
         let client_exe = format!("{}\\acclient.exe", client_path);
 

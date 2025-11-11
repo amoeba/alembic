@@ -7,6 +7,8 @@ use libalembic::{
 };
 use std::{collections::HashMap, sync::mpsc::channel};
 
+mod scanner;
+
 #[cfg(debug_assertions)]
 const VERSION: &str = env!("DEBUG_VERSION");
 
@@ -169,6 +171,9 @@ enum ClientCommands {
         /// Index of the client to show (from 'client list')
         index: usize,
     },
+
+    /// Scan for installed clients and wine prefixes
+    Scan,
 }
 
 #[derive(Subcommand)]
@@ -229,6 +234,7 @@ fn main() -> anyhow::Result<()> {
             ClientCommands::List => client_list(),
             ClientCommands::Remove { index } => client_remove(index),
             ClientCommands::Show { index } => client_show(index),
+            ClientCommands::Scan => client_scan(),
         },
         Commands::Exec {
             mode,
@@ -420,7 +426,7 @@ fn client_list() -> anyhow::Result<()> {
     let is_configured = SettingsManager::get(|s| s.is_configured);
 
     if !is_configured {
-        println!("No clients configured. Use 'client add' to configure a client.");
+        println!("No clients configured. Use 'client add' or 'client scan' to configure a client.");
         return Ok(());
     }
 
@@ -893,6 +899,109 @@ fn account_remove(index: usize) -> anyhow::Result<()> {
     })?;
 
     println!("✓ Account removed!");
+
+    Ok(())
+}
+
+fn client_scan() -> anyhow::Result<()> {
+    println!("Scanning for AC client installations...");
+    println!();
+
+    let installations = scanner::scan_installations()?;
+
+    let total_scanned = installations.len();
+    let with_ac = installations.iter().filter(|i| i.client_path.is_some()).count();
+
+    if installations.is_empty() {
+        println!("No wine prefixes or bottles found.");
+        return Ok(());
+    }
+
+    println!("Scanned {} location(s), found AC in {} of them:", total_scanned, with_ac);
+    println!();
+
+    for (i, install) in installations.iter().enumerate() {
+        println!("  [{}] {}", i, install.display_name);
+        if let Some(ref prefix) = install.prefix_path {
+            println!("      Prefix: {}", prefix.display());
+        }
+        if let Some(ref client) = install.client_path {
+            println!("      Client: {}", client.display());
+        }
+        if let Some(ref wine) = install.wine_executable {
+            println!("      Wine:   {}", wine.display());
+        }
+        println!();
+    }
+
+    // If we found exactly one AC installation, save it to settings
+    if with_ac == 1 {
+        let ac_install = installations.iter().find(|i| i.client_path.is_some()).unwrap();
+
+        println!("Saving AC installation to settings...");
+
+        // Determine launch mode
+        let launch_mode = if cfg!(target_os = "windows") {
+            LaunchMode::Windows
+        } else {
+            LaunchMode::Wine
+        };
+
+        // Get client path and convert from Unix to Windows format for Wine
+        // e.g., "/prefix/drive_c/Turbine/Asheron's Call" -> "C:\Turbine\Asheron's Call"
+        let unix_client_path = ac_install.client_path.as_ref().unwrap();
+        let client_path = if cfg!(target_os = "windows") {
+            unix_client_path.display().to_string()
+        } else {
+            // Convert Unix path to Windows format
+            let path_str = unix_client_path.display().to_string();
+            if let Some(idx) = path_str.find("/drive_c/") {
+                let relative_path = &path_str[idx + 9..]; // Skip "/drive_c/"
+                format!("C:\\{}", relative_path.replace("/", "\\"))
+            } else {
+                // Fallback if we can't find drive_c
+                path_str
+            }
+        };
+
+        // Get launcher path - default for now
+        let launcher_path = if cfg!(target_os = "windows") {
+            "Alembic.dll".to_string()
+        } else {
+            "Alembic.dll".to_string() // Will be in the wine prefix
+        };
+
+        // Get wine-specific settings
+        let prefix_path = ac_install.prefix_path.as_ref().map(|p| p.display().to_string());
+        let wine_exe_path = ac_install.wine_executable.as_ref().map(|w| w.display().to_string());
+
+        SettingsManager::modify(|settings| {
+            settings.is_configured = true;
+            settings.launch_mode = launch_mode;
+            settings.client.path = client_path.clone();
+            settings.launch_config.launcher_path = launcher_path.clone();
+            settings.launch_config.prefix_path = prefix_path.clone();
+
+            // Store wine executable path in environment variables for reference
+            if let Some(wine_path) = wine_exe_path {
+                settings.launch_config.environment_variables.insert(
+                    "WINE".to_string(),
+                    wine_path,
+                );
+            }
+        })?;
+
+        println!("✓ AC installation saved to settings!");
+        println!();
+        println!("  Client path: {}", client_path);
+        if let Some(ref prefix) = prefix_path {
+            println!("  Prefix path: {}", prefix);
+        }
+    } else if with_ac > 1 {
+        println!("Found multiple AC installations. Please use 'client add' to manually configure.");
+    } else {
+        println!("No AC installations found. You can manually add a client with 'client add'.");
+    }
 
     Ok(())
 }
