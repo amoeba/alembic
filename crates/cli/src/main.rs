@@ -436,7 +436,7 @@ fn client_list() -> anyhow::Result<()> {
             "Windows"
         };
 
-        println!("  [{}]{} {} - {} ({})",
+        println!("[{}]{} {} - {} ({})",
             idx,
             selected,
             config.display_name(),
@@ -900,7 +900,7 @@ fn client_scan() -> anyhow::Result<()> {
 
         if already_exists {
             println!("Skipping (already configured): {}", config.display_name());
-            println!("  Path: {}", config.install_path().display());
+            println!("Path: {}", config.install_path().display());
             println!();
             skipped_count += 1;
             continue;
@@ -908,11 +908,11 @@ fn client_scan() -> anyhow::Result<()> {
 
         // Show details
         println!("Found: {}", config.display_name());
-        println!("  Path: {}", config.install_path().display());
+        println!("Path: {}", config.install_path().display());
         if config.is_wine() {
-            println!("  Type: Wine");
+            println!("Type: Wine");
         } else {
-            println!("  Type: Windows");
+            println!("Type: Windows");
         }
 
         // Prompt user
@@ -940,8 +940,8 @@ fn client_scan() -> anyhow::Result<()> {
 
     // Summary
     println!("Scan complete:");
-    println!("  Added:   {}", added_count);
-    println!("  Skipped: {}", skipped_count);
+    println!("Added: {}", added_count);
+    println!("Skipped: {}", skipped_count);
 
     if added_count > 0 {
         println!();

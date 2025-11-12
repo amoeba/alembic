@@ -70,26 +70,26 @@ impl fmt::Display for ClientConfig {
 
 impl fmt::Display for WindowsClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "  Name:         {}", self.display_name)?;
-        writeln!(f, "  Install path: {}", self.install_path.display())?;
-        writeln!(f, "  Type:         Windows")?;
-        write!(f, "  DLL path:     {}", self.dll_path.display())
+        writeln!(f, "Name: {}", self.display_name)?;
+        writeln!(f, "Install path: {}", self.install_path.display())?;
+        writeln!(f, "Type: Windows")?;
+        write!(f, "DLL path: {}", self.dll_path.display())
     }
 }
 
 impl fmt::Display for WineClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "  Name:         {}", self.display_name)?;
-        writeln!(f, "  Install path: {}", self.install_path.display())?;
-        writeln!(f, "  Type:         Wine")?;
-        writeln!(f, "  Wine executable: {}", self.wine_executable.display())?;
-        writeln!(f, "  Wine prefix:  {}", self.prefix_path.display())?;
+        writeln!(f, "Name: {}", self.display_name)?;
+        writeln!(f, "Install path: {}", self.install_path.display())?;
+        writeln!(f, "Type: Wine")?;
+        writeln!(f, "Wine executable: {}", self.wine_executable.display())?;
+        writeln!(f, "Wine prefix: {}", self.prefix_path.display())?;
 
         if !self.additional_env.is_empty() {
             writeln!(f)?;
-            writeln!(f, "  Environment variables:")?;
+            writeln!(f, "Environment variables:")?;
             for (key, value) in &self.additional_env {
-                writeln!(f, "    {}={}", key, value)?;
+                writeln!(f, "{}={}", key, value)?;
             }
         }
 
