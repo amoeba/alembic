@@ -12,5 +12,7 @@ build = "build.rs"
 [dependencies]
 anyhow = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
+crossterm = "0.27"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 libalembic = { path = "../libalembic" }
+ratatui = "0.28"

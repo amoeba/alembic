@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{error::Error, num::NonZero, process::Command};
+use std::{error::Error, num::NonZero, process::{Child, Command, Stdio}};
 
 use crate::{
     client_config::{ClientConfig, WineClientConfig},
@@ -43,6 +43,8 @@ pub struct Launcher {
     injector: Option<InjectionKit>,
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
     wine_pid: Option<u32>,
+    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+    wine_child: Option<Child>,
 }
 
 impl<'a> Launcher {
@@ -61,6 +63,8 @@ impl<'a> Launcher {
             injector: None,
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
             wine_pid: None,
+            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+            wine_child: None,
         }
     }
 
@@ -126,7 +130,7 @@ impl<'a> Launcher {
         }
     }
 
-    fn launch_wine(&self, config: &WineClientConfig) -> Result<u32, Box<dyn Error>> {
+    fn launch_wine(&self, config: &WineClientConfig) -> Result<Child, Box<dyn Error>> {
         let client_exe = format!("{}\\acclient.exe", config.install_path.display());
 
         let mut cmd = Command::new(&config.wine_executable);
@@ -148,7 +152,6 @@ impl<'a> Launcher {
             .replace("\\", "/");
         let working_dir = config.prefix_path.join("drive_c").join(&unix_path);
 
-        println!("Setting working directory to: {}", working_dir.display());
         cmd.current_dir(&working_dir);
 
         // Add the game executable and arguments
@@ -158,14 +161,13 @@ impl<'a> Launcher {
             .arg("-a").arg(&self.account_info.username)
             .arg("-v").arg(&self.account_info.password);
 
-        println!("Launching Wine with command: {:?}", cmd);
+        // Pipe stdout/stderr so we can capture and display in TUI
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
 
         let child = cmd.spawn()?;
-        let pid = child.id();
 
-        println!("Wine process launched with PID: {}", pid);
-
-        Ok(pid)
+        Ok(child)
     }
 
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -192,8 +194,6 @@ impl<'a> Launcher {
 
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
     fn find_or_launch_windows(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        println!("Attempting to find process first before attempting to launch.");
-
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
 
@@ -226,14 +226,18 @@ impl<'a> Launcher {
     }
 
     fn find_or_launch_wine(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        println!("Launching via Wine (process finding not yet implemented for Wine).");
-
         if let ClientConfig::Wine(config) = &self.client_config {
             match self.launch_wine(config) {
-                Ok(pid) => {
+                Ok(child) => {
+                    let pid = child.id();
                     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
                     {
                         self.wine_pid = Some(pid);
+                        self.wine_child = Some(child);
+                    }
+                    #[cfg(all(target_os = "windows", target_env = "msvc"))]
+                    {
+                        let _ = child; // Consume child on Windows
                     }
                     Ok(NonZero::new(pid).unwrap())
                 }
@@ -334,5 +338,11 @@ impl<'a> Launcher {
         self.inject()?;
 
         Ok(())
+    }
+
+    /// Take ownership of the wine child process for stdout/stderr monitoring
+    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+    pub fn take_wine_child(&mut self) -> Option<Child> {
+        self.wine_child.take()
     }
 }

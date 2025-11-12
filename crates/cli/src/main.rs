@@ -5,7 +5,6 @@ use libalembic::{
     launch::Launcher,
     settings::{Account, ServerInfo, SettingsManager},
 };
-use std::sync::mpsc::channel;
 
 mod scanner;
 
@@ -92,6 +91,10 @@ enum Commands {
         /// Account username to use (overrides selected account in settings)
         #[arg(long)]
         account: Option<String>,
+
+        /// Test mode - don't actually launch, just simulate with timestamps
+        #[arg(long)]
+        test: bool,
     },
 
     /// Manage servers
@@ -264,7 +267,7 @@ fn main() -> anyhow::Result<()> {
             wine_prefix,
             env_vars,
         ),
-        Commands::Launch { server, account } => preset_launch(server, account),
+        Commands::Launch { server, account, test } => preset_launch(server, account, test),
         Commands::Server { command } => match command {
             ServerCommands::Add {
                 name,
@@ -332,10 +335,10 @@ fn exec_launch(
     println!("Server: {}:{}", server_info.hostname, server_info.port);
     println!("Account: {}", account_info.username);
 
-    run_launcher(client_config, server_info, account_info)
+    run_launcher(client_config, server_info, account_info, false)
 }
 
-fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> anyhow::Result<()> {
+fn preset_launch(server_name: Option<String>, account_name: Option<String>, test_mode: bool) -> anyhow::Result<()> {
     // Get selected client config
     let client_config = SettingsManager::get(|s| {
         s.get_selected_client().cloned()
@@ -375,39 +378,255 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
         server_info.name, server_info.hostname, server_info.port
     );
     println!("Account: {}", account_info.username);
+    if test_mode {
+        println!("Mode: TEST (not actually launching)");
+    }
 
-    run_launcher(client_config, server_info, account_info)
+    run_launcher(client_config, server_info, account_info, test_mode)
 }
 
 fn run_launcher(
     client_config: ClientConfig,
     server_info: ServerInfo,
     account_info: Account,
+    test_mode: bool,
 ) -> anyhow::Result<()> {
-    let (tx, rx) = channel();
-    ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel."))
-        .expect("Error setting Ctrl-C handler");
+    use crossterm::{
+        event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    };
+    use ratatui::{
+        backend::CrosstermBackend,
+        layout::{Constraint, Direction, Layout},
+        style::{Color, Modifier, Style},
+        text::{Line, Span},
+        widgets::{Block, Borders, List, ListItem, Paragraph},
+        Terminal,
+    };
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::io::{self, BufRead, BufReader};
+    use std::sync::mpsc::{channel, Receiver};
+    use std::thread;
 
-    let mut launcher = Launcher::new(
-        client_config,
-        server_info,
-        account_info,
-    );
+    // Launch or simulate
+    let (log_tx, log_rx): (std::sync::mpsc::Sender<String>, Receiver<String>) = channel();
 
-    launcher.find_or_launch()?;
-    launcher.inject()?;
+    let mut launcher = if !test_mode {
+        let mut l = Launcher::new(
+            client_config.clone(),
+            server_info.clone(),
+            account_info.clone(),
+        );
+        l.find_or_launch()?;
+        l.inject()?;
 
-    println!("Game launched! Press Ctrl+C to exit.");
+        // Capture child process stdout/stderr on non-Windows platforms
+        #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+        if let Some(mut child) = l.take_wine_child() {
+            // Spawn thread for stdout
+            if let Some(stdout) = child.stdout.take() {
+                let tx = log_tx.clone();
+                thread::spawn(move || {
+                    let reader = BufReader::new(stdout);
+                    for line in reader.lines() {
+                        if let Ok(line) = line {
+                            let timestamp = get_timestamp();
+                            let _ = tx.send(format!("[{}] {}", timestamp, line));
+                        }
+                    }
+                });
+            }
 
-    // Block until Ctrl+C
-    rx.recv().expect("Could not receive from channel.");
-    println!("Ctrl+C received...");
+            // Spawn thread for stderr
+            if let Some(stderr) = child.stderr.take() {
+                let tx = log_tx.clone();
+                thread::spawn(move || {
+                    let reader = BufReader::new(stderr);
+                    for line in reader.lines() {
+                        if let Ok(line) = line {
+                            let timestamp = get_timestamp();
+                            let _ = tx.send(format!("[{}] {}", timestamp, line));
+                        }
+                    }
+                });
+            }
+        }
 
-    launcher.eject()?;
+        Some(l)
+    } else {
+        None
+    };
 
-    println!("Exiting.");
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    let mut show_logs = false;
+    let mut running = true;
+    let mut logs: Vec<String> = vec![];
+    let mut last_tick = SystemTime::now();
+
+    // Add initial log
+    logs.push(format!("[{}] Launcher started", get_timestamp()));
+    if test_mode {
+        logs.push(format!("[{}] TEST MODE - not actually launching game", get_timestamp()));
+    }
+
+    while running {
+        // Collect any new log messages from child process
+        while let Ok(log_line) = log_rx.try_recv() {
+            logs.push(log_line);
+        }
+
+        // In test mode, add timestamp logs periodically
+        if test_mode {
+            let now = SystemTime::now();
+            if now.duration_since(last_tick).unwrap_or(Duration::from_secs(0)) > Duration::from_secs(2) {
+                logs.push(format!("[{}] Unix time: {}", get_timestamp(),
+                    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()));
+                last_tick = now;
+            }
+        }
+
+        // Render UI
+        terminal.draw(|f| {
+            let chunks = if show_logs {
+                Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Length(10),
+                        Constraint::Length(3),
+                        Constraint::Min(5),
+                    ])
+                    .split(f.area())
+            } else {
+                Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Length(10),
+                        Constraint::Length(3),
+                    ])
+                    .split(f.area())
+            };
+
+            // Status panel
+            let status_text = vec![
+                Line::from(vec![
+                    Span::styled("Client: ", Style::default().fg(Color::Cyan)),
+                    Span::raw(client_config.display_name()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Server: ", Style::default().fg(Color::Cyan)),
+                    Span::raw(format!("{} ({}:{})", server_info.name, server_info.hostname, server_info.port)),
+                ]),
+                Line::from(vec![
+                    Span::styled("Account: ", Style::default().fg(Color::Cyan)),
+                    Span::raw(&account_info.username),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("Status: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(
+                        if test_mode { "● Test Mode" } else { "● Running" },
+                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                    ),
+                ]),
+            ];
+
+            let status_block = Paragraph::new(status_text)
+                .block(Block::default()
+                    .title("Alembic Launcher")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::White)));
+            f.render_widget(status_block, chunks[0]);
+
+            // Controls panel
+            let controls_text = vec![
+                Line::from("Ctrl+C  Exit   |   ?  Toggle logs"),
+            ];
+            let controls_block = Paragraph::new(controls_text)
+                .block(Block::default()
+                    .title("Controls")
+                    .borders(Borders::ALL));
+            f.render_widget(controls_block, chunks[1]);
+
+            // Logs panel (if toggled)
+            if show_logs {
+                let log_items: Vec<ListItem> = logs
+                    .iter()
+                    .rev()
+                    .take(chunks[2].height as usize - 2)
+                    .rev()
+                    .map(|log| ListItem::new(log.clone()))
+                    .collect();
+
+                let logs_list = List::new(log_items)
+                    .block(Block::default()
+                        .title("Logs (Press ? to hide)")
+                        .borders(Borders::ALL));
+                f.render_widget(logs_list, chunks[2]);
+            }
+        })?;
+
+        // Poll for events with timeout
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key_event) = event::read()? {
+                match key_event {
+                    KeyEvent {
+                        code: KeyCode::Char('c'),
+                        modifiers: KeyModifiers::CONTROL,
+                        ..
+                    } => {
+                        logs.push(format!("[{}] Shutting down...", get_timestamp()));
+                        running = false;
+                    }
+                    KeyEvent {
+                        code: KeyCode::Char('?'),
+                        ..
+                    } => {
+                        show_logs = !show_logs;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Cleanup terminal
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen
+    )?;
+    terminal.show_cursor()?;
+
+    // Cleanup launcher
+    if let Some(mut l) = launcher {
+        println!("Ejecting...");
+        l.eject()?;
+    }
+    println!("Exited.");
 
     Ok(())
+}
+
+fn get_timestamp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap();
+    let secs = now.as_secs();
+    let millis = now.subsec_millis();
+
+    let hours = (secs / 3600) % 24;
+    let minutes = (secs / 60) % 60;
+    let seconds = secs % 60;
+
+    format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, seconds, millis)
 }
 
 fn client_list() -> anyhow::Result<()> {
