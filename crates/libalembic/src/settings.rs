@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fs,
     path::PathBuf,
     sync::{Arc, RwLock},
@@ -10,7 +9,7 @@ use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::LaunchMode;
+use crate::client_config::ClientConfig;
 
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
@@ -27,22 +26,10 @@ static SETTINGS: Lazy<SettingsManager> =
 
 impl SettingsManager {
     pub fn new() -> anyhow::Result<Self> {
-        let mut final_settings = AlembicSettings::new();
         let loaded_settings = ensure_settings()?;
 
-        // Merge loaded_settings into final settings object
-        final_settings.version = loaded_settings.version;
-        final_settings.is_configured = loaded_settings.is_configured;
-        final_settings.launch_mode = loaded_settings.launch_mode;
-        final_settings.client = loaded_settings.client;
-        final_settings.launch_config = loaded_settings.launch_config;
-        final_settings.selected_server = loaded_settings.selected_server;
-        final_settings.selected_account = loaded_settings.selected_account;
-        final_settings.accounts = loaded_settings.accounts;
-        final_settings.servers = loaded_settings.servers;
-
         Ok(Self {
-            settings: Arc::new(RwLock::new(final_settings)),
+            settings: Arc::new(RwLock::new(loaded_settings)),
         })
     }
 
@@ -95,9 +82,15 @@ impl SettingsManager {
 pub struct AlembicSettings {
     pub version: u32,
     pub is_configured: bool,
-    pub launch_mode: LaunchMode,
-    pub client: ClientInfo,
-    pub launch_config: LaunchConfig,
+
+    /// All discovered/configured client installations
+    #[serde(default)]
+    pub clients: Vec<ClientConfig>,
+
+    /// Index of the currently selected client
+    #[serde(default)]
+    pub selected_client: Option<usize>,
+
     pub selected_server: Option<usize>,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
@@ -109,14 +102,67 @@ impl AlembicSettings {
         AlembicSettings {
             version: SETTINGS_VERSION,
             is_configured: false,
-            launch_mode: LaunchMode::Windows,
-            client: ClientInfo::default(),
-            launch_config: LaunchConfig::default(),
+            clients: vec![],
+            selected_client: None,
             selected_account: None,
             selected_server: None,
             accounts: vec![],
             servers: vec![],
         }
+    }
+
+    /// Get the currently selected client config
+    pub fn get_selected_client(&self) -> Option<&ClientConfig> {
+        self.selected_client.and_then(|idx| self.clients.get(idx))
+    }
+
+    /// Get mutable reference to selected client
+    pub fn get_selected_client_mut(&mut self) -> Option<&mut ClientConfig> {
+        self.selected_client.and_then(|idx| self.clients.get_mut(idx))
+    }
+
+    /// Add a new client config and optionally select it
+    pub fn add_client(&mut self, config: ClientConfig, select: bool) {
+        self.clients.push(config);
+        if select || self.selected_client.is_none() {
+            self.selected_client = Some(self.clients.len() - 1);
+        }
+    }
+
+    /// Remove a client config by index
+    pub fn remove_client(&mut self, index: usize) -> Option<ClientConfig> {
+        if index < self.clients.len() {
+            let removed = self.clients.remove(index);
+
+            // Adjust selected_client if needed
+            if let Some(selected) = self.selected_client {
+                if selected == index {
+                    // Removed the selected client
+                    self.selected_client = if self.clients.is_empty() {
+                        None
+                    } else {
+                        Some(0) // Select first remaining
+                    };
+                } else if selected > index {
+                    // Adjust index after removal
+                    self.selected_client = Some(selected - 1);
+                }
+            }
+
+            Some(removed)
+        } else {
+            None
+        }
+    }
+
+    /// Get the selected server
+    pub fn get_selected_server(&self) -> Option<&ServerInfo> {
+        self.selected_server.and_then(|idx| self.servers.get(idx))
+    }
+
+    /// Get the selected account
+    pub fn get_selected_account(&self) -> Option<&Account> {
+        self.selected_account.and_then(|idx| self.accounts.get(idx))
     }
 }
 
@@ -138,30 +184,21 @@ impl AlembicSettings {
         let file_contents = fs::read_to_string(settings_file_path)?;
         let new_settings: AlembicSettings = serde_json::from_str(&file_contents)?;
 
-        // TODO: Top level
-        self.version = new_settings.version.clone();
-        self.is_configured = new_settings.is_configured.clone();
-        self.launch_mode = new_settings.launch_mode.clone();
+        // Top level
+        self.version = new_settings.version;
+        self.is_configured = new_settings.is_configured;
 
-        // TODO: Client
-        self.client = new_settings.client.clone();
+        // Clients
+        self.clients = new_settings.clients;
+        self.selected_client = new_settings.selected_client;
 
-        // TODO: Launch Config
-        self.launch_config = new_settings.launch_config.clone();
+        // Servers
+        self.selected_server = new_settings.selected_server;
+        self.servers = new_settings.servers;
 
-        // TODO: Servers
-        self.selected_server = new_settings.selected_server.clone();
-        new_settings
-            .servers
-            .iter()
-            .for_each(|a| self.servers.push(a.clone()));
-
-        // TODO: Accounts
-        self.selected_account = new_settings.selected_account.clone();
-        new_settings
-            .accounts
-            .iter()
-            .for_each(|a| self.accounts.push(a.clone()));
+        // Accounts
+        self.selected_account = new_settings.selected_account;
+        self.accounts = new_settings.accounts;
 
         Ok(())
     }
@@ -189,43 +226,6 @@ pub struct Account {
     pub server_index: usize,
     pub username: String,
     pub password: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ClientInfo {
-    pub path: String,
-}
-
-impl ClientInfo {
-    fn default() -> ClientInfo {
-        Self {
-            path: "C:\\Turbine\\Asheron's Call\\".to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct LaunchConfig {
-    /// For Windows: path to Alembic.dll
-    /// For Wine: path to wine64/wine executable
-    pub launcher_path: String,
-
-    /// For Windows: not used
-    /// For Wine: WINEPREFIX directory
-    pub prefix_path: Option<String>,
-
-    /// Environment variables to set during launch
-    pub environment_variables: HashMap<String, String>,
-}
-
-impl LaunchConfig {
-    fn default() -> LaunchConfig {
-        Self {
-            launcher_path: "Alembic.dll".to_string(),
-            prefix_path: None,
-            environment_variables: HashMap::new(),
-        }
-    }
 }
 
 // TODO

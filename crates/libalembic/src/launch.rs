@@ -3,8 +3,8 @@
 use std::{error::Error, num::NonZero, process::Command};
 
 use crate::{
-    settings::{Account, ClientInfo, LaunchConfig, ServerInfo},
-    LaunchMode,
+    client_config::{ClientConfig, WineClientConfig},
+    settings::{Account, ServerInfo},
 };
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -34,11 +34,9 @@ use windows::{
 };
 
 pub struct Launcher {
-    launch_mode: LaunchMode,
-    client_info: ClientInfo,
+    client_config: ClientConfig,
     server_info: ServerInfo,
     account_info: Account,
-    launch_config: LaunchConfig,
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
     client: Option<OwnedProcess>,
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -49,18 +47,14 @@ pub struct Launcher {
 
 impl<'a> Launcher {
     pub fn new(
-        launch_mode: LaunchMode,
-        client_info: ClientInfo,
+        client_config: ClientConfig,
         server_info: ServerInfo,
         account_info: Account,
-        launch_config: LaunchConfig,
     ) -> Self {
         Launcher {
-            launch_mode,
-            client_info,
+            client_config,
             server_info,
             account_info,
-            launch_config,
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
             client: None,
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -71,17 +65,28 @@ impl<'a> Launcher {
     }
 
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
-    fn launch_windows(&self) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
+    fn launch_windows(&self, config: &WindowsClientConfig) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
         let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
         let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
 
-        let cmd_line: Vec<u16> = OsString::from(self.get_cmd_line())
+        let cmd_line = format!(
+            "{}\\acclient.exe -h {} -p {} -a {} -v {}",
+            config.install_path.display(),
+            self.server_info.hostname,
+            self.server_info.port,
+            self.account_info.username,
+            self.account_info.password,
+        );
+
+        let current_dir = format!("{}\\", config.install_path.display());
+
+        let cmd_line_wide: Vec<u16> = OsString::from(&cmd_line)
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
 
-        let current_dir: Vec<u16> = OsString::from(self.get_current_dir())
+        let current_dir_wide: Vec<u16> = OsString::from(&current_dir)
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
@@ -89,13 +94,13 @@ impl<'a> Launcher {
         unsafe {
             let result = CreateProcessW(
                 None,
-                PWSTR(cmd_line.as_ptr() as *mut _),
+                PWSTR(cmd_line_wide.as_ptr() as *mut _),
                 None,
                 None,
                 false,
                 CREATE_SUSPENDED,
                 None,
-                PWSTR(current_dir.as_ptr() as *mut _),
+                PWSTR(current_dir_wide.as_ptr() as *mut _),
                 &startup_info,
                 &mut process_info,
             );
@@ -121,37 +126,30 @@ impl<'a> Launcher {
         }
     }
 
-    fn launch_wine(&self) -> Result<u32, Box<dyn Error>> {
-        // Get wine executable from environment variables, fallback to wine64
-        let wine_exe = self.launch_config.environment_variables
-            .get("WINE")
-            .map(|s| s.as_str())
-            .unwrap_or("wine64");
+    fn launch_wine(&self, config: &WineClientConfig) -> Result<u32, Box<dyn Error>> {
+        let client_exe = format!("{}\\acclient.exe", config.install_path.display());
 
-        let client_path = &self.client_info.path;
-        let client_exe = format!("{}\\acclient.exe", client_path);
+        let mut cmd = Command::new(&config.wine_executable);
 
-        let mut cmd = Command::new(wine_exe);
+        // Set WINEPREFIX
+        cmd.env("WINEPREFIX", &config.prefix_path);
 
-        // Convert Windows path to Unix path within Wine prefix
-        // e.g., "C:\AC" -> "$WINEPREFIX/drive_c/AC"
-        if let Some(prefix) = &self.launch_config.prefix_path {
-            // Strip "C:\" or "C:/" from the beginning and convert backslashes
-            let unix_path = client_path
-                .trim_start_matches("C:\\")
-                .trim_start_matches("C:/")
-                .replace("\\", "/");
-            let working_dir = format!("{}/drive_c/{}", prefix, unix_path);
-
-            println!("Setting working directory to: {}", working_dir);
-            cmd.current_dir(&working_dir);
-
-            cmd.env("WINEPREFIX", prefix);
-        }
-
-        for (key, value) in &self.launch_config.environment_variables {
+        // Set additional environment variables
+        for (key, value) in &config.additional_env {
             cmd.env(key, value);
         }
+
+        // Convert Windows path to Unix path for working directory
+        // e.g., "C:\AC" -> "$WINEPREFIX/drive_c/AC"
+        let windows_path_str = config.install_path.display().to_string();
+        let unix_path = windows_path_str
+            .trim_start_matches("C:\\")
+            .trim_start_matches("C:/")
+            .replace("\\", "/");
+        let working_dir = config.prefix_path.join("drive_c").join(&unix_path);
+
+        println!("Setting working directory to: {}", working_dir.display());
+        cmd.current_dir(&working_dir);
 
         // Add the game executable and arguments
         cmd.arg(&client_exe)
@@ -180,15 +178,15 @@ impl<'a> Launcher {
     }
 
     pub fn find_or_launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        match self.launch_mode {
+        match &self.client_config {
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
-            LaunchMode::Windows => self.find_or_launch_windows(),
+            ClientConfig::Windows(_) => self.find_or_launch_windows(),
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            LaunchMode::Windows => Err(std::io::Error::new(
+            ClientConfig::Windows(_) => Err(std::io::Error::new(
                 std::io::ErrorKind::Unsupported,
                 "Windows launch mode is only supported on Windows"
             )),
-            LaunchMode::Wine => self.find_or_launch_wine(),
+            ClientConfig::Wine(_) => self.find_or_launch_wine(),
         }
     }
 
@@ -207,34 +205,48 @@ impl<'a> Launcher {
 
         println!("Couldn't find existing client to inject into. Launching instead.");
 
-        match self.launch_windows() {
-            Ok(process_info) => {
-                self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap());
+        if let ClientConfig::Windows(config) = &self.client_config {
+            match self.launch_windows(config) {
+                Ok(process_info) => {
+                    self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap());
 
-                Ok(NonZero::new(process_info.dwProcessId).unwrap())
+                    Ok(NonZero::new(process_info.dwProcessId).unwrap())
+                }
+                Err(error) => Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    error.to_string(),
+                )),
             }
-            Err(error) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                error.to_string(),
-            )),
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Expected Windows client config"
+            ))
         }
     }
 
     fn find_or_launch_wine(&mut self) -> Result<NonZero<u32>, std::io::Error> {
         println!("Launching via Wine (process finding not yet implemented for Wine).");
 
-        match self.launch_wine() {
-            Ok(pid) => {
-                #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-                {
-                    self.wine_pid = Some(pid);
+        if let ClientConfig::Wine(config) = &self.client_config {
+            match self.launch_wine(config) {
+                Ok(pid) => {
+                    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+                    {
+                        self.wine_pid = Some(pid);
+                    }
+                    Ok(NonZero::new(pid).unwrap())
                 }
-                Ok(NonZero::new(pid).unwrap())
+                Err(error) => Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    error.to_string(),
+                )),
             }
-            Err(error) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                error.to_string(),
-            )),
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Expected Wine client config"
+            ))
         }
     }
 
@@ -247,15 +259,15 @@ impl<'a> Launcher {
     }
 
     pub fn inject(&mut self) -> Result<(), anyhow::Error> {
-        match self.launch_mode {
+        match &self.client_config {
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
-            LaunchMode::Windows => self.inject_windows(),
+            ClientConfig::Windows(_) => self.inject_windows(),
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            LaunchMode::Windows => {
+            ClientConfig::Windows(_) => {
                 println!("Windows DLL injection not available on this platform");
                 Ok(())
             }
-            LaunchMode::Wine => {
+            ClientConfig::Wine(_) => {
                 println!("DLL injection not supported in Wine mode");
                 Ok(())
             }
@@ -269,34 +281,36 @@ impl<'a> Launcher {
             None => panic!("Could not create InjectionKit."),
         };
 
-        let dll_path = &self.launch_config.launcher_path;
-        if !fs::exists(dll_path)? {
-            bail!(
-                "Can't find DLL to inject at path {}. Bailing.",
-                dll_path
-            );
-        }
-
-        match self.injector.as_mut() {
-            Some(kit) => {
-                kit.inject(dll_path)?;
+        if let ClientConfig::Windows(config) = &self.client_config {
+            let dll_path = &config.dll_path;
+            if !fs::exists(dll_path)? {
+                bail!(
+                    "Can't find DLL to inject at path {}. Bailing.",
+                    dll_path.display()
+                );
             }
-            None => panic!("Could not get access to underlying injector to inject DLL."),
+
+            match self.injector.as_mut() {
+                Some(kit) => {
+                    kit.inject(dll_path.to_str().unwrap())?;
+                }
+                None => panic!("Could not get access to underlying injector to inject DLL."),
+            }
         }
 
         Ok(())
     }
 
     pub fn eject(&mut self) -> Result<(), anyhow::Error> {
-        match self.launch_mode {
+        match &self.client_config {
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
-            LaunchMode::Windows => self.eject_windows(),
+            ClientConfig::Windows(_) => self.eject_windows(),
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            LaunchMode::Windows => {
+            ClientConfig::Windows(_) => {
                 println!("Windows DLL ejection not available on this platform");
                 Ok(())
             }
-            LaunchMode::Wine => {
+            ClientConfig::Wine(_) => {
                 println!("DLL ejection not applicable in Wine mode");
                 Ok(())
             }
@@ -320,21 +334,5 @@ impl<'a> Launcher {
         self.inject()?;
 
         Ok(())
-    }
-
-    // Figure out full path
-    fn get_cmd_line(&self) -> String {
-        format!(
-            "{}\\acclient.exe -h {} -p {} -a {} -v {}",
-            self.client_info.path,
-            self.server_info.hostname,
-            self.server_info.port,
-            self.account_info.username,
-            self.account_info.password,
-        )
-    }
-
-    fn get_current_dir(&self) -> String {
-        format!("{}", self.client_info.path)
     }
 }

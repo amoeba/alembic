@@ -1,11 +1,11 @@
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use libalembic::{
+    client_config::ClientConfig,
     launch::Launcher,
-    settings::{Account, ClientInfo, LaunchConfig, ServerInfo, SettingsManager},
-    LaunchMode,
+    settings::{Account, ServerInfo, SettingsManager},
 };
-use std::{collections::HashMap, sync::mpsc::channel};
+use std::sync::mpsc::channel;
 
 mod scanner;
 
@@ -160,6 +160,12 @@ enum ClientCommands {
     /// List configured clients (brief)
     List,
 
+    /// Select a client by index
+    Select {
+        /// Index of the client to select (from 'client list')
+        index: usize,
+    },
+
     /// Remove a client by index
     Remove {
         /// Index of the client to remove (from 'client list')
@@ -232,6 +238,7 @@ fn main() -> anyhow::Result<()> {
                 env_vars,
             } => client_add(mode, client_path, launcher_path, wine_prefix, env_vars),
             ClientCommands::List => client_list(),
+            ClientCommands::Select { index } => client_select(index),
             ClientCommands::Remove { index } => client_remove(index),
             ClientCommands::Show { index } => client_show(index),
             ClientCommands::Scan => client_scan(),
@@ -281,13 +288,33 @@ fn exec_launch(
     wine_prefix: Option<String>,
     env_vars: Vec<(String, String)>,
 ) -> anyhow::Result<()> {
-    let launch_mode = match mode.to_lowercase().as_str() {
-        "windows" => LaunchMode::Windows,
-        "wine" => LaunchMode::Wine,
+    use libalembic::client_config::{WindowsClientConfig, WineClientConfig};
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    let client_config = match mode.to_lowercase().as_str() {
+        "windows" => ClientConfig::Windows(WindowsClientConfig {
+            display_name: "CLI-specified Windows client".to_string(),
+            install_path: PathBuf::from(&client_path),
+            dll_path: PathBuf::from(&launcher_path),
+        }),
+        "wine" => {
+            let prefix = wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
+            let mut additional_env = HashMap::new();
+            for (key, value) in env_vars {
+                additional_env.insert(key, value);
+            }
+
+            ClientConfig::Wine(WineClientConfig {
+                display_name: "CLI-specified Wine client".to_string(),
+                install_path: PathBuf::from(&client_path),
+                wine_executable: PathBuf::from(&launcher_path),
+                prefix_path: PathBuf::from(&prefix),
+                additional_env,
+            })
+        }
         _ => bail!("Invalid launch mode '{}'. Must be 'windows' or 'wine'.", mode),
     };
-
-    let client_info = ClientInfo { path: client_path };
 
     let server_info = ServerInfo {
         name: hostname.clone(),
@@ -301,34 +328,18 @@ fn exec_launch(
         password,
     };
 
-    let mut environment_variables = HashMap::new();
-    for (key, value) in env_vars {
-        environment_variables.insert(key, value);
-    }
-
-    let launch_config = LaunchConfig {
-        launcher_path,
-        prefix_path: wine_prefix,
-        environment_variables,
-    };
-
-    let mode_str = match launch_mode {
-        LaunchMode::Windows => "windows",
-        LaunchMode::Wine => "wine",
-    };
-
-    println!("Launch mode: {}", mode_str);
+    println!("Launch mode: {}", mode);
     println!("Server: {}:{}", server_info.hostname, server_info.port);
     println!("Account: {}", account_info.username);
 
-    run_launcher(launch_mode, client_info, server_info, account_info, launch_config)
+    run_launcher(client_config, server_info, account_info)
 }
 
 fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> anyhow::Result<()> {
-    // Load settings
-    let launch_mode = SettingsManager::get(|s| s.launch_mode);
-    let client_info = SettingsManager::get(|s| s.client.clone());
-    let launch_config = SettingsManager::get(|s| s.launch_config.clone());
+    // Get selected client config
+    let client_config = SettingsManager::get(|s| {
+        s.get_selected_client().cloned()
+    }).ok_or_else(|| anyhow::anyhow!("No client selected. Use 'alembic client select <index>'"))?;
 
     // Get server (by name override or selected index)
     let server_info = if let Some(name) = server_name {
@@ -340,12 +351,8 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
         })
         .with_context(|| format!("Server '{}' not found in settings", name))?
     } else {
-        let selected_server_index = SettingsManager::get(|s| s.selected_server);
-        match selected_server_index {
-            Some(idx) => SettingsManager::get(|s| s.servers.get(idx).cloned())
-                .context("Selected server index out of range")?,
-            None => bail!("No server selected. Please configure settings or use --server"),
-        }
+        SettingsManager::get(|s| s.get_selected_server().cloned())
+            .ok_or_else(|| anyhow::anyhow!("No server selected. Use 'alembic server select <index>'"))?
     };
 
     // Get account (by username override or selected index)
@@ -358,52 +365,33 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
         })
         .with_context(|| format!("Account '{}' not found in settings", username))?
     } else {
-        let selected_account_index = SettingsManager::get(|s| s.selected_account);
-        match selected_account_index {
-            Some(idx) => SettingsManager::get(|s| s.accounts.get(idx).cloned())
-                .context("Selected account index out of range")?,
-            None => bail!("No account selected. Please configure settings or use --account"),
-        }
+        SettingsManager::get(|s| s.get_selected_account().cloned())
+            .ok_or_else(|| anyhow::anyhow!("No account selected. Use 'alembic account select <index>'"))?
     };
 
-    let mode_str = match launch_mode {
-        LaunchMode::Windows => "windows",
-        LaunchMode::Wine => "wine",
-    };
-
-    println!("Launch mode: {}", mode_str);
+    println!("Client: {}", client_config.display_name());
     println!(
         "Server: {} ({}:{})",
         server_info.name, server_info.hostname, server_info.port
     );
     println!("Account: {}", account_info.username);
 
-    run_launcher(
-        launch_mode,
-        client_info,
-        server_info,
-        account_info,
-        launch_config,
-    )
+    run_launcher(client_config, server_info, account_info)
 }
 
 fn run_launcher(
-    launch_mode: LaunchMode,
-    client_info: ClientInfo,
+    client_config: ClientConfig,
     server_info: ServerInfo,
     account_info: Account,
-    launch_config: LaunchConfig,
 ) -> anyhow::Result<()> {
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel."))
         .expect("Error setting Ctrl-C handler");
 
     let mut launcher = Launcher::new(
-        launch_mode,
-        client_info,
+        client_config,
         server_info,
         account_info,
-        launch_config,
     );
 
     launcher.find_or_launch()?;
@@ -423,106 +411,59 @@ fn run_launcher(
 }
 
 fn client_list() -> anyhow::Result<()> {
-    let is_configured = SettingsManager::get(|s| s.is_configured);
+    let clients = SettingsManager::get(|s| s.clients.clone());
+    let selected_client = SettingsManager::get(|s| s.selected_client);
 
-    if !is_configured {
-        println!("No clients configured. Use 'client add' or 'client scan' to configure a client.");
+    if clients.is_empty() {
+        println!("No clients configured.");
+        println!("Run 'alembic client scan' to discover clients.");
         return Ok(());
     }
 
-    let launch_mode = SettingsManager::get(|s| s.launch_mode);
-    let client_path = SettingsManager::get(|s| s.client.path.clone());
-    let wine_prefix = SettingsManager::get(|s| s.launch_config.prefix_path.clone());
+    println!("Configured clients:");
+    println!();
 
-    let (mode_str, path) = match launch_mode {
-        LaunchMode::Windows => ("windows", client_path),
-        LaunchMode::Wine => ("wine", wine_prefix.unwrap_or_else(|| "(no prefix)".to_string())),
-    };
+    for (idx, config) in clients.iter().enumerate() {
+        let selected = if Some(idx) == selected_client {
+            " *"
+        } else {
+            ""
+        };
 
-    // Calculate column widths
-    let index_width = "Index".len().max(1);
-    let method_width = "Method".len().max(mode_str.len());
-    let path_width = "Path".len().max(path.len());
+        let client_type = if config.is_wine() {
+            "Wine"
+        } else {
+            "Windows"
+        };
 
-    // Print top border
-    println!("┌─{}─┬─{}─┬─{}─┐",
-        "─".repeat(index_width),
-        "─".repeat(method_width),
-        "─".repeat(path_width)
-    );
+        println!("  [{}]{} {} - {} ({})",
+            idx,
+            selected,
+            config.display_name(),
+            config.install_path().display(),
+            client_type,
+        );
+    }
 
-    // Print header
-    println!("│ {:<width_idx$} │ {:<width_method$} │ {:<width_path$} │",
-        "Index", "Method", "Path",
-        width_idx = index_width,
-        width_method = method_width,
-        width_path = path_width
-    );
+    println!();
 
-    // Print separator
-    println!("├─{}─┼─{}─┼─{}─┤",
-        "─".repeat(index_width),
-        "─".repeat(method_width),
-        "─".repeat(path_width)
-    );
-
-    // Print data row
-    println!("│ {:<width_idx$} │ {:<width_method$} │ {:<width_path$} │",
-        "0", mode_str, path,
-        width_idx = index_width,
-        width_method = method_width,
-        width_path = path_width
-    );
-
-    // Print bottom border
-    println!("└─{}─┴─{}─┴─{}─┘",
-        "─".repeat(index_width),
-        "─".repeat(method_width),
-        "─".repeat(path_width)
-    );
+    if selected_client.is_some() {
+        println!("* = Currently selected");
+    } else {
+        println!("No client selected. Use 'alembic client select <index>' to choose one.");
+    }
 
     Ok(())
 }
 
 fn client_show(index: usize) -> anyhow::Result<()> {
-    let is_configured = SettingsManager::get(|s| s.is_configured);
-
-    // Check if a client exists at the requested index
-    let client_exists = index == 0 && is_configured;
-
-    if !client_exists {
-        bail!("Invalid index {}. No client exists at that index. Run 'alembic client list' to see available clients.", index);
-    }
+    let client_config = SettingsManager::get(|s| {
+        s.clients.get(index).cloned()
+    }).ok_or_else(|| anyhow::anyhow!("Invalid client index: {}. Use 'alembic client list' to see available clients.", index))?;
 
     println!("Client configuration (index {}):", index);
     println!();
-
-    let launch_mode = SettingsManager::get(|s| s.launch_mode);
-    let client_path = SettingsManager::get(|s| s.client.path.clone());
-    let launcher_path = SettingsManager::get(|s| s.launch_config.launcher_path.clone());
-    let wine_prefix = SettingsManager::get(|s| s.launch_config.prefix_path.clone());
-    let env_vars = SettingsManager::get(|s| s.launch_config.environment_variables.clone());
-
-    let mode_str = match launch_mode {
-        LaunchMode::Windows => "windows",
-        LaunchMode::Wine => "wine",
-    };
-
-    println!("  Launch mode:   {}", mode_str);
-    println!("  Client path:   {}", client_path);
-    println!("  Launcher path: {}", launcher_path);
-
-    if let Some(prefix) = wine_prefix {
-        println!("  Wine prefix:   {}", prefix);
-    }
-
-    if !env_vars.is_empty() {
-        println!();
-        println!("  Environment variables:");
-        for (key, value) in env_vars {
-            println!("    {}={}", key, value);
-        }
-    }
+    println!("{}", client_config);
 
     Ok(())
 }
@@ -534,57 +475,83 @@ fn client_add(
     wine_prefix: Option<String>,
     env_vars: Vec<(String, String)>,
 ) -> anyhow::Result<()> {
-    let launch_mode = match mode.to_lowercase().as_str() {
-        "windows" => LaunchMode::Windows,
-        "wine" => LaunchMode::Wine,
-        _ => bail!("Invalid launch mode '{}'. Must be 'windows' or 'wine'.", mode),
-    };
+    use libalembic::client_config::{WindowsClientConfig, WineClientConfig};
+    use std::collections::HashMap;
+    use std::path::PathBuf;
 
     println!("Adding client configuration...");
 
-    let mut environment_variables = HashMap::new();
-    for (key, value) in env_vars {
-        environment_variables.insert(key, value);
-    }
+    let client_config = match mode.to_lowercase().as_str() {
+        "windows" => ClientConfig::Windows(WindowsClientConfig {
+            display_name: "Manual Windows client".to_string(),
+            install_path: PathBuf::from(&client_path),
+            dll_path: PathBuf::from(&launcher_path),
+        }),
+        "wine" => {
+            let prefix = wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
+            let mut additional_env = HashMap::new();
+            for (key, value) in env_vars {
+                additional_env.insert(key, value);
+            }
+
+            ClientConfig::Wine(WineClientConfig {
+                display_name: "Manual Wine client".to_string(),
+                install_path: PathBuf::from(&client_path),
+                wine_executable: PathBuf::from(&launcher_path),
+                prefix_path: PathBuf::from(&prefix),
+                additional_env,
+            })
+        }
+        _ => bail!("Invalid launch mode '{}'. Must be 'windows' or 'wine'.", mode),
+    };
+
+    let new_index = SettingsManager::get(|s| s.clients.len());
 
     SettingsManager::modify(|settings| {
+        settings.add_client(client_config, true);
         settings.is_configured = true;
-        settings.launch_mode = launch_mode;
-        settings.client.path = client_path.clone();
-        settings.launch_config.launcher_path = launcher_path.clone();
-        settings.launch_config.prefix_path = wine_prefix.clone();
-        settings.launch_config.environment_variables = environment_variables.clone();
     })?;
 
-    println!("✓ Client configuration saved!");
+    println!("✓ Client configuration saved at index {}!", new_index);
     println!();
 
     // Show what was configured
-    client_show(0)
+    client_show(new_index)
+}
+
+fn client_select(index: usize) -> anyhow::Result<()> {
+    let clients = SettingsManager::get(|s| s.clients.clone());
+
+    if index >= clients.len() {
+        bail!("Invalid client index: {}. Use 'alembic client list' to see available clients.", index);
+    }
+
+    let client_name = clients[index].display_name().to_string();
+
+    SettingsManager::modify(|settings| {
+        settings.selected_client = Some(index);
+    })?;
+
+    println!("✓ Selected client: {}", client_name);
+
+    Ok(())
 }
 
 fn client_remove(index: usize) -> anyhow::Result<()> {
-    let is_configured = SettingsManager::get(|s| s.is_configured);
-
-    // Check if a client exists at the requested index
-    let client_exists = index == 0 && is_configured;
-
-    if !client_exists {
-        bail!("Invalid index {}. No client exists at that index. Run 'alembic client list' to see available clients.", index);
-    }
-
-    println!("Resetting client configuration to defaults...");
+    let removed = SettingsManager::get(|s| {
+        if index < s.clients.len() {
+            Some(s.clients[index].display_name().to_string())
+        } else {
+            None
+        }
+    }).ok_or_else(|| anyhow::anyhow!("Invalid client index: {}. Use 'alembic client list' to see available clients.", index))?;
 
     SettingsManager::modify(|settings| {
-        settings.is_configured = false;
-        settings.launch_mode = LaunchMode::Windows;
-        settings.client.path = "C:\\Turbine\\Asheron's Call\\".to_string();
-        settings.launch_config.launcher_path = "Alembic.dll".to_string();
-        settings.launch_config.prefix_path = None;
-        settings.launch_config.environment_variables.clear();
+        settings.remove_client(index);
+        settings.is_configured = !settings.clients.is_empty();
     })?;
 
-    println!("✓ Client configuration reset to defaults!");
+    println!("✓ Removed client: {}", removed);
 
     Ok(())
 }
@@ -904,103 +871,82 @@ fn account_remove(index: usize) -> anyhow::Result<()> {
 }
 
 fn client_scan() -> anyhow::Result<()> {
+    use std::io::{self, Write};
+
     println!("Scanning for AC client installations...");
     println!();
 
-    let installations = scanner::scan_installations()?;
+    let discovered = scanner::scan_all()?;
 
-    let total_scanned = installations.len();
-    let with_ac = installations.iter().filter(|i| i.client_path.is_some()).count();
-
-    if installations.is_empty() {
-        println!("No wine prefixes or bottles found.");
+    if discovered.is_empty() {
+        println!("No client installations found.");
+        println!("You can add a client manually with: alembic client add");
         return Ok(());
     }
 
-    println!("Scanned {} location(s), found AC in {} of them:", total_scanned, with_ac);
+    println!("Found {} client installation(s):", discovered.len());
     println!();
 
-    for (i, install) in installations.iter().enumerate() {
-        println!("  [{}] {}", i, install.display_name);
-        if let Some(ref prefix) = install.prefix_path {
-            println!("      Prefix: {}", prefix.display());
+    let mut added_count = 0;
+    let mut skipped_count = 0;
+
+    for config in discovered {
+        // Check if already exists
+        let already_exists = SettingsManager::get(|s| {
+            s.clients.iter().any(|existing| {
+                existing.install_path() == config.install_path()
+            })
+        });
+
+        if already_exists {
+            println!("Skipping (already configured): {}", config.display_name());
+            println!("  Path: {}", config.install_path().display());
+            println!();
+            skipped_count += 1;
+            continue;
         }
-        if let Some(ref client) = install.client_path {
-            println!("      Client: {}", client.display());
+
+        // Show details
+        println!("Found: {}", config.display_name());
+        println!("  Path: {}", config.install_path().display());
+        if config.is_wine() {
+            println!("  Type: Wine");
+        } else {
+            println!("  Type: Windows");
         }
-        if let Some(ref wine) = install.wine_executable {
-            println!("      Wine:   {}", wine.display());
+
+        // Prompt user
+        print!("Add this client? (y/n): ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let response = input.trim().to_lowercase();
+
+        if response == "y" || response == "yes" {
+            SettingsManager::modify(|settings| {
+                settings.add_client(config.clone(), false);
+                settings.is_configured = true;
+            })?;
+            println!("✓ Added!");
+            added_count += 1;
+        } else {
+            println!("Skipped.");
+            skipped_count += 1;
         }
+
         println!();
     }
 
-    // If we found exactly one AC installation, save it to settings
-    if with_ac == 1 {
-        let ac_install = installations.iter().find(|i| i.client_path.is_some()).unwrap();
+    // Summary
+    println!("Scan complete:");
+    println!("  Added:   {}", added_count);
+    println!("  Skipped: {}", skipped_count);
 
-        println!("Saving AC installation to settings...");
-
-        // Determine launch mode
-        let launch_mode = if cfg!(target_os = "windows") {
-            LaunchMode::Windows
-        } else {
-            LaunchMode::Wine
-        };
-
-        // Get client path and convert from Unix to Windows format for Wine
-        // e.g., "/prefix/drive_c/Turbine/Asheron's Call" -> "C:\Turbine\Asheron's Call"
-        let unix_client_path = ac_install.client_path.as_ref().unwrap();
-        let client_path = if cfg!(target_os = "windows") {
-            unix_client_path.display().to_string()
-        } else {
-            // Convert Unix path to Windows format
-            let path_str = unix_client_path.display().to_string();
-            if let Some(idx) = path_str.find("/drive_c/") {
-                let relative_path = &path_str[idx + 9..]; // Skip "/drive_c/"
-                format!("C:\\{}", relative_path.replace("/", "\\"))
-            } else {
-                // Fallback if we can't find drive_c
-                path_str
-            }
-        };
-
-        // Get launcher path - default for now
-        let launcher_path = if cfg!(target_os = "windows") {
-            "Alembic.dll".to_string()
-        } else {
-            "Alembic.dll".to_string() // Will be in the wine prefix
-        };
-
-        // Get wine-specific settings
-        let prefix_path = ac_install.prefix_path.as_ref().map(|p| p.display().to_string());
-        let wine_exe_path = ac_install.wine_executable.as_ref().map(|w| w.display().to_string());
-
-        SettingsManager::modify(|settings| {
-            settings.is_configured = true;
-            settings.launch_mode = launch_mode;
-            settings.client.path = client_path.clone();
-            settings.launch_config.launcher_path = launcher_path.clone();
-            settings.launch_config.prefix_path = prefix_path.clone();
-
-            // Store wine executable path in environment variables for reference
-            if let Some(wine_path) = wine_exe_path {
-                settings.launch_config.environment_variables.insert(
-                    "WINE".to_string(),
-                    wine_path,
-                );
-            }
-        })?;
-
-        println!("✓ AC installation saved to settings!");
+    if added_count > 0 {
         println!();
-        println!("  Client path: {}", client_path);
-        if let Some(ref prefix) = prefix_path {
-            println!("  Prefix path: {}", prefix);
-        }
-    } else if with_ac > 1 {
-        println!("Found multiple AC installations. Please use 'client add' to manually configure.");
-    } else {
-        println!("No AC installations found. You can manually add a client with 'client add'.");
+        println!("Use 'alembic client list' to see all clients.");
+        println!("Use 'alembic client select <index>' to choose a client.");
     }
 
     Ok(())
