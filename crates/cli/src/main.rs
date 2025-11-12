@@ -492,7 +492,7 @@ fn run_launcher(
     let mut show_logs = false;
     let mut running = true;
     let mut logs: Vec<String> = vec![];
-    let mut last_tick = SystemTime::now();
+    let last_tick = SystemTime::now();
     let mut process_status = ProcessStatus::Starting;
 
     while running {
