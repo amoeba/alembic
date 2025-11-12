@@ -91,10 +91,6 @@ enum Commands {
         /// Account username to use (overrides selected account in settings)
         #[arg(long)]
         account: Option<String>,
-
-        /// Test mode - don't actually launch, just simulate with timestamps
-        #[arg(long)]
-        test: bool,
     },
 
     /// Manage servers
@@ -267,7 +263,7 @@ fn main() -> anyhow::Result<()> {
             wine_prefix,
             env_vars,
         ),
-        Commands::Launch { server, account, test } => preset_launch(server, account, test),
+        Commands::Launch { server, account } => preset_launch(server, account),
         Commands::Server { command } => match command {
             ServerCommands::Add {
                 name,
@@ -302,7 +298,8 @@ fn exec_launch(
             dll_path: PathBuf::from(&launcher_path),
         }),
         "wine" => {
-            let prefix = wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
+            let prefix =
+                wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
             let mut additional_env = HashMap::new();
             for (key, value) in env_vars {
                 additional_env.insert(key, value);
@@ -316,7 +313,10 @@ fn exec_launch(
                 additional_env,
             })
         }
-        _ => bail!("Invalid launch mode '{}'. Must be 'windows' or 'wine'.", mode),
+        _ => bail!(
+            "Invalid launch mode '{}'. Must be 'windows' or 'wine'.",
+            mode
+        ),
     };
 
     let server_info = ServerInfo {
@@ -335,27 +335,24 @@ fn exec_launch(
     println!("Server: {}:{}", server_info.hostname, server_info.port);
     println!("Account: {}", account_info.username);
 
-    run_launcher(client_config, server_info, account_info, false)
+    run_launcher(client_config, server_info, account_info)
 }
 
-fn preset_launch(server_name: Option<String>, account_name: Option<String>, test_mode: bool) -> anyhow::Result<()> {
+fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> anyhow::Result<()> {
     // Get selected client config
-    let client_config = SettingsManager::get(|s| {
-        s.get_selected_client().cloned()
-    }).ok_or_else(|| anyhow::anyhow!("No client selected. Use 'alembic client select <index>'"))?;
+    let client_config =
+        SettingsManager::get(|s| s.get_selected_client().cloned()).ok_or_else(|| {
+            anyhow::anyhow!("No client selected. Use 'alembic client select <index>'")
+        })?;
 
     // Get server (by name override or selected index)
     let server_info = if let Some(name) = server_name {
-        SettingsManager::get(|s| {
-            s.servers
-                .iter()
-                .find(|srv| srv.name == name)
-                .cloned()
-        })
-        .with_context(|| format!("Server '{}' not found in settings", name))?
+        SettingsManager::get(|s| s.servers.iter().find(|srv| srv.name == name).cloned())
+            .with_context(|| format!("Server '{}' not found in settings", name))?
     } else {
-        SettingsManager::get(|s| s.get_selected_server().cloned())
-            .ok_or_else(|| anyhow::anyhow!("No server selected. Use 'alembic server select <index>'"))?
+        SettingsManager::get(|s| s.get_selected_server().cloned()).ok_or_else(|| {
+            anyhow::anyhow!("No server selected. Use 'alembic server select <index>'")
+        })?
     };
 
     // Get account (by username override or selected index)
@@ -368,8 +365,9 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>, test
         })
         .with_context(|| format!("Account '{}' not found in settings", username))?
     } else {
-        SettingsManager::get(|s| s.get_selected_account().cloned())
-            .ok_or_else(|| anyhow::anyhow!("No account selected. Use 'alembic account select <index>'"))?
+        SettingsManager::get(|s| s.get_selected_account().cloned()).ok_or_else(|| {
+            anyhow::anyhow!("No account selected. Use 'alembic account select <index>'")
+        })?
     };
 
     println!("Client: {}", client_config.display_name());
@@ -378,18 +376,14 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>, test
         server_info.name, server_info.hostname, server_info.port
     );
     println!("Account: {}", account_info.username);
-    if test_mode {
-        println!("Mode: TEST (not actually launching)");
-    }
 
-    run_launcher(client_config, server_info, account_info, test_mode)
+    run_launcher(client_config, server_info, account_info)
 }
 
 fn run_launcher(
     client_config: ClientConfig,
     server_info: ServerInfo,
     account_info: Account,
-    test_mode: bool,
 ) -> anyhow::Result<()> {
     use crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -399,64 +393,94 @@ fn run_launcher(
     use ratatui::{
         backend::CrosstermBackend,
         layout::{Constraint, Direction, Layout},
-        style::{Color, Modifier, Style},
+        style::{Modifier, Style},
         text::{Line, Span},
-        widgets::{Block, Borders, List, ListItem, Paragraph},
+        widgets::{Block, Borders, List, ListItem, Padding, Paragraph},
         Terminal,
     };
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
     use std::io::{self, BufRead, BufReader};
     use std::sync::mpsc::{channel, Receiver};
     use std::thread;
+    use std::time::{Duration, SystemTime};
 
     // Launch or simulate
     let (log_tx, log_rx): (std::sync::mpsc::Sender<String>, Receiver<String>) = channel();
+    let (status_tx, status_rx): (
+        std::sync::mpsc::Sender<ProcessStatus>,
+        std::sync::mpsc::Receiver<ProcessStatus>,
+    ) = channel();
 
-    let mut launcher = if !test_mode {
-        let mut l = Launcher::new(
-            client_config.clone(),
-            server_info.clone(),
-            account_info.clone(),
-        );
-        l.find_or_launch()?;
-        l.inject()?;
+    #[derive(Clone, Debug)]
+    enum ProcessStatus {
+        Starting,
+        Running,
+        Exited(i32),
+        Error(String),
+    }
 
-        // Capture child process stdout/stderr on non-Windows platforms
-        #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-        if let Some(mut child) = l.take_wine_child() {
-            // Spawn thread for stdout
-            if let Some(stdout) = child.stdout.take() {
-                let tx = log_tx.clone();
-                thread::spawn(move || {
-                    let reader = BufReader::new(stdout);
-                    for line in reader.lines() {
-                        if let Ok(line) = line {
-                            let timestamp = get_timestamp();
-                            let _ = tx.send(format!("[{}] {}", timestamp, line));
-                        }
+    let mut launcher = Launcher::new(
+        client_config.clone(),
+        server_info.clone(),
+        account_info.clone(),
+    );
+    launcher.find_or_launch()?;
+    launcher.inject()?;
+
+    // Capture child process stdout/stderr on non-Windows platforms
+    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+    if let Some(mut child) = launcher.take_child() {
+        // Spawn thread for stdout
+        if let Some(stdout) = child.stdout.take() {
+            let tx = log_tx.clone();
+            thread::spawn(move || {
+                let reader = BufReader::new(stdout);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        let timestamp = get_timestamp();
+                        let _ = tx.send(format!("[{}] {}", timestamp, line));
                     }
-                });
-            }
-
-            // Spawn thread for stderr
-            if let Some(stderr) = child.stderr.take() {
-                let tx = log_tx.clone();
-                thread::spawn(move || {
-                    let reader = BufReader::new(stderr);
-                    for line in reader.lines() {
-                        if let Ok(line) = line {
-                            let timestamp = get_timestamp();
-                            let _ = tx.send(format!("[{}] {}", timestamp, line));
-                        }
-                    }
-                });
-            }
+                }
+            });
         }
 
-        Some(l)
-    } else {
-        None
-    };
+        // Spawn thread for stderr
+        if let Some(stderr) = child.stderr.take() {
+            let tx = log_tx.clone();
+            thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        let timestamp = get_timestamp();
+                        let _ = tx.send(format!("[{}] {}", timestamp, line));
+                    }
+                }
+            });
+        }
+
+        // Spawn thread to monitor process exit
+        let status_tx_clone = status_tx.clone();
+        let log_tx_clone = log_tx.clone();
+        thread::spawn(move || {
+            // Process started successfully, update status to Running
+            let _ = status_tx_clone.send(ProcessStatus::Running);
+
+            match child.wait() {
+                Ok(exit_status) => {
+                    let code = exit_status.code().unwrap_or(-1);
+                    let timestamp = get_timestamp();
+                    let _ = log_tx_clone
+                        .send(format!("[{}] Process exited with code {}", timestamp, code));
+                    let _ = status_tx_clone.send(ProcessStatus::Exited(code));
+                }
+                Err(e) => {
+                    let timestamp = get_timestamp();
+                    let _ = log_tx_clone
+                        .send(format!("[{}] Error waiting for process: {}", timestamp, e));
+                    let _ = status_tx_clone.send(ProcessStatus::Error(e.to_string()));
+                }
+            }
+        });
+    }
 
     // Setup terminal
     enable_raw_mode()?;
@@ -469,12 +493,7 @@ fn run_launcher(
     let mut running = true;
     let mut logs: Vec<String> = vec![];
     let mut last_tick = SystemTime::now();
-
-    // Add initial log
-    logs.push(format!("[{}] Launcher started", get_timestamp()));
-    if test_mode {
-        logs.push(format!("[{}] TEST MODE - not actually launching game", get_timestamp()));
-    }
+    let mut process_status = ProcessStatus::Starting;
 
     while running {
         // Collect any new log messages from child process
@@ -482,14 +501,9 @@ fn run_launcher(
             logs.push(log_line);
         }
 
-        // In test mode, add timestamp logs periodically
-        if test_mode {
-            let now = SystemTime::now();
-            if now.duration_since(last_tick).unwrap_or(Duration::from_secs(0)) > Duration::from_secs(2) {
-                logs.push(format!("[{}] Unix time: {}", get_timestamp(),
-                    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()));
-                last_tick = now;
-            }
+        // Check for process status updates
+        if let Ok(status) = status_rx.try_recv() {
+            process_status = status;
         }
 
         // Render UI
@@ -497,78 +511,74 @@ fn run_launcher(
             let chunks = if show_logs {
                 Layout::default()
                     .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Length(10),
-                        Constraint::Length(3),
-                        Constraint::Min(5),
-                    ])
+                    .constraints([Constraint::Min(10), Constraint::Min(5)])
                     .split(f.area())
             } else {
                 Layout::default()
                     .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Length(10),
-                        Constraint::Length(3),
-                    ])
+                    .constraints([Constraint::Min(10)])
                     .split(f.area())
             };
 
             // Status panel
             let status_text = vec![
                 Line::from(vec![
-                    Span::styled("Client: ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Client: "),
                     Span::raw(client_config.display_name()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Server: ", Style::default().fg(Color::Cyan)),
-                    Span::raw(format!("{} ({}:{})", server_info.name, server_info.hostname, server_info.port)),
+                    Span::raw("Server: "),
+                    Span::raw(format!(
+                        "{} ({}:{})",
+                        server_info.name, server_info.hostname, server_info.port
+                    )),
                 ]),
                 Line::from(vec![
-                    Span::styled("Account: ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Account: "),
                     Span::raw(&account_info.username),
                 ]),
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Status: ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Status: "),
                     Span::styled(
-                        if test_mode { "● Test Mode" } else { "● Running" },
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                        match &process_status {
+                            ProcessStatus::Starting => "● Starting...".to_string(),
+                            ProcessStatus::Running => "● Running".to_string(),
+                            ProcessStatus::Exited(code) => format!("● Exited (code {})", code),
+                            ProcessStatus::Error(e) => format!("● Error: {}", e),
+                        },
+                        Style::default().add_modifier(Modifier::BOLD),
                     ),
                 ]),
+                Line::from("Controls: Ctrl+C/q to quit"),
+                Line::from("          ? to show logs"),
             ];
 
-            let status_block = Paragraph::new(status_text)
-                .block(Block::default()
-                    .title("Alembic Launcher")
+            let status_block = Paragraph::new(status_text).block(
+                Block::default()
+                    .title("Alembic")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::White)));
+                    .padding(Padding::uniform(1)),
+            );
             f.render_widget(status_block, chunks[0]);
-
-            // Controls panel
-            let controls_text = vec![
-                Line::from("Ctrl+C  Exit   |   ?  Toggle logs"),
-            ];
-            let controls_block = Paragraph::new(controls_text)
-                .block(Block::default()
-                    .title("Controls")
-                    .borders(Borders::ALL));
-            f.render_widget(controls_block, chunks[1]);
 
             // Logs panel (if toggled)
             if show_logs {
                 let log_items: Vec<ListItem> = logs
                     .iter()
                     .rev()
-                    .take(chunks[2].height as usize - 2)
+                    .take(chunks[1].height as usize - 2)
                     .rev()
                     .map(|log| ListItem::new(log.clone()))
                     .collect();
 
-                let logs_list = List::new(log_items)
-                    .block(Block::default()
+                let logs_list = List::new(log_items).block(
+                    Block::default()
                         .title("Logs (Press ? to hide)")
-                        .borders(Borders::ALL));
-                f.render_widget(logs_list, chunks[2]);
+                        .borders(Borders::ALL)
+                        .padding(Padding::uniform(1)),
+                );
+                f.render_widget(logs_list, chunks[1]);
             }
         })?;
 
@@ -590,6 +600,17 @@ fn run_launcher(
                     } => {
                         show_logs = !show_logs;
                     }
+                    KeyEvent {
+                        code: KeyCode::Char('q'),
+                        ..
+                    }
+                    | KeyEvent {
+                        code: KeyCode::Char('Q'),
+                        ..
+                    } => {
+                        logs.push(format!("[{}] Shutting down...", get_timestamp()));
+                        running = false;
+                    }
                     _ => {}
                 }
             }
@@ -598,17 +619,12 @@ fn run_launcher(
 
     // Cleanup terminal
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     // Cleanup launcher
-    if let Some(mut l) = launcher {
-        println!("Ejecting...");
-        l.eject()?;
-    }
+    println!("Ejecting...");
+    launcher.eject()?;
     println!("Exited.");
 
     Ok(())
@@ -616,9 +632,7 @@ fn run_launcher(
 
 fn get_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     let secs = now.as_secs();
     let millis = now.subsec_millis();
 
@@ -649,13 +663,10 @@ fn client_list() -> anyhow::Result<()> {
             ""
         };
 
-        let client_type = if config.is_wine() {
-            "Wine"
-        } else {
-            "Windows"
-        };
+        let client_type = if config.is_wine() { "Wine" } else { "Windows" };
 
-        println!("[{}]{} {} - {} ({})",
+        println!(
+            "[{}]{} {} - {} ({})",
             idx,
             selected,
             config.display_name(),
@@ -676,9 +687,13 @@ fn client_list() -> anyhow::Result<()> {
 }
 
 fn client_show(index: usize) -> anyhow::Result<()> {
-    let client_config = SettingsManager::get(|s| {
-        s.clients.get(index).cloned()
-    }).ok_or_else(|| anyhow::anyhow!("Invalid client index: {}. Use 'alembic client list' to see available clients.", index))?;
+    let client_config =
+        SettingsManager::get(|s| s.clients.get(index).cloned()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+                index
+            )
+        })?;
 
     println!("Client configuration (index {}):", index);
     println!();
@@ -707,7 +722,8 @@ fn client_add(
             dll_path: PathBuf::from(&launcher_path),
         }),
         "wine" => {
-            let prefix = wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
+            let prefix =
+                wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
             let mut additional_env = HashMap::new();
             for (key, value) in env_vars {
                 additional_env.insert(key, value);
@@ -721,7 +737,10 @@ fn client_add(
                 additional_env,
             })
         }
-        _ => bail!("Invalid launch mode '{}'. Must be 'windows' or 'wine'.", mode),
+        _ => bail!(
+            "Invalid launch mode '{}'. Must be 'windows' or 'wine'.",
+            mode
+        ),
     };
 
     let new_index = SettingsManager::get(|s| s.clients.len());
@@ -742,7 +761,10 @@ fn client_select(index: usize) -> anyhow::Result<()> {
     let clients = SettingsManager::get(|s| s.clients.clone());
 
     if index >= clients.len() {
-        bail!("Invalid client index: {}. Use 'alembic client list' to see available clients.", index);
+        bail!(
+            "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+            index
+        );
     }
 
     let client_name = clients[index].display_name().to_string();
@@ -763,7 +785,13 @@ fn client_remove(index: usize) -> anyhow::Result<()> {
         } else {
             None
         }
-    }).ok_or_else(|| anyhow::anyhow!("Invalid client index: {}. Use 'alembic client list' to see available clients.", index))?;
+    })
+    .ok_or_else(|| {
+        anyhow::anyhow!(
+            "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+            index
+        )
+    })?;
 
     SettingsManager::modify(|settings| {
         settings.remove_client(index);
@@ -984,21 +1012,17 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
     }
 
     // Calculate column widths
-    let index_width = "Index"
-        .len()
-        .max(accounts.len().to_string().len());
+    let index_width = "Index".len().max(accounts.len().to_string().len());
     let server_width = "Server"
         .len()
         .max(servers.iter().map(|s| s.name.len()).max().unwrap_or(0));
-    let username_width = "Username"
-        .len()
-        .max(
-            filtered_accounts
-                .iter()
-                .map(|(_, a)| a.username.len())
-                .max()
-                .unwrap_or(0),
-        );
+    let username_width = "Username".len().max(
+        filtered_accounts
+            .iter()
+            .map(|(_, a)| a.username.len())
+            .max()
+            .unwrap_or(0),
+    );
 
     // Print top border
     println!(
@@ -1112,9 +1136,9 @@ fn client_scan() -> anyhow::Result<()> {
     for config in discovered {
         // Check if already exists
         let already_exists = SettingsManager::get(|s| {
-            s.clients.iter().any(|existing| {
-                existing.install_path() == config.install_path()
-            })
+            s.clients
+                .iter()
+                .any(|existing| existing.install_path() == config.install_path())
         });
 
         if already_exists {

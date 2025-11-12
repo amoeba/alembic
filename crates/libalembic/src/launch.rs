@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use std::{error::Error, num::NonZero, process::{Child, Command, Stdio}};
+use std::{
+    error::Error,
+    num::NonZero,
+    process::{Child, Command, Stdio},
+};
 
 use crate::{
     client_config::{ClientConfig, WineClientConfig},
@@ -42,9 +46,9 @@ pub struct Launcher {
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
     injector: Option<InjectionKit>,
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    wine_pid: Option<u32>,
+    child_pid: Option<u32>,
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    wine_child: Option<Child>,
+    child: Option<Child>,
 }
 
 impl<'a> Launcher {
@@ -62,14 +66,17 @@ impl<'a> Launcher {
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
             injector: None,
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            wine_pid: None,
+            child_pid: None,
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            wine_child: None,
+            child: None,
         }
     }
 
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
-    fn launch_windows(&self, config: &WindowsClientConfig) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
+    fn launch_windows(
+        &self,
+        config: &WindowsClientConfig,
+    ) -> Result<PROCESS_INFORMATION, Box<dyn Error>> {
         let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
         let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
@@ -156,10 +163,14 @@ impl<'a> Launcher {
 
         // Add the game executable and arguments
         cmd.arg(&client_exe)
-            .arg("-h").arg(&self.server_info.hostname)
-            .arg("-p").arg(&self.server_info.port)
-            .arg("-a").arg(&self.account_info.username)
-            .arg("-v").arg(&self.account_info.password);
+            .arg("-h")
+            .arg(&self.server_info.hostname)
+            .arg("-p")
+            .arg(&self.server_info.port)
+            .arg("-a")
+            .arg(&self.account_info.username)
+            .arg("-v")
+            .arg(&self.account_info.password);
 
         // Pipe stdout/stderr so we can capture and display in TUI
         cmd.stdout(Stdio::piped());
@@ -186,7 +197,7 @@ impl<'a> Launcher {
             #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
             ClientConfig::Windows(_) => Err(std::io::Error::new(
                 std::io::ErrorKind::Unsupported,
-                "Windows launch mode is only supported on Windows"
+                "Windows launch mode is only supported on Windows",
             )),
             ClientConfig::Wine(_) => self.find_or_launch_wine(),
         }
@@ -220,7 +231,7 @@ impl<'a> Launcher {
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Expected Windows client config"
+                "Expected Windows client config",
             ))
         }
     }
@@ -232,8 +243,8 @@ impl<'a> Launcher {
                     let pid = child.id();
                     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
                     {
-                        self.wine_pid = Some(pid);
-                        self.wine_child = Some(child);
+                        self.child_pid = Some(pid);
+                        self.child = Some(child);
                     }
                     #[cfg(all(target_os = "windows", target_env = "msvc"))]
                     {
@@ -249,7 +260,7 @@ impl<'a> Launcher {
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Expected Wine client config"
+                "Expected Wine client config",
             ))
         }
     }
@@ -342,7 +353,7 @@ impl<'a> Launcher {
 
     /// Take ownership of the wine child process for stdout/stderr monitoring
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    pub fn take_wine_child(&mut self) -> Option<Child> {
-        self.wine_child.take()
+    pub fn take_child(&mut self) -> Option<Child> {
+        self.child.take()
     }
 }
