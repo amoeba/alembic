@@ -99,10 +99,10 @@ enum Commands {
         command: ServerCommands,
     },
 
-    /// Manage Decal installations
-    Decal {
+    /// Manage DLL configurations
+    Dll {
         #[command(subcommand)]
-        command: DecalCommands,
+        command: DllCommands,
     },
 }
 
@@ -215,7 +215,7 @@ enum ServerCommands {
 }
 
 #[derive(Subcommand)]
-enum DecalCommands {
+enum DllCommands {
     /// Manually add a DLL configuration
     Add {
         /// Platform (windows or wine)
@@ -322,18 +322,18 @@ fn main() -> anyhow::Result<()> {
             ServerCommands::List => server_list(),
             ServerCommands::Remove { index } => server_remove(index),
         },
-        Commands::Decal { command } => match command {
-            DecalCommands::Add {
+        Commands::Dll { command } => match command {
+            DllCommands::Add {
                 platform,
                 dll_type,
                 path,
                 wine_prefix,
-            } => decal_add(platform, dll_type, path, wine_prefix),
-            DecalCommands::List => decal_list(),
-            DecalCommands::Select { index } => decal_select(index),
-            DecalCommands::Remove { index } => decal_remove(index),
-            DecalCommands::Show { index } => decal_show(index),
-            DecalCommands::Scan => decal_scan(),
+            } => dll_add(platform, dll_type, path, wine_prefix),
+            DllCommands::List => dll_list(),
+            DllCommands::Select { index } => dll_select(index),
+            DllCommands::Remove { index } => dll_remove(index),
+            DllCommands::Show { index } => dll_show(index),
+            DllCommands::Scan => dll_scan(),
         },
     }
 }
@@ -1196,6 +1196,9 @@ fn client_scan() -> anyhow::Result<()> {
     let mut added_count = 0;
     let mut skipped_count = 0;
 
+    // Check if there are any existing clients before we start adding
+    let had_no_clients = SettingsManager::get(|s| s.clients.is_empty());
+
     for config in discovered {
         // Check if already exists
         let already_exists = SettingsManager::get(|s| {
@@ -1230,11 +1233,19 @@ fn client_scan() -> anyhow::Result<()> {
         let response = input.trim().to_lowercase();
 
         if response == "y" || response == "yes" {
+            // Auto-select if this is the first client being added
+            let should_select = had_no_clients && added_count == 0;
+
             SettingsManager::modify(|settings| {
-                settings.add_client(config.clone(), false);
+                settings.add_client(config.clone(), should_select);
                 settings.is_configured = true;
             })?;
-            println!("✓ Added!");
+
+            if should_select {
+                println!("✓ Added and selected!");
+            } else {
+                println!("✓ Added!");
+            }
             added_count += 1;
         } else {
             println!("Skipped.");
@@ -1258,7 +1269,7 @@ fn client_scan() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn decal_scan() -> anyhow::Result<()> {
+fn dll_scan() -> anyhow::Result<()> {
     println!("Scanning for Decal installations...");
     println!();
 
@@ -1278,26 +1289,33 @@ fn decal_scan() -> anyhow::Result<()> {
 
     // Add/update each found DLL
     SettingsManager::modify(|settings| {
+        let had_no_dlls = settings.discovered_dlls.is_empty();
+
         for dll in discovered_dlls {
             settings.add_or_update_dll(dll);
+        }
+
+        // Auto-select first DLL if there were no DLLs before
+        if had_no_dlls && !settings.discovered_dlls.is_empty() && settings.selected_dll.is_none() {
+            settings.selected_dll = Some(0);
         }
     })?;
 
     println!("✓ Decal configuration saved!");
     println!();
-    println!("Use 'alembic decal status' to see the configuration.");
+    println!("Use 'alembic dll status' to see the configuration.");
 
     Ok(())
 }
 
-fn decal_list() -> anyhow::Result<()> {
+fn dll_list() -> anyhow::Result<()> {
     let (discovered_dlls, selected_dll) = SettingsManager::get(|s| {
         (s.discovered_dlls.clone(), s.selected_dll)
     });
 
     if discovered_dlls.is_empty() {
         println!("No DLLs configured.");
-        println!("Run 'alembic decal scan' to find and configure Decal.");
+        println!("Run 'alembic dll scan' to discover DLLs.");
         return Ok(());
     }
 
@@ -1335,7 +1353,7 @@ fn decal_list() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn decal_remove(index: usize) -> anyhow::Result<()> {
+fn dll_remove(index: usize) -> anyhow::Result<()> {
     use std::io::{self, Write};
 
     let dll_info = SettingsManager::get(|s| {
@@ -1348,7 +1366,7 @@ fn decal_remove(index: usize) -> anyhow::Result<()> {
         Some(info) => info,
         None => {
             println!("Invalid DLL index: {}", index);
-            println!("Use 'alembic decal list' to see available DLLs.");
+            println!("Use 'alembic dll list' to see available DLLs.");
             return Ok(());
         }
     };
@@ -1389,7 +1407,7 @@ fn decal_remove(index: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn decal_add(
+fn dll_add(
     platform: String,
     dll_type: String,
     dll_path: String,
@@ -1443,12 +1461,12 @@ fn decal_add(
     Ok(())
 }
 
-fn decal_select(index: usize) -> anyhow::Result<()> {
+fn dll_select(index: usize) -> anyhow::Result<()> {
     let dll_count = SettingsManager::get(|s| s.discovered_dlls.len());
 
     if index >= dll_count {
         println!("Invalid DLL index: {}", index);
-        println!("Use 'alembic decal list' to see available DLLs.");
+        println!("Use 'alembic dll list' to see available DLLs.");
         return Ok(());
     }
 
@@ -1461,7 +1479,7 @@ fn decal_select(index: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn decal_show(index: usize) -> anyhow::Result<()> {
+fn dll_show(index: usize) -> anyhow::Result<()> {
     let dll = SettingsManager::get(|s| s.discovered_dlls.get(index).cloned());
 
     match dll {
@@ -1472,7 +1490,7 @@ fn decal_show(index: usize) -> anyhow::Result<()> {
         }
         None => {
             println!("Invalid DLL index: {}", index);
-            println!("Use 'alembic decal list' to see available DLLs.");
+            println!("Use 'alembic dll list' to see available DLLs.");
         }
     }
 
