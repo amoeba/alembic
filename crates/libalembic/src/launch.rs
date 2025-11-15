@@ -285,11 +285,124 @@ impl<'a> Launcher {
                 println!("Windows DLL injection not available on this platform");
                 Ok(())
             }
-            ClientConfig::Wine(_) => {
-                println!("DLL injection not supported in Wine mode");
-                Ok(())
+            ClientConfig::Wine(config) => self.inject_wine(config),
+        }
+    }
+
+    /// Wait for and find the acclient.exe process PID
+    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+    fn wait_for_acclient(&self) -> Result<u32, anyhow::Error> {
+        use std::process::Command;
+        use std::thread;
+        use std::time::Duration;
+
+        println!("Waiting for acclient.exe process to start...");
+
+        // Try up to 10 times with 500ms delays (5 seconds total)
+        for attempt in 1..=10 {
+            // Use pgrep to find acclient.exe process
+            let output = Command::new("pgrep")
+                .arg("-f")
+                .arg("acclient.exe")
+                .output();
+
+            if let Ok(output) = output {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    if let Some(first_pid) = stdout.lines().next() {
+                        if let Ok(pid) = first_pid.trim().parse::<u32>() {
+                            println!("Found acclient.exe with PID: {}", pid);
+                            return Ok(pid);
+                        }
+                    }
+                }
+            }
+
+            if attempt < 10 {
+                println!("Attempt {}/10: acclient.exe not found yet, waiting...", attempt);
+                thread::sleep(Duration::from_millis(500));
             }
         }
+
+        anyhow::bail!("Timeout waiting for acclient.exe process to start")
+    }
+
+    fn inject_wine(&self, config: &WineClientConfig) -> Result<(), anyhow::Error> {
+        use std::process::Command;
+
+        if let Some(inject_config) = &self.inject_config {
+            // Wait for and find the acclient.exe process
+            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+            let pid = self.wait_for_acclient()?;
+
+            #[cfg(all(target_os = "windows", target_env = "msvc"))]
+            let pid = {
+                let _ = config; // suppress unused variable warning
+                0 // Placeholder for Windows builds
+            };
+
+            // Get the filesystem path for the DLL
+            let dll_path = inject_config.filesystem_path();
+            let dll_path_str = dll_path.display().to_string();
+
+            println!("Injecting {} DLL via cork", inject_config.dll_type());
+            println!("Target PID: {}", pid);
+            println!("DLL path: {}", dll_path_str);
+
+            // Build path to cork.exe
+            // Assume cork.exe is in the same directory as the launcher executable
+            let cork_path = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.join("cork.exe")))
+                .ok_or_else(|| anyhow::anyhow!("Failed to determine cork.exe path"))?;
+
+            // Convert cork.exe Unix path to Windows path for Wine
+            let cork_path_str = cork_path.display().to_string();
+            let cork_windows_path = if let Some(relative) = cork_path_str.strip_prefix(&format!("{}/drive_c/", config.prefix_path.display())) {
+                format!("C:\\{}", relative.replace("/", "\\"))
+            } else {
+                // If cork is not in the Wine prefix, try to convert it
+                // For now, just use the full path
+                cork_path_str.clone()
+            };
+
+            let mut cmd = Command::new(&config.wine_executable);
+            cmd.env("WINEPREFIX", &config.prefix_path);
+
+            // Set additional environment variables
+            for (key, value) in &config.additional_env {
+                cmd.env(key, value);
+            }
+
+            cmd.arg(&cork_windows_path)
+                .arg("--pid")
+                .arg(pid.to_string())
+                .arg("--dll")
+                .arg(inject_config.dll_path().display().to_string());
+
+            println!("Executing: {} {} --pid {} --dll {}",
+                config.wine_executable.display(),
+                cork_windows_path,
+                pid,
+                inject_config.dll_path().display()
+            );
+
+            let output = cmd.output()?;
+
+            if output.status.success() {
+                println!("Cork injection successful");
+                if !output.stdout.is_empty() {
+                    println!("Cork output: {}", String::from_utf8_lossy(&output.stdout));
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                anyhow::bail!("Cork injection failed: {}", stderr);
+            }
+        } else {
+            println!("No DLL injection configured.");
+        }
+
+        Ok(())
     }
 
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
