@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    client_config::{ClientConfig, WineClientConfig},
+    client_config::{ClientConfig, InjectConfig, WineClientConfig},
     settings::{Account, ServerInfo},
 };
 
@@ -39,6 +39,7 @@ use windows::{
 
 pub struct Launcher {
     client_config: ClientConfig,
+    inject_config: Option<InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -54,11 +55,13 @@ pub struct Launcher {
 impl<'a> Launcher {
     pub fn new(
         client_config: ClientConfig,
+        inject_config: Option<InjectConfig>,
         server_info: ServerInfo,
         account_info: Account,
     ) -> Self {
         Launcher {
             client_config,
+            inject_config,
             server_info,
             account_info,
             #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -296,27 +299,27 @@ impl<'a> Launcher {
             None => panic!("Could not create InjectionKit."),
         };
 
-        if let ClientConfig::Windows(config) = &self.client_config {
-            if let Some(inject_config) = &config.inject_config {
-                let dll_path = &inject_config.dll_path;
-                if !fs::exists(dll_path)? {
-                    bail!(
-                        "Can't find DLL to inject at path {}. Bailing.",
-                        dll_path.display()
-                    );
-                }
+        if let Some(inject_config) = &self.inject_config {
+            // Get the filesystem path (for Windows configs, this is just dll_path)
+            let dll_path = inject_config.filesystem_path();
 
-                println!("Injecting {} DLL from: {}", inject_config.dll_type, dll_path.display());
-
-                match self.injector.as_mut() {
-                    Some(kit) => {
-                        kit.inject(dll_path.to_str().unwrap())?;
-                    }
-                    None => panic!("Could not get access to underlying injector to inject DLL."),
-                }
-            } else {
-                println!("No DLL injection configured for this client.");
+            if !fs::exists(&dll_path)? {
+                bail!(
+                    "Can't find DLL to inject at path {}. Bailing.",
+                    dll_path.display()
+                );
             }
+
+            println!("Injecting {} DLL from: {}", inject_config.dll_type(), dll_path.display());
+
+            match self.injector.as_mut() {
+                Some(kit) => {
+                    kit.inject(dll_path.to_str().unwrap())?;
+                }
+                None => panic!("Could not get access to underlying injector to inject DLL."),
+            }
+        } else {
+            println!("No DLL injection configured.");
         }
 
         Ok(())

@@ -398,7 +398,8 @@ fn exec_launch(
     println!("Server: {}:{}", server_info.hostname, server_info.port);
     println!("Account: {}", account_info.username);
 
-    run_launcher(client_config, server_info, account_info)
+    // No DLL injection for manual CLI launches (for now)
+    run_launcher(client_config, None, server_info, account_info)
 }
 
 fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> anyhow::Result<()> {
@@ -433,18 +434,30 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
         })?
     };
 
+    // Get selected DLL (optional - if none selected, no injection will occur)
+    let inject_config = SettingsManager::get(|s| {
+        s.selected_dll
+            .and_then(|idx| s.discovered_dlls.get(idx).cloned())
+    });
+
     println!("Client: {}", client_config.display_name());
     println!(
         "Server: {} ({}:{})",
         server_info.name, server_info.hostname, server_info.port
     );
     println!("Account: {}", account_info.username);
+    if let Some(ref dll) = inject_config {
+        println!("DLL: {} ({})", dll.dll_type(), dll.dll_path().display());
+    } else {
+        println!("DLL: None (no injection)");
+    }
 
-    run_launcher(client_config, server_info, account_info)
+    run_launcher(client_config, inject_config, server_info, account_info)
 }
 
 fn run_launcher(
     client_config: ClientConfig,
+    inject_config: Option<libalembic::client_config::InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
 ) -> anyhow::Result<()> {
@@ -483,6 +496,7 @@ fn run_launcher(
 
     let mut launcher = Launcher::new(
         client_config.clone(),
+        inject_config,
         server_info.clone(),
         account_info.clone(),
     );
@@ -706,6 +720,8 @@ fn get_timestamp() -> String {
 }
 
 fn client_list() -> anyhow::Result<()> {
+    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+
     let clients = SettingsManager::get(|s| s.clients.clone());
     let selected_client = SettingsManager::get(|s| s.selected_client);
 
@@ -715,34 +731,48 @@ fn client_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("Configured clients:");
-    println!();
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["#", "Name", "Path", "Type"]);
 
     for (idx, config) in clients.iter().enumerate() {
-        let selected = if Some(idx) == selected_client {
-            " *"
+        let is_selected = Some(idx) == selected_client;
+
+        let index_cell = if is_selected {
+            Cell::new(idx.to_string()).add_attribute(Attribute::Bold)
         } else {
-            ""
+            Cell::new(idx.to_string())
         };
 
         let client_type = if config.is_wine() { "Wine" } else { "Windows" };
 
-        println!(
-            "[{}]{} {} - {} ({})",
-            idx,
-            selected,
-            config.display_name(),
-            config.install_path().display(),
-            client_type,
-        );
+        let name_cell = if is_selected {
+            Cell::new(config.display_name()).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(config.display_name())
+        };
+
+        let path_cell = if is_selected {
+            Cell::new(config.install_path().display().to_string()).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(config.install_path().display().to_string())
+        };
+
+        let type_cell = if is_selected {
+            Cell::new(client_type).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(client_type)
+        };
+
+        table.add_row(vec![index_cell, name_cell, path_cell, type_cell]);
     }
 
-    println!();
+    println!("{}", table);
 
     if selected_client.is_some() {
-        println!("* = Currently selected");
-    } else {
-        println!("No client selected. Use 'alembic client select <index>' to choose one.");
+        println!("\nSelected: index {} (shown in bold)", selected_client.unwrap());
     }
 
     Ok(())
@@ -887,6 +917,8 @@ fn server_add(name: String, hostname: String, port: String) -> anyhow::Result<()
 }
 
 fn server_list() -> anyhow::Result<()> {
+    use comfy_table::{Table, Cell, ContentArrangement, presets::UTF8_FULL};
+
     let servers = SettingsManager::get(|s| s.servers.clone());
 
     if servers.is_empty() {
@@ -894,72 +926,22 @@ fn server_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Calculate column widths
-    let index_width = "Index".len().max(servers.len().to_string().len());
-    let name_width = "Name"
-        .len()
-        .max(servers.iter().map(|s| s.name.len()).max().unwrap_or(0));
-    let hostname_width = "Hostname"
-        .len()
-        .max(servers.iter().map(|s| s.hostname.len()).max().unwrap_or(0));
-    let port_width = "Port"
-        .len()
-        .max(servers.iter().map(|s| s.port.len()).max().unwrap_or(0));
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["#", "Name", "Hostname", "Port"]);
 
-    // Print top border
-    println!(
-        "┌─{}─┬─{}─┬─{}─┬─{}─┐",
-        "─".repeat(index_width),
-        "─".repeat(name_width),
-        "─".repeat(hostname_width),
-        "─".repeat(port_width)
-    );
-
-    // Print header
-    println!(
-        "│ {:<width_idx$} │ {:<width_name$} │ {:<width_host$} │ {:<width_port$} │",
-        "Index",
-        "Name",
-        "Hostname",
-        "Port",
-        width_idx = index_width,
-        width_name = name_width,
-        width_host = hostname_width,
-        width_port = port_width
-    );
-
-    // Print separator
-    println!(
-        "├─{}─┼─{}─┼─{}─┼─{}─┤",
-        "─".repeat(index_width),
-        "─".repeat(name_width),
-        "─".repeat(hostname_width),
-        "─".repeat(port_width)
-    );
-
-    // Print data rows
     for (index, server) in servers.iter().enumerate() {
-        println!(
-            "│ {:<width_idx$} │ {:<width_name$} │ {:<width_host$} │ {:<width_port$} │",
-            index,
-            server.name,
-            server.hostname,
-            server.port,
-            width_idx = index_width,
-            width_name = name_width,
-            width_host = hostname_width,
-            width_port = port_width
-        );
+        table.add_row(vec![
+            Cell::new(index.to_string()),
+            Cell::new(&server.name),
+            Cell::new(&server.hostname),
+            Cell::new(&server.port),
+        ]);
     }
 
-    // Print bottom border
-    println!(
-        "└─{}─┴─{}─┴─{}─┴─{}─┘",
-        "─".repeat(index_width),
-        "─".repeat(name_width),
-        "─".repeat(hostname_width),
-        "─".repeat(port_width)
-    );
+    println!("{}", table);
 
     Ok(())
 }
@@ -1074,47 +1056,12 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Calculate column widths
-    let index_width = "Index".len().max(accounts.len().to_string().len());
-    let server_width = "Server"
-        .len()
-        .max(servers.iter().map(|s| s.name.len()).max().unwrap_or(0));
-    let username_width = "Username".len().max(
-        filtered_accounts
-            .iter()
-            .map(|(_, a)| a.username.len())
-            .max()
-            .unwrap_or(0),
-    );
+    let mut table = comfy_table::Table::new();
+    table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .set_content_arrangement(comfy_table::ContentArrangement::Dynamic)
+        .set_header(vec!["#", "Server", "Username"]);
 
-    // Print top border
-    println!(
-        "┌─{}─┬─{}─┬─{}─┐",
-        "─".repeat(index_width),
-        "─".repeat(server_width),
-        "─".repeat(username_width)
-    );
-
-    // Print header
-    println!(
-        "│ {:<width_idx$} │ {:<width_srv$} │ {:<width_user$} │",
-        "Index",
-        "Server",
-        "Username",
-        width_idx = index_width,
-        width_srv = server_width,
-        width_user = username_width
-    );
-
-    // Print separator
-    println!(
-        "├─{}─┼─{}─┼─{}─┤",
-        "─".repeat(index_width),
-        "─".repeat(server_width),
-        "─".repeat(username_width)
-    );
-
-    // Print data rows
     for (index, account) in &filtered_accounts {
         let server_name = if account.server_index < servers.len() {
             &servers[account.server_index].name
@@ -1122,24 +1069,14 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
             "<unknown>"
         };
 
-        println!(
-            "│ {:<width_idx$} │ {:<width_srv$} │ {:<width_user$} │",
-            index,
-            server_name,
-            account.username,
-            width_idx = index_width,
-            width_srv = server_width,
-            width_user = username_width
-        );
+        table.add_row(vec![
+            comfy_table::Cell::new(index.to_string()),
+            comfy_table::Cell::new(server_name),
+            comfy_table::Cell::new(&account.username),
+        ]);
     }
 
-    // Print bottom border
-    println!(
-        "└─{}─┴─{}─┴─{}─┘",
-        "─".repeat(index_width),
-        "─".repeat(server_width),
-        "─".repeat(username_width)
-    );
+    println!("{}", table);
 
     Ok(())
 }
@@ -1309,6 +1246,8 @@ fn dll_scan() -> anyhow::Result<()> {
 }
 
 fn dll_list() -> anyhow::Result<()> {
+    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+
     let (discovered_dlls, selected_dll) = SettingsManager::get(|s| {
         (s.discovered_dlls.clone(), s.selected_dll)
     });
@@ -1319,14 +1258,19 @@ fn dll_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("Discovered DLLs:");
-    println!();
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["#", "Type", "DLL", "Path"]);
 
     for (idx, dll) in discovered_dlls.iter().enumerate() {
-        let selected = if Some(idx) == selected_dll {
-            " *"
+        let is_selected = Some(idx) == selected_dll;
+
+        let index_cell = if is_selected {
+            Cell::new(idx.to_string()).add_attribute(Attribute::Bold)
         } else {
-            ""
+            Cell::new(idx.to_string())
         };
 
         let dll_variant = match dll {
@@ -1334,20 +1278,33 @@ fn dll_list() -> anyhow::Result<()> {
             libalembic::client_config::InjectConfig::Windows(_) => "Windows",
         };
 
-        println!(
-            "[{}]{} {} - {} ({})",
-            idx,
-            selected,
-            dll.dll_type(),
-            dll.dll_path().display(),
-            dll_variant
-        );
+        // Type column: Wine/Windows
+        let type_cell = if is_selected {
+            Cell::new(dll_variant).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(dll_variant)
+        };
+
+        // DLL column: Alembic/Decal
+        let dll_name_cell = if is_selected {
+            Cell::new(dll.dll_type().to_string()).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(dll.dll_type().to_string())
+        };
+
+        let path_cell = if is_selected {
+            Cell::new(dll.dll_path().display().to_string()).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(dll.dll_path().display().to_string())
+        };
+
+        table.add_row(vec![index_cell, type_cell, dll_name_cell, path_cell]);
     }
 
-    println!();
+    println!("{}", table);
 
     if selected_dll.is_some() {
-        println!("* = Currently selected");
+        println!("\nSelected: index {} (shown in bold)", selected_dll.unwrap());
     }
 
     Ok(())
