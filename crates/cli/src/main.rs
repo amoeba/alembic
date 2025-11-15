@@ -130,6 +130,12 @@ enum AccountCommands {
         server: Option<usize>,
     },
 
+    /// Select an account by index
+    Select {
+        /// Index of the account to select (from 'account list')
+        index: usize,
+    },
+
     /// Remove an account by index
     Remove {
         /// Index of the account to remove (from 'account list')
@@ -207,6 +213,12 @@ enum ServerCommands {
     /// List servers
     List,
 
+    /// Select a server by index
+    Select {
+        /// Index of the server to select (from 'server list')
+        index: usize,
+    },
+
     /// Remove a server by index
     Remove {
         /// Index of the server to remove (from 'server list')
@@ -275,6 +287,7 @@ fn main() -> anyhow::Result<()> {
                 password,
             } => account_add(server, username, password),
             AccountCommands::List { server } => account_list(server),
+            AccountCommands::Select { index } => account_select(index),
             AccountCommands::Remove { index } => account_remove(index),
         },
         Commands::Client { command } => match command {
@@ -320,6 +333,7 @@ fn main() -> anyhow::Result<()> {
                 port,
             } => server_add(name, hostname, port),
             ServerCommands::List => server_list(),
+            ServerCommands::Select { index } => server_select(index),
             ServerCommands::Remove { index } => server_remove(index),
         },
         Commands::Dll { command } => match command {
@@ -917,9 +931,10 @@ fn server_add(name: String, hostname: String, port: String) -> anyhow::Result<()
 }
 
 fn server_list() -> anyhow::Result<()> {
-    use comfy_table::{Table, Cell, ContentArrangement, presets::UTF8_FULL};
+    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
 
     let servers = SettingsManager::get(|s| s.servers.clone());
+    let selected_server = SettingsManager::get(|s| s.selected_server);
 
     if servers.is_empty() {
         println!("No servers configured. Use 'server add' to add a server.");
@@ -933,15 +948,61 @@ fn server_list() -> anyhow::Result<()> {
         .set_header(vec!["#", "Name", "Hostname", "Port"]);
 
     for (index, server) in servers.iter().enumerate() {
-        table.add_row(vec![
-            Cell::new(index.to_string()),
-            Cell::new(&server.name),
-            Cell::new(&server.hostname),
-            Cell::new(&server.port),
-        ]);
+        let is_selected = Some(index) == selected_server;
+
+        let index_cell = if is_selected {
+            Cell::new(index.to_string()).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(index.to_string())
+        };
+
+        let name_cell = if is_selected {
+            Cell::new(&server.name).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(&server.name)
+        };
+
+        let hostname_cell = if is_selected {
+            Cell::new(&server.hostname).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(&server.hostname)
+        };
+
+        let port_cell = if is_selected {
+            Cell::new(&server.port).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(&server.port)
+        };
+
+        table.add_row(vec![index_cell, name_cell, hostname_cell, port_cell]);
     }
 
     println!("{}", table);
+
+    if selected_server.is_some() {
+        println!("\nSelected: index {} (shown in bold)", selected_server.unwrap());
+    }
+
+    Ok(())
+}
+
+fn server_select(index: usize) -> anyhow::Result<()> {
+    let servers = SettingsManager::get(|s| s.servers.clone());
+
+    if index >= servers.len() {
+        bail!(
+            "Invalid server index: {}. Use 'alembic server list' to see available servers.",
+            index
+        );
+    }
+
+    let server_name = servers[index].name.clone();
+
+    SettingsManager::modify(|settings| {
+        settings.selected_server = Some(index);
+    })?;
+
+    println!("✓ Selected server: {}", server_name);
 
     Ok(())
 }
@@ -1017,8 +1078,11 @@ fn account_add(server: usize, username: String, password: String) -> anyhow::Res
 }
 
 fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
+    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+
     let accounts = SettingsManager::get(|s| s.accounts.clone());
     let servers = SettingsManager::get(|s| s.servers.clone());
+    let selected_account = SettingsManager::get(|s| s.selected_account);
 
     if servers.is_empty() {
         println!("No servers configured. Use 'server add' to add a server first.");
@@ -1056,27 +1120,68 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut table = comfy_table::Table::new();
+    let mut table = Table::new();
     table
-        .load_preset(comfy_table::presets::UTF8_FULL)
-        .set_content_arrangement(comfy_table::ContentArrangement::Dynamic)
+        .load_preset(UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
         .set_header(vec!["#", "Server", "Username"]);
 
     for (index, account) in &filtered_accounts {
+        let is_selected = Some(*index) == selected_account;
+
         let server_name = if account.server_index < servers.len() {
             &servers[account.server_index].name
         } else {
             "<unknown>"
         };
 
-        table.add_row(vec![
-            comfy_table::Cell::new(index.to_string()),
-            comfy_table::Cell::new(server_name),
-            comfy_table::Cell::new(&account.username),
-        ]);
+        let index_cell = if is_selected {
+            Cell::new(index.to_string()).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(index.to_string())
+        };
+
+        let server_cell = if is_selected {
+            Cell::new(server_name).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(server_name)
+        };
+
+        let username_cell = if is_selected {
+            Cell::new(&account.username).add_attribute(Attribute::Bold)
+        } else {
+            Cell::new(&account.username)
+        };
+
+        table.add_row(vec![index_cell, server_cell, username_cell]);
     }
 
     println!("{}", table);
+
+    if selected_account.is_some() {
+        println!("\nSelected: index {} (shown in bold)", selected_account.unwrap());
+    }
+
+    Ok(())
+}
+
+fn account_select(index: usize) -> anyhow::Result<()> {
+    let accounts = SettingsManager::get(|s| s.accounts.clone());
+
+    if index >= accounts.len() {
+        bail!(
+            "Invalid account index: {}. Use 'alembic account list' to see available accounts.",
+            index
+        );
+    }
+
+    let username = accounts[index].username.clone();
+
+    SettingsManager::modify(|settings| {
+        settings.selected_account = Some(index);
+    })?;
+
+    println!("✓ Selected account: {}", username);
 
     Ok(())
 }
