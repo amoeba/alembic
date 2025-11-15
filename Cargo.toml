@@ -10,6 +10,7 @@ readme = "README.md"
 [workspace]
 members = [
   "crates/cli",
+  "crates/cork",
   "crates/libalembic",
   "crates/desktop",
   "crates/dll",
