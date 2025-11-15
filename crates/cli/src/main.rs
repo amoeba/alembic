@@ -98,6 +98,12 @@ enum Commands {
         #[command(subcommand)]
         command: ServerCommands,
     },
+
+    /// Manage Decal installations
+    Decal {
+        #[command(subcommand)]
+        command: DecalCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -208,6 +214,49 @@ enum ServerCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum DecalCommands {
+    /// Manually add a DLL configuration
+    Add {
+        /// Platform (windows or wine)
+        #[arg(long)]
+        platform: String,
+        /// DLL type (alembic or decal)
+        #[arg(long = "type")]
+        dll_type: String,
+        /// Path to the DLL
+        #[arg(long)]
+        path: String,
+        /// Wine prefix path (required for wine platform)
+        #[arg(long)]
+        wine_prefix: Option<String>,
+    },
+
+    /// List all discovered DLLs (brief)
+    List,
+
+    /// Select a DLL by index
+    Select {
+        /// Index of the DLL to select
+        index: usize,
+    },
+
+    /// Remove a DLL configuration by index
+    Remove {
+        /// Index of the DLL to remove
+        index: usize,
+    },
+
+    /// Show detailed DLL configuration
+    Show {
+        /// Index of the DLL to show
+        index: usize,
+    },
+
+    /// Scan for Decal installations
+    Scan,
+}
+
 fn parse_key_val(s: &str) -> Result<(String, String), String> {
     let pos = s
         .find('=')
@@ -273,6 +322,19 @@ fn main() -> anyhow::Result<()> {
             ServerCommands::List => server_list(),
             ServerCommands::Remove { index } => server_remove(index),
         },
+        Commands::Decal { command } => match command {
+            DecalCommands::Add {
+                platform,
+                dll_type,
+                path,
+                wine_prefix,
+            } => decal_add(platform, dll_type, path, wine_prefix),
+            DecalCommands::List => decal_list(),
+            DecalCommands::Select { index } => decal_select(index),
+            DecalCommands::Remove { index } => decal_remove(index),
+            DecalCommands::Show { index } => decal_show(index),
+            DecalCommands::Scan => decal_scan(),
+        },
     }
 }
 
@@ -292,11 +354,12 @@ fn exec_launch(
     use std::path::PathBuf;
 
     let client_config = match mode.to_lowercase().as_str() {
-        "windows" => ClientConfig::Windows(WindowsClientConfig {
-            display_name: "CLI-specified Windows client".to_string(),
-            install_path: PathBuf::from(&client_path),
-            dll_path: PathBuf::from(&launcher_path),
-        }),
+        "windows" => {
+            ClientConfig::Windows(WindowsClientConfig {
+                display_name: "CLI-specified Windows client".to_string(),
+                install_path: PathBuf::from(&client_path),
+            })
+        }
         "wine" => {
             let prefix =
                 wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
@@ -401,7 +464,7 @@ fn run_launcher(
     use std::io::{self, BufRead, BufReader};
     use std::sync::mpsc::{channel, Receiver};
     use std::thread;
-    use std::time::{Duration, SystemTime};
+    use std::time::Duration;
 
     // Launch or simulate
     let (log_tx, log_rx): (std::sync::mpsc::Sender<String>, Receiver<String>) = channel();
@@ -492,7 +555,6 @@ fn run_launcher(
     let mut show_logs = false;
     let mut running = true;
     let mut logs: Vec<String> = vec![];
-    let last_tick = SystemTime::now();
     let mut process_status = ProcessStatus::Starting;
 
     while running {
@@ -716,11 +778,12 @@ fn client_add(
     println!("Adding client configuration...");
 
     let client_config = match mode.to_lowercase().as_str() {
-        "windows" => ClientConfig::Windows(WindowsClientConfig {
-            display_name: "Manual Windows client".to_string(),
-            install_path: PathBuf::from(&client_path),
-            dll_path: PathBuf::from(&launcher_path),
-        }),
+        "windows" => {
+            ClientConfig::Windows(WindowsClientConfig {
+                display_name: "Manual Windows client".to_string(),
+                install_path: PathBuf::from(&client_path),
+            })
+        }
         "wine" => {
             let prefix =
                 wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
@@ -1190,6 +1253,227 @@ fn client_scan() -> anyhow::Result<()> {
         println!();
         println!("Use 'alembic client list' to see all clients.");
         println!("Use 'alembic client select <index>' to choose a client.");
+    }
+
+    Ok(())
+}
+
+fn decal_scan() -> anyhow::Result<()> {
+    println!("Scanning for Decal installations...");
+    println!();
+
+    let discovered_dlls = scanner::scan_for_decal_dlls()?;
+
+    if discovered_dlls.is_empty() {
+        println!("No Decal installations found.");
+        println!("Make sure Decal's Inject.dll is installed.");
+        return Ok(());
+    }
+
+    println!("Found Decal installation:");
+    for dll in &discovered_dlls {
+        println!("  Path: {}", dll.dll_path().display());
+    }
+    println!();
+
+    // Add/update each found DLL
+    SettingsManager::modify(|settings| {
+        for dll in discovered_dlls {
+            settings.add_or_update_dll(dll);
+        }
+    })?;
+
+    println!("✓ Decal configuration saved!");
+    println!();
+    println!("Use 'alembic decal status' to see the configuration.");
+
+    Ok(())
+}
+
+fn decal_list() -> anyhow::Result<()> {
+    let (discovered_dlls, selected_dll) = SettingsManager::get(|s| {
+        (s.discovered_dlls.clone(), s.selected_dll)
+    });
+
+    if discovered_dlls.is_empty() {
+        println!("No DLLs configured.");
+        println!("Run 'alembic decal scan' to find and configure Decal.");
+        return Ok(());
+    }
+
+    println!("Discovered DLLs:");
+    println!();
+
+    for (idx, dll) in discovered_dlls.iter().enumerate() {
+        let selected = if Some(idx) == selected_dll {
+            " *"
+        } else {
+            ""
+        };
+
+        let dll_variant = match dll {
+            libalembic::client_config::InjectConfig::Wine(_) => "Wine",
+            libalembic::client_config::InjectConfig::Windows(_) => "Windows",
+        };
+
+        println!(
+            "[{}]{} {} - {} ({})",
+            idx,
+            selected,
+            dll.dll_type(),
+            dll.dll_path().display(),
+            dll_variant
+        );
+    }
+
+    println!();
+
+    if selected_dll.is_some() {
+        println!("* = Currently selected");
+    }
+
+    Ok(())
+}
+
+fn decal_remove(index: usize) -> anyhow::Result<()> {
+    use std::io::{self, Write};
+
+    let dll_info = SettingsManager::get(|s| {
+        s.discovered_dlls.get(index).map(|dll| {
+            (dll.dll_type().to_string(), dll.dll_path().display().to_string())
+        })
+    });
+
+    let (dll_type, dll_path) = match dll_info {
+        Some(info) => info,
+        None => {
+            println!("Invalid DLL index: {}", index);
+            println!("Use 'alembic decal list' to see available DLLs.");
+            return Ok(());
+        }
+    };
+
+    println!("This will remove the following DLL configuration:");
+    println!("  [{}] {} - {}", index, dll_type, dll_path);
+    println!();
+    print!("Continue? (y/n): ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let response = input.trim().to_lowercase();
+
+    if response != "y" && response != "yes" {
+        println!("Cancelled.");
+        return Ok(());
+    }
+
+    SettingsManager::modify(|settings| {
+        if index < settings.discovered_dlls.len() {
+            settings.discovered_dlls.remove(index);
+
+            // Adjust selected_dll if needed
+            if let Some(selected) = settings.selected_dll {
+                if selected == index {
+                    settings.selected_dll = None;
+                } else if selected > index {
+                    settings.selected_dll = Some(selected - 1);
+                }
+            }
+        }
+    })?;
+
+    println!();
+    println!("✓ DLL configuration has been removed.");
+
+    Ok(())
+}
+
+fn decal_add(
+    platform: String,
+    dll_type: String,
+    dll_path: String,
+    wine_prefix: Option<String>,
+) -> anyhow::Result<()> {
+    use libalembic::client_config::{DllType, InjectConfig, WindowsInjectConfig, WineInjectConfig};
+    use std::path::PathBuf;
+
+    // Parse DLL type
+    let dll_type = match dll_type.to_lowercase().as_str() {
+        "alembic" => DllType::Alembic,
+        "decal" => DllType::Decal,
+        _ => {
+            anyhow::bail!("Invalid DLL type: {}. Must be 'alembic' or 'decal'", dll_type);
+        }
+    };
+
+    // Create the appropriate InjectConfig variant
+    let inject_config = match platform.to_lowercase().as_str() {
+        "windows" => InjectConfig::Windows(WindowsInjectConfig {
+            dll_type,
+            dll_path: PathBuf::from(dll_path),
+        }),
+        "wine" => {
+            let wine_prefix = wine_prefix.ok_or_else(|| {
+                anyhow::anyhow!("--wine-prefix is required for wine platform")
+            })?;
+
+            InjectConfig::Wine(WineInjectConfig {
+                dll_type,
+                wine_prefix: PathBuf::from(wine_prefix),
+                dll_path: PathBuf::from(dll_path),
+            })
+        }
+        _ => {
+            anyhow::bail!("Invalid platform: {}. Must be 'windows' or 'wine'", platform);
+        }
+    };
+
+    println!("Adding DLL configuration:");
+    println!("  Type: {}", inject_config.dll_type());
+    println!("  Path: {}", inject_config.dll_path().display());
+
+    SettingsManager::modify(|settings| {
+        settings.add_or_update_dll(inject_config);
+    })?;
+
+    println!();
+    println!("✓ DLL configuration added!");
+
+    Ok(())
+}
+
+fn decal_select(index: usize) -> anyhow::Result<()> {
+    let dll_count = SettingsManager::get(|s| s.discovered_dlls.len());
+
+    if index >= dll_count {
+        println!("Invalid DLL index: {}", index);
+        println!("Use 'alembic decal list' to see available DLLs.");
+        return Ok(());
+    }
+
+    SettingsManager::modify(|settings| {
+        settings.selected_dll = Some(index);
+    })?;
+
+    println!("✓ Selected DLL at index {}", index);
+
+    Ok(())
+}
+
+fn decal_show(index: usize) -> anyhow::Result<()> {
+    let dll = SettingsManager::get(|s| s.discovered_dlls.get(index).cloned());
+
+    match dll {
+        Some(dll) => {
+            println!("DLL configuration (index {}):", index);
+            println!();
+            println!("{}", dll);
+        }
+        None => {
+            println!("Invalid DLL index: {}", index);
+            println!("Use 'alembic decal list' to see available DLLs.");
+        }
     }
 
     Ok(())

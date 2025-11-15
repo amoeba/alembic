@@ -297,19 +297,25 @@ impl<'a> Launcher {
         };
 
         if let ClientConfig::Windows(config) = &self.client_config {
-            let dll_path = &config.dll_path;
-            if !fs::exists(dll_path)? {
-                bail!(
-                    "Can't find DLL to inject at path {}. Bailing.",
-                    dll_path.display()
-                );
-            }
-
-            match self.injector.as_mut() {
-                Some(kit) => {
-                    kit.inject(dll_path.to_str().unwrap())?;
+            if let Some(inject_config) = &config.inject_config {
+                let dll_path = &inject_config.dll_path;
+                if !fs::exists(dll_path)? {
+                    bail!(
+                        "Can't find DLL to inject at path {}. Bailing.",
+                        dll_path.display()
+                    );
                 }
-                None => panic!("Could not get access to underlying injector to inject DLL."),
+
+                println!("Injecting {} DLL from: {}", inject_config.dll_type, dll_path.display());
+
+                match self.injector.as_mut() {
+                    Some(kit) => {
+                        kit.inject(dll_path.to_str().unwrap())?;
+                    }
+                    None => panic!("Could not get access to underlying injector to inject DLL."),
+                }
+            } else {
+                println!("No DLL injection configured for this client.");
             }
         }
 

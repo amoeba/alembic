@@ -1,5 +1,5 @@
 use anyhow::Result;
-use libalembic::client_config::{ClientConfig, WineClientConfig};
+use libalembic::client_config::{ClientConfig, WineClientConfig, InjectConfig, DllType, WineInjectConfig};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::collections::HashMap;
@@ -14,6 +14,84 @@ pub trait ClientScanner {
 
     /// Check if this scanner is available on the current platform
     fn is_available(&self) -> bool;
+}
+
+// ============================================================================
+// DLL DETECTION HELPERS
+// ============================================================================
+
+/// Convert a Unix path within a Wine prefix to a Windows-style path
+fn unix_to_windows_path(unix_path: &Path) -> Result<PathBuf> {
+    let path_str = unix_path.display().to_string();
+
+    if let Some(idx) = path_str.find("/drive_c/") {
+        let relative = &path_str[idx + 9..]; // Skip "/drive_c/"
+        let windows = format!("C:\\{}", relative.replace("/", "\\"));
+        Ok(PathBuf::from(windows))
+    } else {
+        anyhow::bail!("Path does not contain /drive_c/: {}", path_str)
+    }
+}
+
+/// Scan a Wine prefix for Alembic and Decal DLL installations
+fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
+    let mut inject_configs = vec![];
+    let drive_c = prefix_path.join("drive_c");
+
+    if !drive_c.exists() {
+        return inject_configs;
+    }
+
+    // Check for Alembic.dll in AC installation directories
+    let alembic_search_paths = [
+        "Turbine/Asheron's Call",
+        "Program Files/Turbine/Asheron's Call",
+        "Program Files (x86)/Turbine/Asheron's Call",
+        "AC",
+        "Games/AC",
+    ];
+
+    for search_path in alembic_search_paths {
+        let dll_dir = drive_c.join(search_path);
+        let alembic_path = dll_dir.join("Alembic.dll");
+        if alembic_path.exists() {
+            // Convert Unix path to Windows path
+            if let Ok(windows_path) = unix_to_windows_path(&alembic_path) {
+                inject_configs.push(InjectConfig::Wine(WineInjectConfig {
+                    dll_type: DllType::Alembic,
+                    wine_prefix: prefix_path.to_path_buf(),
+                    dll_path: windows_path,
+                }));
+            }
+        }
+    }
+
+    // Check for Decal's Inject.dll in common Decal installation directories
+    let decal_search_paths = [
+        "Decal",
+        "Decal 3.0",
+        "Program Files/Decal",
+        "Program Files/Decal 3.0",
+        "Program Files (x86)/Decal",
+        "Program Files (x86)/Decal 3.0",
+    ];
+
+    for search_path in decal_search_paths {
+        let dll_dir = drive_c.join(search_path);
+        let decal_path = dll_dir.join("Inject.dll");
+        if decal_path.exists() {
+            // Convert Unix path to Windows path
+            if let Ok(windows_path) = unix_to_windows_path(&decal_path) {
+                inject_configs.push(InjectConfig::Wine(WineInjectConfig {
+                    dll_type: DllType::Decal,
+                    wine_prefix: prefix_path.to_path_buf(),
+                    dll_path: windows_path,
+                }));
+            }
+        }
+    }
+
+    inject_configs
 }
 
 // ============================================================================
@@ -304,13 +382,11 @@ impl ClientScanner for WhiskyScanner {
 // WINDOWS SCANNER
 // ============================================================================
 
-pub struct WindowsScanner {
-    dll_path: PathBuf,
-}
+pub struct WindowsScanner;
 
 impl WindowsScanner {
-    pub fn new(dll_path: PathBuf) -> Self {
-        Self { dll_path }
+    pub fn new() -> Self {
+        Self
     }
 }
 
@@ -341,9 +417,7 @@ pub fn get_available_scanners() -> Vec<Box<dyn ClientScanner>> {
 
     #[cfg(target_os = "windows")]
     {
-        // TODO: Get actual DLL path from config or default location
-        let dll_path = PathBuf::from("Alembic.dll");
-        scanners.push(Box::new(WindowsScanner::new(dll_path)));
+        scanners.push(Box::new(WindowsScanner::new()));
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -383,6 +457,158 @@ pub fn scan_all() -> Result<Vec<ClientConfig>> {
     }
 
     Ok(all_configs)
+}
+
+/// Scan specifically for Decal DLL installations
+pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
+    let mut all_dlls = vec![];
+
+    #[cfg(target_os = "macos")]
+    {
+        let whisky_scanner = WhiskyScanner;
+        if whisky_scanner.is_available() {
+            if let Ok(mut dlls) = scan_whisky_for_decal_dlls(&whisky_scanner) {
+                all_dlls.append(&mut dlls);
+            }
+        }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        // Try wine prefixes
+        if let Ok(wine_path) = find_wine_executable() {
+            let scanner = WineScanner::new(wine_path);
+            if let Ok(mut dlls) = scan_wine_for_decal_dlls(&scanner) {
+                all_dlls.append(&mut dlls);
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // TODO: Implement Windows Decal scanning
+    }
+
+    Ok(all_dlls)
+}
+
+#[cfg(target_os = "macos")]
+fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfig>> {
+    let mut all_dlls = vec![];
+
+    // Get list of bottles
+    let output = Command::new("whisky")
+        .arg("list")
+        .output()?;
+
+    if !output.status.success() {
+        anyhow::bail!("Failed to list Whisky bottles");
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut bottles = vec![];
+
+    // Parse table output
+    for line in stdout.lines() {
+        if line.starts_with('+') || (line.starts_with('|') && line.contains("Name")) {
+            continue;
+        }
+
+        if line.starts_with('|') {
+            let parts: Vec<&str> = line.split('|').map(|s| s.trim()).collect();
+            if parts.len() >= 2 && !parts[1].is_empty() {
+                bottles.push(parts[1].to_string());
+            }
+        }
+    }
+
+    // Scan each bottle for Decal
+    for bottle in bottles {
+        match scanner.get_bottle_info(&bottle) {
+            Ok((_wine_exe, prefix)) => {
+                // Find all DLLs in this prefix
+                let dll_configs = find_dlls_in_prefix(&prefix);
+
+                for dll_config in dll_configs {
+                    if dll_config.dll_type() == DllType::Decal {
+                        all_dlls.push(dll_config);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to get info for bottle '{}': {}", bottle, e);
+            }
+        }
+    }
+
+    Ok(all_dlls)
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn scan_wine_for_decal_dlls(scanner: &WineScanner) -> Result<Vec<InjectConfig>> {
+    let mut all_dlls = vec![];
+
+    let home = std::env::var("HOME")?;
+    let search_dirs = vec![
+        PathBuf::from(&home).join(".wine"),
+        PathBuf::from(&home).join(".local/share/wineprefixes"),
+    ];
+
+    for dir in search_dirs {
+        if !dir.exists() {
+            continue;
+        }
+
+        let prefixes_to_scan = if dir.ends_with(".wine") {
+            vec![dir]
+        } else {
+            // Directory of prefixes
+            std::fs::read_dir(&dir)?
+                .filter_map(Result::ok)
+                .filter(|e| e.path().is_dir())
+                .map(|e| e.path())
+                .collect()
+        };
+
+        for prefix in prefixes_to_scan {
+            let dll_configs = find_dlls_in_prefix(&prefix);
+
+            for dll_config in dll_configs {
+                if dll_config.dll_type() == DllType::Decal {
+                    all_dlls.push(dll_config);
+                }
+            }
+        }
+    }
+
+    Ok(all_dlls)
+}
+
+/// Find the AC installation directory in a Wine prefix
+fn find_ac_in_prefix(prefix_path: &Path) -> Option<PathBuf> {
+    let drive_c = prefix_path.join("drive_c");
+    if !drive_c.exists() {
+        return None;
+    }
+
+    let search_paths = [
+        "Turbine/Asheron's Call",
+        "Program Files/Turbine/Asheron's Call",
+        "Program Files (x86)/Turbine/Asheron's Call",
+        "AC",
+        "Games/AC",
+    ];
+
+    for search_path in search_paths {
+        let ac_path = drive_c.join(search_path);
+        let exe_path = ac_path.join("acclient.exe");
+
+        if exe_path.exists() {
+            return Some(ac_path);
+        }
+    }
+
+    None
 }
 
 /// Find wine executable on the system

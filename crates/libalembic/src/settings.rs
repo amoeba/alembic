@@ -9,7 +9,7 @@ use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::client_config::ClientConfig;
+use crate::client_config::{ClientConfig, InjectConfig};
 
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
@@ -91,6 +91,14 @@ pub struct AlembicSettings {
     #[serde(default)]
     pub selected_client: Option<usize>,
 
+    /// All discovered DLL injection configurations
+    #[serde(default)]
+    pub discovered_dlls: Vec<InjectConfig>,
+
+    /// Index of the currently selected DLL for injection
+    #[serde(default)]
+    pub selected_dll: Option<usize>,
+
     pub selected_server: Option<usize>,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
@@ -104,6 +112,8 @@ impl AlembicSettings {
             is_configured: false,
             clients: vec![],
             selected_client: None,
+            discovered_dlls: vec![],
+            selected_dll: None,
             selected_account: None,
             selected_server: None,
             accounts: vec![],
@@ -164,6 +174,36 @@ impl AlembicSettings {
     pub fn get_selected_account(&self) -> Option<&Account> {
         self.selected_account.and_then(|idx| self.accounts.get(idx))
     }
+
+    /// Get the selected DLL
+    pub fn get_selected_dll(&self) -> Option<&InjectConfig> {
+        self.selected_dll.and_then(|idx| self.discovered_dlls.get(idx))
+    }
+
+    /// Add or update a DLL configuration
+    pub fn add_or_update_dll(&mut self, inject_config: InjectConfig) {
+        // Check if we already have this DLL type
+        if let Some(existing) = self.discovered_dlls.iter_mut().find(|dll| dll.dll_type() == inject_config.dll_type()) {
+            // Update existing
+            *existing = inject_config;
+        } else {
+            // Add new
+            self.discovered_dlls.push(inject_config);
+        }
+    }
+
+    /// Remove a DLL by type
+    pub fn remove_dll_by_type(&mut self, dll_type: crate::client_config::DllType) {
+        self.discovered_dlls.retain(|dll| dll.dll_type() != dll_type);
+        // If we removed the selected DLL, clear the selection
+        if let Some(selected_idx) = self.selected_dll {
+            if selected_idx >= self.discovered_dlls.len() {
+                self.selected_dll = None;
+            } else if self.discovered_dlls.get(selected_idx).map(|dll| dll.dll_type()) == Some(dll_type) {
+                self.selected_dll = None;
+            }
+        }
+    }
 }
 
 impl AlembicSettings {
@@ -191,6 +231,10 @@ impl AlembicSettings {
         // Clients
         self.clients = new_settings.clients;
         self.selected_client = new_settings.selected_client;
+
+        // DLLs
+        self.discovered_dlls = new_settings.discovered_dlls;
+        self.selected_dll = new_settings.selected_dll;
 
         // Servers
         self.selected_server = new_settings.selected_server;

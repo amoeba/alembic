@@ -3,6 +3,100 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Deserialize};
 
+/// Configuration for DLL injection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum InjectConfig {
+    Windows(WindowsInjectConfig),
+    Wine(WineInjectConfig),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowsInjectConfig {
+    /// Path to the DLL (e.g., C:\Program Files\Alembic\Alembic.dll)
+    pub dll_path: PathBuf,
+    /// Type of DLL (Alembic or Decal)
+    pub dll_type: DllType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WineInjectConfig {
+    /// Type of DLL (Alembic or Decal)
+    pub dll_type: DllType,
+    /// Wine prefix path (needed to convert Windows path to Unix path)
+    pub wine_prefix: PathBuf,
+    /// DLL path in Windows format (e.g., C:\Program Files (x86)\Decal 3.0\Inject.dll)
+    pub dll_path: PathBuf,
+}
+
+impl InjectConfig {
+    pub fn dll_type(&self) -> DllType {
+        match self {
+            InjectConfig::Windows(config) => config.dll_type,
+            InjectConfig::Wine(config) => config.dll_type,
+        }
+    }
+
+    pub fn dll_path(&self) -> &PathBuf {
+        match self {
+            InjectConfig::Windows(config) => &config.dll_path,
+            InjectConfig::Wine(config) => &config.dll_path,
+        }
+    }
+
+    /// Get the actual filesystem path to the DLL
+    /// For Windows, this is the dll_path
+    /// For Wine, this converts the Windows path to the Unix path using the prefix
+    pub fn filesystem_path(&self) -> PathBuf {
+        match self {
+            InjectConfig::Windows(config) => config.dll_path.clone(),
+            InjectConfig::Wine(config) => {
+                // Convert C:\path\to\file to /prefix/drive_c/path/to/file
+                let dll_str = config.dll_path.display().to_string();
+                if let Some(relative) = dll_str.strip_prefix("C:\\").or_else(|| dll_str.strip_prefix("C:/")) {
+                    let unix_relative = relative.replace("\\", "/");
+                    config.wine_prefix.join("drive_c").join(unix_relative)
+                } else {
+                    config.dll_path.clone()
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DllType {
+    Alembic,
+    Decal,
+}
+
+impl fmt::Display for DllType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DllType::Alembic => write!(f, "Alembic"),
+            DllType::Decal => write!(f, "Decal"),
+        }
+    }
+}
+
+impl fmt::Display for InjectConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InjectConfig::Windows(config) => {
+                writeln!(f, "Type: Windows")?;
+                writeln!(f, "DLL Type: {}", config.dll_type)?;
+                write!(f, "DLL Path: {}", config.dll_path.display())
+            }
+            InjectConfig::Wine(config) => {
+                writeln!(f, "Type: Wine")?;
+                writeln!(f, "DLL Type: {}", config.dll_type)?;
+                writeln!(f, "DLL Path: {}", config.dll_path.display())?;
+                write!(f, "Wine Prefix: {}", config.wine_prefix.display())
+            }
+        }
+    }
+}
+
 /// Complete configuration for a client installation
 /// Combines location info with how to launch it
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,8 +111,6 @@ pub struct WindowsClientConfig {
     pub display_name: String,
     /// Path to AC installation (C:\Turbine\Asheron's Call)
     pub install_path: PathBuf,
-    /// Path to Alembic.dll for injection
-    pub dll_path: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +149,7 @@ impl ClientConfig {
     pub fn is_windows(&self) -> bool {
         matches!(self, ClientConfig::Windows(_))
     }
+
 }
 
 impl fmt::Display for ClientConfig {
@@ -72,8 +165,7 @@ impl fmt::Display for WindowsClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Name: {}", self.display_name)?;
         writeln!(f, "Install path: {}", self.install_path.display())?;
-        writeln!(f, "Type: Windows")?;
-        write!(f, "DLL path: {}", self.dll_path.display())
+        write!(f, "Type: Windows")
     }
 }
 
