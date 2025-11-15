@@ -385,6 +385,7 @@ impl ClientScanner for WhiskyScanner {
 pub struct WindowsScanner;
 
 impl WindowsScanner {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self
     }
@@ -545,7 +546,7 @@ fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfi
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-fn scan_wine_for_decal_dlls(scanner: &WineScanner) -> Result<Vec<InjectConfig>> {
+fn scan_wine_for_decal_dlls(_scanner: &WineScanner) -> Result<Vec<InjectConfig>> {
     let mut all_dlls = vec![];
 
     let home = std::env::var("HOME")?;
@@ -585,6 +586,7 @@ fn scan_wine_for_decal_dlls(scanner: &WineScanner) -> Result<Vec<InjectConfig>> 
 }
 
 /// Find the AC installation directory in a Wine prefix
+#[allow(dead_code)]
 fn find_ac_in_prefix(prefix_path: &Path) -> Option<PathBuf> {
     let drive_c = prefix_path.join("drive_c");
     if !drive_c.exists() {

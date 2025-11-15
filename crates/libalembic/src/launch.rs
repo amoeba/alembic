@@ -350,21 +350,20 @@ impl<'a> Launcher {
             println!("DLL path: {}", dll_path_str);
 
             // Build path to cork.exe
-            // Assume cork.exe is in the same directory as the launcher executable
+            // cork.exe should be cross-compiled for Windows and deployed alongside the launcher
+            // Wine can execute Windows .exe files from Unix filesystem paths
             let cork_path = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|p| p.join("cork.exe")))
                 .ok_or_else(|| anyhow::anyhow!("Failed to determine cork.exe path"))?;
 
-            // Convert cork.exe Unix path to Windows path for Wine
-            let cork_path_str = cork_path.display().to_string();
-            let cork_windows_path = if let Some(relative) = cork_path_str.strip_prefix(&format!("{}/drive_c/", config.prefix_path.display())) {
-                format!("C:\\{}", relative.replace("/", "\\"))
-            } else {
-                // If cork is not in the Wine prefix, try to convert it
-                // For now, just use the full path
-                cork_path_str.clone()
-            };
+            // Verify cork.exe exists
+            if !cork_path.exists() {
+                anyhow::bail!(
+                    "cork.exe not found at {}. Ensure it is deployed alongside the launcher.",
+                    cork_path.display()
+                );
+            }
 
             let mut cmd = Command::new(&config.wine_executable);
             cmd.env("WINEPREFIX", &config.prefix_path);
@@ -374,7 +373,10 @@ impl<'a> Launcher {
                 cmd.env(key, value);
             }
 
-            cmd.arg(&cork_windows_path)
+            // Pass Unix path to cork.exe - Wine can execute Windows binaries from Unix paths
+            cmd.arg(cork_path.to_str().ok_or_else(|| {
+                anyhow::anyhow!("cork.exe path contains invalid UTF-8")
+            })?)
                 .arg("--pid")
                 .arg(pid.to_string())
                 .arg("--dll")
@@ -382,7 +384,7 @@ impl<'a> Launcher {
 
             println!("Executing: {} {} --pid {} --dll {}",
                 config.wine_executable.display(),
-                cork_windows_path,
+                cork_path.display(),
                 pid,
                 inject_config.dll_path().display()
             );

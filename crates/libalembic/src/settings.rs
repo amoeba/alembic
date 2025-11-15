@@ -14,6 +14,7 @@ use crate::client_config::{ClientConfig, InjectConfig};
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
 const SETTINGS_FILE_NAME: &str = "config.json";
+#[allow(dead_code)]
 const ENV_PREFIX: &str = "ALEMBIC";
 
 #[allow(dead_code)]
@@ -280,10 +281,9 @@ pub fn merge_settings(target: &mut AlembicSettings, source: &AlembicSettings) {
 }
 
 #[allow(dead_code)]
-fn migrate_settings(mut settings: AlembicSettings) -> AlembicSettings {
-    settings = settings; // Just disables warning about mut qualifier
-
+fn migrate_settings(settings: AlembicSettings) -> AlembicSettings {
     // Doesn't do anything right now
+    // When migrations are needed, this function will be updated
     match settings.version {
         1 => {
             println!("No-op");
