@@ -164,16 +164,57 @@ impl<'a> Launcher {
 
         cmd.current_dir(&working_dir);
 
-        // Add the game executable and arguments
-        cmd.arg(&client_exe)
-            .arg("-h")
-            .arg(&self.server_info.hostname)
-            .arg("-p")
-            .arg(&self.server_info.port)
-            .arg("-a")
-            .arg(&self.account_info.username)
-            .arg("-v")
-            .arg(&self.account_info.password);
+        // Check if cork.exe exists
+        let cork_path = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.join("cork.exe")));
+
+        let use_cork = cork_path.as_ref().map(|p| p.exists()).unwrap_or(false);
+
+        if use_cork {
+            let cork_path = cork_path.unwrap();
+            println!("Launching via cork: {} --client {} --hostname {} --port {} --account {}",
+                cork_path.display(),
+                client_exe,
+                self.server_info.hostname,
+                self.server_info.port,
+                self.account_info.username
+            );
+
+            // Launch cork.exe with the client path and connection parameters
+            cmd.arg(cork_path.to_str().ok_or_else(|| {
+                    anyhow::anyhow!("cork.exe path contains invalid UTF-8")
+                })?)
+                .arg("--client")
+                .arg(&client_exe)
+                .arg("--hostname")
+                .arg(&self.server_info.hostname)
+                .arg("--port")
+                .arg(&self.server_info.port)
+                .arg("--account")
+                .arg(&self.account_info.username)
+                .arg("--password")
+                .arg(&self.account_info.password);
+        } else {
+            println!("cork.exe not found, launching client directly");
+            println!("Launching: {} -h {} -p {} -a {}",
+                client_exe,
+                self.server_info.hostname,
+                self.server_info.port,
+                self.account_info.username
+            );
+
+            // Launch client directly without cork
+            cmd.arg(&client_exe)
+                .arg("-h")
+                .arg(&self.server_info.hostname)
+                .arg("-p")
+                .arg(&self.server_info.port)
+                .arg("-a")
+                .arg(&self.account_info.username)
+                .arg("-v")
+                .arg(&self.account_info.password);
+        }
 
         // Pipe stdout/stderr so we can capture and display in TUI
         cmd.stdout(Stdio::piped());
@@ -327,81 +368,12 @@ impl<'a> Launcher {
         anyhow::bail!("Timeout waiting for acclient.exe process to start")
     }
 
-    fn inject_wine(&self, config: &WineClientConfig) -> Result<(), anyhow::Error> {
-        use std::process::Command;
-
-        if let Some(inject_config) = &self.inject_config {
-            // Wait for and find the acclient.exe process
-            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            let pid = self.wait_for_acclient()?;
-
-            #[cfg(all(target_os = "windows", target_env = "msvc"))]
-            let pid = {
-                let _ = config; // suppress unused variable warning
-                0 // Placeholder for Windows builds
-            };
-
-            // Get the filesystem path for the DLL
-            let dll_path = inject_config.filesystem_path();
-            let dll_path_str = dll_path.display().to_string();
-
-            println!("Injecting {} DLL via cork", inject_config.dll_type());
-            println!("Target PID: {}", pid);
-            println!("DLL path: {}", dll_path_str);
-
-            // Build path to cork.exe
-            // cork.exe should be cross-compiled for Windows and deployed alongside the launcher
-            // Wine can execute Windows .exe files from Unix filesystem paths
-            let cork_path = std::env::current_exe()
-                .ok()
-                .and_then(|p| p.parent().map(|p| p.join("cork.exe")))
-                .ok_or_else(|| anyhow::anyhow!("Failed to determine cork.exe path"))?;
-
-            // Verify cork.exe exists
-            if !cork_path.exists() {
-                anyhow::bail!(
-                    "cork.exe not found at {}. Ensure it is deployed alongside the launcher.",
-                    cork_path.display()
-                );
-            }
-
-            let mut cmd = Command::new(&config.wine_executable);
-            cmd.env("WINEPREFIX", &config.prefix_path);
-
-            // Set additional environment variables
-            for (key, value) in &config.additional_env {
-                cmd.env(key, value);
-            }
-
-            // Pass Unix path to cork.exe - Wine can execute Windows binaries from Unix paths
-            cmd.arg(cork_path.to_str().ok_or_else(|| {
-                anyhow::anyhow!("cork.exe path contains invalid UTF-8")
-            })?)
-                .arg("--pid")
-                .arg(pid.to_string())
-                .arg("--dll")
-                .arg(inject_config.dll_path().display().to_string());
-
-            println!("Executing: {} {} --pid {} --dll {}",
-                config.wine_executable.display(),
-                cork_path.display(),
-                pid,
-                inject_config.dll_path().display()
-            );
-
-            let output = cmd.output()?;
-
-            if output.status.success() {
-                println!("Cork injection successful");
-                if !output.stdout.is_empty() {
-                    println!("Cork output: {}", String::from_utf8_lossy(&output.stdout));
-                }
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                anyhow::bail!("Cork injection failed: {}", stderr);
-            }
-        } else {
-            println!("No DLL injection configured.");
+    fn inject_wine(&self, _config: &WineClientConfig) -> Result<(), anyhow::Error> {
+        // DLL injection for Wine is not yet implemented
+        // Cork now handles launching the client directly with connection parameters
+        if self.inject_config.is_some() {
+            println!("Note: DLL injection is not yet implemented for Wine clients.");
+            println!("The client was launched via cork without injection.");
         }
 
         Ok(())
