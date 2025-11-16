@@ -1,0 +1,26 @@
+[config]
+default_to_workspace = false
+
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+RELEASE_FLAG = { source = "${CARGO_MAKE_PROFILE}", default_value = "", mapping = { "release" = "--release" } }
+
+[tasks.build]
+dependencies = ["build-win32", "build-native"]
+
+[tasks.build.linux]
+dependencies = ["build-native"]
+
+[tasks.build.mac]
+dependencies = ["build-native"]
+
+[tasks.build-win32]
+description = "Build 32-bit Windows components (cork and dll)"
+condition = { platforms = ["windows"] }
+command = "cargo"
+args = ["build", "@@remove-empty(RELEASE_FLAG)", "--target", "i686-pc-windows-msvc", "-p", "cork", "-p", "dll", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )"]
+
+[tasks.build-native]
+description = "Build native components (desktop, cli)"
+command = "cargo"
+args = ["build", "@@remove-empty(RELEASE_FLAG)", "-p", "desktop", "-p", "cli", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )"]

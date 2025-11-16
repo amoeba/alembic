@@ -45,25 +45,60 @@ The project is managed as a single Cargo Workspace with four subcrates:
 - Refactor read-heavy shared state from Mutexes to RwLocks. Apparently this is better performance-wise.
 - Hook up tracing/opentelemetry crates instead of the current spotty use of `println!`
 
-## Building
+### Prerequisites
 
-This project uses Rust and a full build requires a Rust Nightly toolchain.
+This project is written in Rust and requires a nightly toolchain.
 
-The project is divided into subcrates,
-
-- `desktop`: Desktop GUI (written in egui)
-- `cli`: Alternative option to the GUI
-- `dll`: The actual DLL that gets injected
-- `libalembic`: Common or shared functionality
-
-If you just want to get started, run:
+On Windows, you need the 32-bit MSVC target installed:
 
 ```sh
-cargo build --target i686-pc-windows-msvc -p dll
+rustup target add i686-pc-windows-msvc
+```
+
+Install cargo-make for the build system:
+
+```sh
+cargo install cargo-make
+```
+
+## Building
+
+The workspace contains six crates:
+
+- `desktop`: Desktop GUI (written in egui) - builds for native architecture
+- `cli`: Command-line interface - builds for native architecture
+- `tui`: Terminal UI - builds for native architecture
+- `cork`: DLL injector utility - **always builds as 32-bit (i686-pc-windows-msvc)**
+- `dll`: The injectable DLL - **always builds as 32-bit (i686-pc-windows-msvc)**
+- `libalembic`: Common library code, used in the above crates
+
+### Quick Start
+
+Use cargo-make to build everything:
+
+```sh
+# Build all components (32-bit and native)
+cargo make build
+
+# Run the desktop app
 cargo run --bin desktop
 ```
 
-This will start the desktop GUI which you can then use to launch a game client and inject Alembic into it.
+The build task automatically:
+1. Builds cork and dll for 32-bit Windows (i686-pc-windows-msvc)
+2. Builds desktop and cli for your native architecture
+
+### Manual Build
+
+If you prefer to build manually:
+
+```sh
+# Build 32-bit components first
+cargo build --target i686-pc-windows-msvc -p cork -p dll
+
+# Then build native components
+cargo build -p desktop -p cli
+```
 
 ## Contributing
 
