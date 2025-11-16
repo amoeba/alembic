@@ -2,6 +2,7 @@ pub mod acclient;
 pub mod async_runtime;
 pub mod client_config;
 pub mod inject;
+pub mod injector;
 pub mod launch;
 pub mod msg;
 pub mod rpc;

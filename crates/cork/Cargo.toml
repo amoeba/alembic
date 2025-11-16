@@ -8,9 +8,14 @@ readme.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "cork"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
+libalembic = { path = "../libalembic" }
 
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
 dll-syringe = "0.17.0"

@@ -1,6 +1,5 @@
 use anyhow::Result;
-use clap::Parser;
-use std::process::Command;
+use clap::{Parser, Subcommand};
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 use dll_syringe::process::{OwnedProcess, Process};
@@ -9,48 +8,92 @@ use dll_syringe::process::{OwnedProcess, Process};
 #[command(name = "cork")]
 #[command(about = "AC client launcher utility for Alembic", long_about = None)]
 struct Args {
-    /// Path to DLL to inject (Windows format, e.g., C:\\Program Files (x86)\\Decal\\Inject.dll)
-    #[arg(long)]
-    dll: Option<String>,
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Launch a new AC client with DLL injection
+    Launch {
+        /// Path to acclient.exe
+        #[arg(long)]
+        client: String,
+
+        /// Server hostname
+        #[arg(long)]
+        hostname: String,
+
+        /// Server port
+        #[arg(long)]
+        port: String,
+
+        /// Account username
+        #[arg(long)]
+        account: String,
+
+        /// Account password
+        #[arg(long)]
+        password: String,
+
+        /// Path to DLL to inject (e.g., C:\\Program Files (x86)\\Decal 3.0\\Inject.dll)
+        #[arg(long)]
+        dll: String,
+
+        /// Optional function name to execute in the DLL after injection (e.g., "DecalStartup")
+        #[arg(long)]
+        function: Option<String>,
+    },
+    /// Find and display running acclient.exe processes
+    Scan,
 }
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
-fn launch_client(
+fn launch_client_with_injection(
     client_path: &str,
     hostname: &str,
     port: &str,
     account: &str,
     password: &str,
+    dll_path: &str,
+    dll_function: Option<&str>,
 ) -> Result<()> {
-    println!("Launching AC client...");
+    println!("Cork: Launching AC client with DLL injection");
     println!("  Client: {}", client_path);
     println!("  Server: {}:{}", hostname, port);
     println!("  Account: {}", account);
-
-    let mut cmd = Command::new(client_path);
-    cmd.arg("-h").arg(hostname);
-    cmd.arg("-p").arg(port);
-    cmd.arg("-a").arg(account);
-    cmd.arg("-w").arg(password);
-
-    let status = cmd.status()?;
-
-    if status.success() {
-        println!("Client launched successfully");
-    } else {
-        anyhow::bail!("Client exited with status: {}", status);
+    println!("  DLL: {}", dll_path);
+    if let Some(func) = dll_function {
+        println!("  Function: {}", func);
     }
 
+    // Build the command line arguments
+    let arguments = format!(
+        "-h {} -p {} -a {} -v {}",
+        hostname, port, account, password
+    );
+
+    println!("\nStarting process...");
+    libalembic::injector::launch_suspended_inject_and_resume(
+        client_path,
+        &arguments,
+        dll_path,
+        dll_function,
+    )?;
+
+    println!("Client launched and DLL injected successfully!");
     Ok(())
 }
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-fn launch_client(
+fn launch_client_with_injection(
     _client_path: &str,
     _hostname: &str,
     _port: &str,
     _account: &str,
     _password: &str,
+    _dll_path: &str,
+    _dll_function: Option<&str>,
 ) -> Result<()> {
     anyhow::bail!("Cork client launching is only supported on Windows");
 }
@@ -118,17 +161,26 @@ fn find_acclient_windows() -> Result<()> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let dll_path = match args.dll {
-        Some(path) => path,
-        None => {
-            anyhow::bail!("No DLL path provided. Use --dll to specify the DLL to inject.");
+    match args.command {
+        Commands::Launch {
+            client,
+            hostname,
+            port,
+            account,
+            password,
+            dll,
+            function,
+        } => {
+            launch_client_with_injection(
+                &client,
+                &hostname,
+                &port,
+                &account,
+                &password,
+                &dll,
+                function.as_deref(),
+            )
         }
-    };
-
-    println!("DLL path: {}", dll_path);
-    println!("Searching for running acclient.exe to inject into...");
-    println!();
-
-    // TODO: Actually perform injection with the DLL
-    find_acclient_windows()
+        Commands::Scan => find_acclient_windows(),
+    }
 }
