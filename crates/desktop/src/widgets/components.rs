@@ -67,6 +67,100 @@ impl Widget for &mut AccountPicker {
     }
 }
 
+pub struct ClientPicker {}
+
+impl Widget for &mut ClientPicker {
+    fn ui(self, ui: &mut Ui) -> Response {
+        if let Some(s) = ui.data_mut(|data| {
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+        }) {
+            let mut settings = s.lock().unwrap();
+
+            let client_names: Vec<String> = settings
+                .clients
+                .iter()
+                .map(|client| client.display_name().to_string())
+                .collect();
+
+            let selected_text = if client_names.len() > 0 {
+                settings
+                    .selected_client
+                    .and_then(|index| client_names.get(index).cloned())
+                    .unwrap_or_else(|| "Pick a client".to_string())
+            } else {
+                "No clients".to_string()
+            };
+
+            egui::ComboBox::from_id_salt("Client")
+                .selected_text(selected_text)
+                .show_ui(ui, |ui| {
+                    for (index, name) in client_names.iter().enumerate() {
+                        if ui
+                            .selectable_value(
+                                &mut settings.selected_client,
+                                Some(index),
+                                name.clone(),
+                            )
+                            .changed()
+                        {
+                            let _ = settings.save();
+                        };
+                    }
+                })
+                .response
+        } else {
+            ui.label("TODO: Bug, please report.")
+        }
+    }
+}
+
+pub struct DllPicker {}
+
+impl Widget for &mut DllPicker {
+    fn ui(self, ui: &mut Ui) -> Response {
+        if let Some(s) = ui.data_mut(|data| {
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+        }) {
+            let mut settings = s.lock().unwrap();
+
+            let dll_names: Vec<String> = settings
+                .discovered_dlls
+                .iter()
+                .map(|dll| format!("{}", dll.dll_type()))
+                .collect();
+
+            let selected_text = if dll_names.len() > 0 {
+                settings
+                    .selected_dll
+                    .and_then(|index| dll_names.get(index).cloned())
+                    .unwrap_or_else(|| "Pick a DLL".to_string())
+            } else {
+                "No DLLs".to_string()
+            };
+
+            egui::ComboBox::from_id_salt("DLL")
+                .selected_text(selected_text)
+                .show_ui(ui, |ui| {
+                    for (index, name) in dll_names.iter().enumerate() {
+                        if ui
+                            .selectable_value(
+                                &mut settings.selected_dll,
+                                Some(index),
+                                name.clone(),
+                            )
+                            .changed()
+                        {
+                            let _ = settings.save();
+                        };
+                    }
+                })
+                .response
+        } else {
+            ui.label("TODO: Bug, please report.")
+        }
+    }
+}
+
 pub struct ServerPicker {}
 
 impl Widget for &mut ServerPicker {

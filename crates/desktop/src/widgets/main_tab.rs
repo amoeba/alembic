@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use crate::{
     backend::{AppModal, Backend, Client},
@@ -9,10 +6,9 @@ use crate::{
 };
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
 use libalembic::settings::AlembicSettings;
-use tarpc::client;
 
 use super::{
-    components::{AccountPicker, ServerPicker},
+    components::{AccountPicker, ClientPicker, DllPicker, ServerPicker},
     news::News,
 };
 
@@ -196,6 +192,8 @@ impl Widget for &mut MainTab {
                     selected_server: selected_server,
                 });
                 ui.add(&mut ServerPicker {});
+                ui.add(&mut DllPicker {});
+                ui.add(&mut ClientPicker {});
             });
         })
         .response
