@@ -126,8 +126,6 @@ pub fn launch_suspended_inject_and_resume(
 
 /// Inject a DLL into an existing process
 ///
-/// This is the Rust equivalent of `Injector.Inject(IntPtr processHandle, ...)`
-///
 /// # Arguments
 /// * `process_handle` - Handle to the target process
 /// * `dll_path` - Absolute path to the DLL to inject
@@ -299,8 +297,6 @@ fn execute_function(
 
 /// Execute code at a specific address in a remote process
 ///
-/// This is the Rust equivalent of `Injector.Execute(IntPtr processHandle, IntPtr addressToExecute)`
-///
 /// # Arguments
 /// * `process_handle` - Handle to the target process
 /// * `address_to_execute` - Address of the code to execute
@@ -343,9 +339,8 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
         ));
     }
 
-    // The C# code checks if exit_code != 0, treating non-zero as success
-    // This is a bit unusual, but we'll match that behavior
-    if exit_code == 0 {
+    // Handle exit_code
+    if exit_code != 0 {
         return Err(anyhow::anyhow!("Function execution returned 0 (failure)"));
     }
 
