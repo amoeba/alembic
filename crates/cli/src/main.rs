@@ -3,10 +3,9 @@ use clap::{Parser, Subcommand};
 use libalembic::{
     client_config::ClientConfig,
     launch::Launcher,
+    scanner,
     settings::{Account, ServerInfo, SettingsManager},
 };
-
-mod scanner;
 
 #[cfg(debug_assertions)]
 const VERSION: &str = env!("DEBUG_VERSION");
@@ -383,12 +382,10 @@ fn exec_launch(
     use std::path::PathBuf;
 
     let client_config = match mode.to_lowercase().as_str() {
-        "windows" => {
-            ClientConfig::Windows(WindowsClientConfig {
-                display_name: "CLI-specified Windows client".to_string(),
-                install_path: PathBuf::from(&client_path),
-            })
-        }
+        "windows" => ClientConfig::Windows(WindowsClientConfig {
+            display_name: "CLI-specified Windows client".to_string(),
+            install_path: PathBuf::from(&client_path),
+        }),
         "wine" => {
             let prefix =
                 wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
@@ -749,7 +746,7 @@ fn get_timestamp() -> String {
 }
 
 fn client_list() -> anyhow::Result<()> {
-    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
 
     let clients = SettingsManager::get(|s| s.clients.clone());
     let selected_client = SettingsManager::get(|s| s.selected_client);
@@ -801,7 +798,10 @@ fn client_list() -> anyhow::Result<()> {
     println!("{}", table);
 
     if selected_client.is_some() {
-        println!("\nSelected: index {} (shown in bold)", selected_client.unwrap());
+        println!(
+            "\nSelected: index {} (shown in bold)",
+            selected_client.unwrap()
+        );
     }
 
     Ok(())
@@ -837,12 +837,10 @@ fn client_add(
     println!("Adding client configuration...");
 
     let client_config = match mode.to_lowercase().as_str() {
-        "windows" => {
-            ClientConfig::Windows(WindowsClientConfig {
-                display_name: "Manual Windows client".to_string(),
-                install_path: PathBuf::from(&client_path),
-            })
-        }
+        "windows" => ClientConfig::Windows(WindowsClientConfig {
+            display_name: "Manual Windows client".to_string(),
+            install_path: PathBuf::from(&client_path),
+        }),
         "wine" => {
             let prefix =
                 wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
@@ -946,7 +944,7 @@ fn server_add(name: String, hostname: String, port: String) -> anyhow::Result<()
 }
 
 fn server_list() -> anyhow::Result<()> {
-    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
 
     let servers = SettingsManager::get(|s| s.servers.clone());
     let selected_server = SettingsManager::get(|s| s.selected_server);
@@ -995,7 +993,10 @@ fn server_list() -> anyhow::Result<()> {
     println!("{}", table);
 
     if selected_server.is_some() {
-        println!("\nSelected: index {} (shown in bold)", selected_server.unwrap());
+        println!(
+            "\nSelected: index {} (shown in bold)",
+            selected_server.unwrap()
+        );
     }
 
     Ok(())
@@ -1093,7 +1094,7 @@ fn account_add(server: usize, username: String, password: String) -> anyhow::Res
 }
 
 fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
-    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
 
     let accounts = SettingsManager::get(|s| s.accounts.clone());
     let servers = SettingsManager::get(|s| s.servers.clone());
@@ -1174,7 +1175,10 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
     println!("{}", table);
 
     if selected_account.is_some() {
-        println!("\nSelected: index {} (shown in bold)", selected_account.unwrap());
+        println!(
+            "\nSelected: index {} (shown in bold)",
+            selected_account.unwrap()
+        );
     }
 
     Ok(())
@@ -1366,11 +1370,10 @@ fn dll_scan() -> anyhow::Result<()> {
 }
 
 fn dll_list() -> anyhow::Result<()> {
-    use comfy_table::{Table, Cell, Attribute, ContentArrangement, presets::UTF8_FULL};
+    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
 
-    let (discovered_dlls, selected_dll) = SettingsManager::get(|s| {
-        (s.discovered_dlls.clone(), s.selected_dll)
-    });
+    let (discovered_dlls, selected_dll) =
+        SettingsManager::get(|s| (s.discovered_dlls.clone(), s.selected_dll));
 
     if discovered_dlls.is_empty() {
         println!("No DLLs configured.");
@@ -1424,7 +1427,10 @@ fn dll_list() -> anyhow::Result<()> {
     println!("{}", table);
 
     if selected_dll.is_some() {
-        println!("\nSelected: index {} (shown in bold)", selected_dll.unwrap());
+        println!(
+            "\nSelected: index {} (shown in bold)",
+            selected_dll.unwrap()
+        );
     }
 
     Ok(())
@@ -1435,7 +1441,10 @@ fn dll_remove(index: usize) -> anyhow::Result<()> {
 
     let dll_info = SettingsManager::get(|s| {
         s.discovered_dlls.get(index).map(|dll| {
-            (dll.dll_type().to_string(), dll.dll_path().display().to_string())
+            (
+                dll.dll_type().to_string(),
+                dll.dll_path().display().to_string(),
+            )
         })
     });
 
@@ -1498,7 +1507,10 @@ fn dll_add(
         "alembic" => DllType::Alembic,
         "decal" => DllType::Decal,
         _ => {
-            anyhow::bail!("Invalid DLL type: {}. Must be 'alembic' or 'decal'", dll_type);
+            anyhow::bail!(
+                "Invalid DLL type: {}. Must be 'alembic' or 'decal'",
+                dll_type
+            );
         }
     };
 
@@ -1509,9 +1521,8 @@ fn dll_add(
             dll_path: PathBuf::from(dll_path),
         }),
         "wine" => {
-            let wine_prefix = wine_prefix.ok_or_else(|| {
-                anyhow::anyhow!("--wine-prefix is required for wine platform")
-            })?;
+            let wine_prefix = wine_prefix
+                .ok_or_else(|| anyhow::anyhow!("--wine-prefix is required for wine platform"))?;
 
             InjectConfig::Wine(WineInjectConfig {
                 dll_type,
@@ -1520,7 +1531,10 @@ fn dll_add(
             })
         }
         _ => {
-            anyhow::bail!("Invalid platform: {}. Must be 'windows' or 'wine'", platform);
+            anyhow::bail!(
+                "Invalid platform: {}. Must be 'windows' or 'wine'",
+                platform
+            );
         }
     };
 
@@ -1575,8 +1589,8 @@ fn dll_show(index: usize) -> anyhow::Result<()> {
 }
 
 fn inject() -> anyhow::Result<()> {
-    use std::process::Command;
     use libalembic::client_config::ClientConfig;
+    use std::process::Command;
 
     println!("Running cork to find and inject into acclient.exe...");
     println!();
@@ -1603,7 +1617,9 @@ fn inject() -> anyhow::Result<()> {
     let dll_path = match dll_config {
         Some(config) => config.dll_path().display().to_string(),
         None => {
-            bail!("No DLL selected. Use 'alembic dll select <index>' to select a DLL for injection.");
+            bail!(
+                "No DLL selected. Use 'alembic dll select <index>' to select a DLL for injection."
+            );
         }
     };
 
@@ -1635,7 +1651,8 @@ fn inject() -> anyhow::Result<()> {
     cmd.arg(cork_path.to_str().context("Invalid cork path")?);
     cmd.arg("--dll").arg(&dll_path);
 
-    let output = cmd.output()
+    let output = cmd
+        .output()
         .context("Failed to execute cork.exe under wine")?;
 
     println!("Cork output:");

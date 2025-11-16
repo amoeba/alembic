@@ -1,8 +1,10 @@
 use anyhow::Result;
-use libalembic::client_config::{ClientConfig, WineClientConfig, InjectConfig, DllType, WineInjectConfig};
+use libalembic::client_config::{
+    ClientConfig, DllType, InjectConfig, WineClientConfig, WineInjectConfig,
+};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::HashMap;
 
 /// Trait for client installation scanners
 pub trait ClientScanner {
@@ -228,7 +230,8 @@ impl WhiskyScanner {
 
         for line in stdout.lines() {
             if line.starts_with("export PATH=") {
-                let path_value = line.strip_prefix("export PATH=\"")
+                let path_value = line
+                    .strip_prefix("export PATH=\"")
                     .and_then(|s| s.strip_suffix("\""))
                     .unwrap_or("");
 
@@ -240,7 +243,8 @@ impl WhiskyScanner {
                     }
                 }
             } else if line.starts_with("export WINEPREFIX=") {
-                let prefix_value = line.strip_prefix("export WINEPREFIX=\"")
+                let prefix_value = line
+                    .strip_prefix("export WINEPREFIX=\"")
                     .and_then(|s| s.strip_suffix("\""))
                     .unwrap_or("");
 
@@ -265,7 +269,12 @@ impl WhiskyScanner {
         }
     }
 
-    fn scan_prefix(&self, prefix_path: &Path, wine_exe: &Path, bottle_name: &str) -> Result<Vec<ClientConfig>> {
+    fn scan_prefix(
+        &self,
+        prefix_path: &Path,
+        wine_exe: &Path,
+        bottle_name: &str,
+    ) -> Result<Vec<ClientConfig>> {
         let mut configs = vec![];
 
         let drive_c = prefix_path.join("drive_c");
@@ -324,9 +333,7 @@ impl ClientScanner for WhiskyScanner {
         let mut all_configs = vec![];
 
         // Get list of bottles
-        let output = Command::new("whisky")
-            .arg("list")
-            .output()?;
+        let output = Command::new("whisky").arg("list").output()?;
 
         if !output.status.success() {
             anyhow::bail!("Failed to list Whisky bottles");
@@ -371,10 +378,7 @@ impl ClientScanner for WhiskyScanner {
             return false;
         }
 
-        Command::new("whisky")
-            .arg("--version")
-            .output()
-            .is_ok()
+        Command::new("whisky").arg("--version").output().is_ok()
     }
 }
 
@@ -393,14 +397,37 @@ impl WindowsScanner {
 
 impl ClientScanner for WindowsScanner {
     fn name(&self) -> &str {
-        "Windows Registry"
+        "Windows File System"
     }
 
     fn scan(&self) -> Result<Vec<ClientConfig>> {
-        // TODO: Implement Windows registry scanning
-        // This would use Windows registry APIs to find AC installations
-        // and return WindowsClientConfig entries
-        Ok(vec![])
+        use libalembic::client_config::WindowsClientConfig;
+
+        let mut configs = vec![];
+
+        // Common AC installation paths on Windows
+        let search_paths = [
+            r"C:\Turbine\Asheron's Call",
+            r"C:\Program Files\Turbine\Asheron's Call",
+            r"C:\Program Files (x86)\Turbine\Asheron's Call",
+            r"C:\AC",
+            r"C:\Games\AC",
+        ];
+
+        for search_path in search_paths {
+            let path = PathBuf::from(search_path);
+            let client_exe = path.join("acclient.exe");
+
+            if client_exe.exists() {
+                let display_name = format!("Asheron's Call - {}", search_path);
+                configs.push(ClientConfig::Windows(WindowsClientConfig {
+                    display_name,
+                    install_path: path,
+                }));
+            }
+        }
+
+        Ok(configs)
     }
 
     fn is_available(&self) -> bool {
@@ -448,7 +475,11 @@ pub fn scan_all() -> Result<Vec<ClientConfig>> {
     for scanner in scanners {
         match scanner.scan() {
             Ok(mut configs) => {
-                println!("Scanner '{}' found {} client(s)", scanner.name(), configs.len());
+                println!(
+                    "Scanner '{}' found {} client(s)",
+                    scanner.name(),
+                    configs.len()
+                );
                 all_configs.append(&mut configs);
             }
             Err(e) => {
@@ -460,9 +491,63 @@ pub fn scan_all() -> Result<Vec<ClientConfig>> {
     Ok(all_configs)
 }
 
+/// Scan for DLLs on Windows
+#[cfg(target_os = "windows")]
+fn scan_windows_for_dlls() -> Vec<InjectConfig> {
+    use libalembic::client_config::WindowsInjectConfig;
+
+    let mut inject_configs = vec![];
+
+    // Search for Alembic.dll in AC installation directories
+    let alembic_search_paths = [
+        r"C:\Turbine\Asheron's Call",
+        r"C:\Program Files\Turbine\Asheron's Call",
+        r"C:\Program Files (x86)\Turbine\Asheron's Call",
+        r"C:\AC",
+        r"C:\Games\AC",
+    ];
+
+    for search_path in alembic_search_paths {
+        let alembic_path = PathBuf::from(search_path).join("Alembic.dll");
+        if alembic_path.exists() {
+            inject_configs.push(InjectConfig::Windows(WindowsInjectConfig {
+                dll_path: alembic_path,
+                dll_type: DllType::Alembic,
+            }));
+        }
+    }
+
+    // Search for Decal's Inject.dll
+    let decal_search_paths = [
+        r"C:\Decal",
+        r"C:\Decal 3.0",
+        r"C:\Program Files\Decal",
+        r"C:\Program Files\Decal 3.0",
+        r"C:\Program Files (x86)\Decal",
+        r"C:\Program Files (x86)\Decal 3.0",
+    ];
+
+    for search_path in decal_search_paths {
+        let decal_path = PathBuf::from(search_path).join("Inject.dll");
+        if decal_path.exists() {
+            inject_configs.push(InjectConfig::Windows(WindowsInjectConfig {
+                dll_path: decal_path,
+                dll_type: DllType::Decal,
+            }));
+        }
+    }
+
+    inject_configs
+}
+
 /// Scan specifically for Decal DLL installations
 pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
     let mut all_dlls = vec![];
+
+    #[cfg(target_os = "windows")]
+    {
+        all_dlls.append(&mut scan_windows_for_dlls());
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -498,9 +583,7 @@ fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfi
     let mut all_dlls = vec![];
 
     // Get list of bottles
-    let output = Command::new("whisky")
-        .arg("list")
-        .output()?;
+    let output = Command::new("whisky").arg("list").output()?;
 
     if !output.status.success() {
         anyhow::bail!("Failed to list Whisky bottles");

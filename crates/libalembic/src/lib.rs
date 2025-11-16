@@ -5,6 +5,7 @@ pub mod inject;
 pub mod launch;
 pub mod msg;
 pub mod rpc;
+pub mod scanner;
 pub mod settings;
 pub mod util;
 pub mod win;
