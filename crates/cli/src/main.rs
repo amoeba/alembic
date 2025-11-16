@@ -31,16 +31,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Manage accounts
-    Account {
+    /// Manage configuration (accounts, clients, servers, DLLs)
+    Config {
         #[command(subcommand)]
-        command: AccountCommands,
-    },
-
-    /// Manage AC client installations
-    Client {
-        #[command(subcommand)]
-        command: ClientCommands,
+        command: ConfigCommands,
     },
 
     /// Execute launch with all parameters specified via command line
@@ -82,6 +76,9 @@ enum Commands {
         env_vars: Vec<(String, String)>,
     },
 
+    /// Run cork to find and inject into running acclient.exe
+    Inject,
+
     /// Launch using saved settings with optional overrides
     Launch {
         /// Server name to use (overrides selected server in settings)
@@ -91,6 +88,21 @@ enum Commands {
         /// Account username to use (overrides selected account in settings)
         #[arg(long)]
         account: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCommands {
+    /// Manage accounts
+    Account {
+        #[command(subcommand)]
+        command: AccountCommands,
+    },
+
+    /// Manage AC client installations
+    Client {
+        #[command(subcommand)]
+        command: ClientCommands,
     },
 
     /// Manage servers
@@ -104,9 +116,6 @@ enum Commands {
         #[command(subcommand)]
         command: DllCommands,
     },
-
-    /// Run cork to find and inject into running acclient.exe
-    Inject,
 }
 
 #[derive(Subcommand)]
@@ -283,29 +292,54 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Account { command } => match command {
-            AccountCommands::Add {
-                server,
-                username,
-                password,
-            } => account_add(server, username, password),
-            AccountCommands::List { server } => account_list(server),
-            AccountCommands::Select { index } => account_select(index),
-            AccountCommands::Remove { index } => account_remove(index),
-        },
-        Commands::Client { command } => match command {
-            ClientCommands::Add {
-                mode,
-                client_path,
-                launcher_path,
-                wine_prefix,
-                env_vars,
-            } => client_add(mode, client_path, launcher_path, wine_prefix, env_vars),
-            ClientCommands::List => client_list(),
-            ClientCommands::Select { index } => client_select(index),
-            ClientCommands::Remove { index } => client_remove(index),
-            ClientCommands::Show { index } => client_show(index),
-            ClientCommands::Scan => client_scan(),
+        Commands::Config { command } => match command {
+            ConfigCommands::Account { command } => match command {
+                AccountCommands::Add {
+                    server,
+                    username,
+                    password,
+                } => account_add(server, username, password),
+                AccountCommands::List { server } => account_list(server),
+                AccountCommands::Select { index } => account_select(index),
+                AccountCommands::Remove { index } => account_remove(index),
+            },
+            ConfigCommands::Client { command } => match command {
+                ClientCommands::Add {
+                    mode,
+                    client_path,
+                    launcher_path,
+                    wine_prefix,
+                    env_vars,
+                } => client_add(mode, client_path, launcher_path, wine_prefix, env_vars),
+                ClientCommands::List => client_list(),
+                ClientCommands::Select { index } => client_select(index),
+                ClientCommands::Remove { index } => client_remove(index),
+                ClientCommands::Show { index } => client_show(index),
+                ClientCommands::Scan => client_scan(),
+            },
+            ConfigCommands::Server { command } => match command {
+                ServerCommands::Add {
+                    name,
+                    hostname,
+                    port,
+                } => server_add(name, hostname, port),
+                ServerCommands::List => server_list(),
+                ServerCommands::Select { index } => server_select(index),
+                ServerCommands::Remove { index } => server_remove(index),
+            },
+            ConfigCommands::Dll { command } => match command {
+                DllCommands::Add {
+                    platform,
+                    dll_type,
+                    path,
+                    wine_prefix,
+                } => dll_add(platform, dll_type, path, wine_prefix),
+                DllCommands::List => dll_list(),
+                DllCommands::Select { index } => dll_select(index),
+                DllCommands::Remove { index } => dll_remove(index),
+                DllCommands::Show { index } => dll_show(index),
+                DllCommands::Scan => dll_scan(),
+            },
         },
         Commands::Exec {
             mode,
@@ -329,29 +363,6 @@ fn main() -> anyhow::Result<()> {
             env_vars,
         ),
         Commands::Launch { server, account } => preset_launch(server, account),
-        Commands::Server { command } => match command {
-            ServerCommands::Add {
-                name,
-                hostname,
-                port,
-            } => server_add(name, hostname, port),
-            ServerCommands::List => server_list(),
-            ServerCommands::Select { index } => server_select(index),
-            ServerCommands::Remove { index } => server_remove(index),
-        },
-        Commands::Dll { command } => match command {
-            DllCommands::Add {
-                platform,
-                dll_type,
-                path,
-                wine_prefix,
-            } => dll_add(platform, dll_type, path, wine_prefix),
-            DllCommands::List => dll_list(),
-            DllCommands::Select { index } => dll_select(index),
-            DllCommands::Remove { index } => dll_remove(index),
-            DllCommands::Show { index } => dll_show(index),
-            DllCommands::Scan => dll_scan(),
-        },
         Commands::Inject => inject(),
     }
 }
