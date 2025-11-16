@@ -1,3 +1,7 @@
+// Enforce that cork can ONLY be built for 32-bit Windows (i686-pc-windows-msvc)
+#[cfg(not(all(target_arch = "x86", target_os = "windows", target_env = "msvc")))]
+compile_error!("cork can only be built for i686-pc-windows-msvc target. Use: cargo build --target i686-pc-windows-msvc -p cork");
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
