@@ -1,5 +1,5 @@
 use anyhow::Result;
-use libalembic::client_config::{
+use crate::client_config::{
     ClientConfig, DllType, InjectConfig, WineClientConfig, WineInjectConfig,
 };
 use std::collections::HashMap;
@@ -401,7 +401,7 @@ impl ClientScanner for WindowsScanner {
     }
 
     fn scan(&self) -> Result<Vec<ClientConfig>> {
-        use libalembic::client_config::WindowsClientConfig;
+        use crate::client_config::WindowsClientConfig;
 
         let mut configs = vec![];
 
@@ -494,7 +494,7 @@ pub fn scan_all() -> Result<Vec<ClientConfig>> {
 /// Scan for DLLs on Windows
 #[cfg(target_os = "windows")]
 fn scan_windows_for_dlls() -> Vec<InjectConfig> {
-    use libalembic::client_config::WindowsInjectConfig;
+    use crate::client_config::WindowsInjectConfig;
 
     let mut inject_configs = vec![];
 

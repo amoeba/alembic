@@ -2,6 +2,7 @@
 
 //! Native Rust implementation of DLL injection functionality
 //! Based on Mag-ACClientLauncher's Injector.cs
+//! https://github.com/Mag-nus/Mag-ACClientLauncher/blob/master/Source/Win32/Injector.cs
 
 use anyhow::{Context, Result};
 use std::ffi::CString;
@@ -9,9 +10,7 @@ use std::path::Path;
 use windows::core::{PCSTR, PSTR};
 use windows::Win32::Foundation::{CloseHandle, FreeLibrary, HANDLE, HMODULE, WAIT_OBJECT_0};
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
-use windows::Win32::System::LibraryLoader::{
-    GetModuleHandleA, GetProcAddress, LoadLibraryA,
-};
+use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress, LoadLibraryA};
 use windows::Win32::System::Memory::{
     VirtualAllocEx, VirtualFreeEx, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE,
 };
@@ -20,37 +19,71 @@ use windows::Win32::System::Threading::{
     CREATE_SUSPENDED, INFINITE, PROCESS_INFORMATION, STARTUPINFOA,
 };
 
+/// MemoryGuard automatically calls VirtualFreeEx on Drop
+struct MemoryGuard {
+    process_handle: HANDLE,
+    address: *mut std::ffi::c_void,
+}
+
+impl Drop for MemoryGuard {
+    fn drop(&mut self) {
+        unsafe {
+            VirtualFreeEx(self.process_handle, self.address, 0, MEM_RELEASE).ok();
+        }
+    }
+}
+
+/// HandleGuard automatically calls FreeLibrary on Drop
+struct HandleGuard(HANDLE);
+
+impl Drop for HandleGuard {
+    fn drop(&mut self) {
+        unsafe {
+            CloseHandle(self.0).ok();
+        }
+    }
+}
+
+/// Guard to automatically free loaded libraries
+struct LibraryGuard(HMODULE);
+
+impl Drop for LibraryGuard {
+    fn drop(&mut self) {
+        unsafe {
+            FreeLibrary(self.0).ok();
+        }
+    }
+}
+
 /// Launch a process in suspended state, inject a DLL, optionally call a function, and resume the process
 ///
-/// This is the Rust equivalent of `Injector.RunSuspendedCommaInjectCommaAndResume()`
-///
 /// # Arguments
-/// * `file_name` - Full path to the executable to launch
-/// * `arguments` - Command line arguments for the executable
-/// * `dll_path` - Full path to the DLL to inject
-/// * `dll_function` - Optional name of a function to execute in the DLL after injection (e.g., "DecalStartup")
+/// * `executable_path` - Absolute path to the executable to launch
+/// * `executable_args` - Command line arguments for the executable
+/// * `dll_path` - Absolute path to the DLL to inject
+/// * `dll_function` - Optional name of a function to execute in the DLL after injection
 ///
 /// # Returns
 /// * `Ok(())` if successful
 /// * `Err` with details if any step fails
 pub fn launch_suspended_inject_and_resume(
-    file_name: &str,
-    arguments: &str,
+    executable_path: &str,
+    executable_args: &str,
     dll_path: &str,
     dll_function: Option<&str>,
 ) -> Result<()> {
-    // Combine filename and arguments into command line
-    let command_line = format!("{} {}", file_name, arguments);
-    let command_line_cstring = CString::new(command_line)
-        .context("Failed to create command line CString")?;
+    // Combine filename and executable_args into command line
+    let command_line = format!("{} {}", executable_path, executable_args);
+    let command_line_cstring =
+        CString::new(command_line).context("Failed to create command line CString")?;
 
     // Get working directory from the executable path
-    let working_dir = Path::new(file_name)
+    let working_dir = Path::new(executable_path)
         .parent()
         .and_then(|p| p.to_str())
         .context("Failed to get working directory from file path")?;
-    let working_dir_cstring = CString::new(working_dir)
-        .context("Failed to create working directory CString")?;
+    let working_dir_cstring =
+        CString::new(working_dir).context("Failed to create working directory CString")?;
 
     let mut startup_info: STARTUPINFOA = unsafe { std::mem::zeroed() };
     startup_info.cb = std::mem::size_of::<STARTUPINFOA>() as u32;
@@ -97,7 +130,7 @@ pub fn launch_suspended_inject_and_resume(
 ///
 /// # Arguments
 /// * `process_handle` - Handle to the target process
-/// * `dll_path` - Full path to the DLL to inject
+/// * `dll_path` - Absolute path to the DLL to inject
 /// * `dll_function` - Optional name of a function to execute in the DLL after injection
 ///
 /// # Returns
@@ -108,8 +141,7 @@ pub fn inject_into_process(
     dll_path: &str,
     dll_function: Option<&str>,
 ) -> Result<()> {
-    let dll_path_cstring = CString::new(dll_path)
-        .context("Failed to create DLL path CString")?;
+    let dll_path_cstring = CString::new(dll_path).context("Failed to create DLL path CString")?;
     let dll_path_bytes = dll_path_cstring.as_bytes_with_nul();
     let dll_path_size = dll_path_bytes.len();
 
@@ -132,7 +164,6 @@ pub fn inject_into_process(
     let _guard = MemoryGuard {
         process_handle,
         address: alloc_mem_address,
-        _size: dll_path_size,
     };
 
     // Write the DLL path to the allocated memory
@@ -153,8 +184,9 @@ pub fn inject_into_process(
 
     // Get the address of LoadLibraryA from kernel32.dll
     let kernel32_cstring = CString::new("kernel32.dll")?;
-    let kernel32_handle = unsafe { GetModuleHandleA(PCSTR(kernel32_cstring.as_ptr() as *const u8)) }
-        .context("GetModuleHandleA failed for kernel32.dll")?;
+    let kernel32_handle =
+        unsafe { GetModuleHandleA(PCSTR(kernel32_cstring.as_ptr() as *const u8)) }
+            .context("GetModuleHandleA failed for kernel32.dll")?;
 
     let load_library_cstring = CString::new("LoadLibraryA")?;
     let load_library_addr = unsafe {
@@ -196,12 +228,19 @@ pub fn inject_into_process(
     }
 
     if injected_dll_address == 0 {
-        return Err(anyhow::anyhow!("DLL injection failed - LoadLibraryA returned 0"));
+        return Err(anyhow::anyhow!(
+            "DLL injection failed - LoadLibraryA returned 0"
+        ));
     }
 
     // If we have a function to execute, call it
     if let Some(function_name) = dll_function {
-        execute_function(process_handle, injected_dll_address, dll_path, function_name)?;
+        execute_function(
+            process_handle,
+            injected_dll_address,
+            dll_path,
+            function_name,
+        )?;
     }
 
     Ok(())
@@ -209,12 +248,10 @@ pub fn inject_into_process(
 
 /// Execute a function in an injected DLL
 ///
-/// This is the Rust equivalent of `Injector.Execute(IntPtr processHandle, uint injectedDllAddress, ...)`
-///
 /// # Arguments
 /// * `process_handle` - Handle to the target process
 /// * `injected_dll_address` - Base address of the injected DLL in the target process
-/// * `dll_path` - Full path to the DLL (used to load it locally to find the function)
+/// * `dll_path` - Absolute path to the DLL (used to load it locally to find the function)
 /// * `function_name` - Name of the function to execute
 ///
 /// # Returns
@@ -243,7 +280,10 @@ fn execute_function(
             PCSTR(function_name_cstring.as_ptr() as *const u8),
         )
     }
-    .context(format!("GetProcAddress failed for function '{}'", function_name))?;
+    .context(format!(
+        "GetProcAddress failed for function '{}'",
+        function_name
+    ))?;
 
     // Calculate the offset of the function from the DLL base
     let function_offset = function_address as u64 - library_address.0 as u64;
@@ -298,7 +338,9 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
     let success = unsafe { GetExitCodeThread(remote_thread_handle, &mut exit_code) };
 
     if !success.is_ok() {
-        return Err(anyhow::anyhow!("GetExitCodeThread failed for function execution"));
+        return Err(anyhow::anyhow!(
+            "GetExitCodeThread failed for function execution"
+        ));
     }
 
     // The C# code checks if exit_code != 0, treating non-zero as success
@@ -308,55 +350,4 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
     }
 
     Ok(())
-}
-
-// RAII guards for automatic cleanup
-
-/// Guard to automatically free allocated memory in remote process
-struct MemoryGuard {
-    process_handle: HANDLE,
-    address: *mut std::ffi::c_void,
-    _size: usize,
-}
-
-impl Drop for MemoryGuard {
-    fn drop(&mut self) {
-        unsafe {
-            VirtualFreeEx(self.process_handle, self.address, 0, MEM_RELEASE).ok();
-        }
-    }
-}
-
-/// Guard to automatically close handles
-struct HandleGuard(HANDLE);
-
-impl Drop for HandleGuard {
-    fn drop(&mut self) {
-        unsafe {
-            CloseHandle(self.0).ok();
-        }
-    }
-}
-
-/// Guard to automatically free loaded libraries
-struct LibraryGuard(HMODULE);
-
-impl Drop for LibraryGuard {
-    fn drop(&mut self) {
-        unsafe {
-            FreeLibrary(self.0).ok();
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_cstring_creation() {
-        let path = "C:\\test\\path.dll";
-        let cstring = CString::new(path).unwrap();
-        assert_eq!(cstring.as_bytes(), path.as_bytes());
-    }
 }
