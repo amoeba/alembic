@@ -1,55 +1,34 @@
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub fn try_launch(
-    client_info: &Option<libalembic::settings::ClientInfo>,
+    client_config: &Option<libalembic::client_config::ClientConfig>,
     server_info: &Option<libalembic::settings::ServerInfo>,
     account_info: &Option<libalembic::settings::Account>,
-    dll_path: Option<String>,
+    inject_config: Option<libalembic::client_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
-    use std::fs;
-
     use anyhow::bail;
     use libalembic::launch::Launcher;
 
-    // Validate arguments and return an error if any checks fail
-    match client_info {
-        Some(value) => match fs::exists(&value.path) {
-            Ok(exists) => {
-                if !exists {
-                    bail!("Client does not exist at path '{}'.", value.path);
-                }
-            }
-            Err(_) => bail!("Couldn't determine whether client exists or not."),
-        },
-        None => bail!("Couldn't get client information."),
-    }
+    // Validate arguments
+    let client_config = match client_config {
+        Some(config) => config.clone(),
+        None => bail!("No client selected."),
+    };
 
-    match server_info {
-        Some(_) => {}
-        None => bail!("Couldn't get server information."),
-    }
+    let server_info = match server_info {
+        Some(info) => info.clone(),
+        None => bail!("No server selected."),
+    };
 
-    match account_info {
-        Some(_) => {}
-        None => bail!("Couldn't get account information."),
-    }
-
-    match &dll_path {
-        Some(value) => match fs::exists(&value) {
-            Ok(exists) => {
-                if !exists {
-                    bail!("Alembic DLL does not exist at path '{}'.", value);
-                }
-            }
-            Err(_) => bail!("Couldn't determine Alembic DLL exists or not."),
-        },
-        None => bail!("Couldn't get DLL information."),
-    }
+    let account_info = match account_info {
+        Some(info) => info.clone(),
+        None => bail!("No account selected."),
+    };
 
     let mut launcher = Launcher::new(
-        client_info.clone().unwrap(),
-        server_info.clone().unwrap(),
-        account_info.clone().unwrap(),
-        dll_path.unwrap().clone(),
+        client_config,
+        inject_config,
+        server_info,
+        account_info,
     );
     let pid = launcher.find_or_launch()?;
     launcher.inject()?;
@@ -60,10 +39,10 @@ pub fn try_launch(
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub fn try_launch(
-    client_info: &Option<libalembic::settings::ClientInfo>,
-    server: &Option<libalembic::settings::ServerInfo>,
-    account_info: &Option<libalembic::settings::Account>,
-    dll_path: Option<String>,
+    _client_config: &Option<libalembic::client_config::ClientConfig>,
+    _server_info: &Option<libalembic::settings::ServerInfo>,
+    _account_info: &Option<libalembic::settings::Account>,
+    _inject_config: Option<libalembic::client_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     // TODO: Show some indication we can't launch on this platform
 

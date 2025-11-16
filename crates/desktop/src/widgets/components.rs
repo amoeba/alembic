@@ -119,34 +119,44 @@ pub struct SettingsGameClientPathEdit {}
 impl Widget for &mut SettingsGameClientPathEdit {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
-            ui.label("Game Client Folder Path");
+            ui.label("Game Client Configuration");
 
             if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                let mut settings = s.lock().unwrap();
-                if ui.text_edit_singleline(&mut settings.client.path).changed() {
-                    let _ = settings.save();
-                }
+                let settings = s.lock().unwrap();
 
-                // Indicator
-                match fs::exists(settings.client.path.clone()) {
-                    Ok(result) => match result {
-                        true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
-                        false => ui.label(
-                            RichText::new("Path does not exist. Please enter a valid path.")
-                                .color(Color32::YELLOW),
-                        ),
-                    },
-                    Err(_) => ui.label(
-                        RichText::new(
-                            "Error determining whether path exists. Please report this as a bug.",
-                        )
-                        .color(Color32::RED),
-                    ),
-                };
+                match settings.selected_client {
+                    Some(index) => {
+                        if let Some(client) = settings.clients.get(index) {
+                            ui.label(format!("Name: {}", client.display_name()));
+                            ui.label(format!("Path: {}", client.install_path().display()));
+                            ui.label(format!("Type: {}", if client.is_wine() { "Wine" } else { "Windows" }));
+
+                            // Indicator
+                            match fs::exists(client.install_path()) {
+                                Ok(result) => match result {
+                                    true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
+                                    false => ui.label(
+                                        RichText::new("Path does not exist.")
+                                            .color(Color32::YELLOW),
+                                    ),
+                                },
+                                Err(_) => ui.label(
+                                    RichText::new("Error checking path.")
+                                        .color(Color32::RED),
+                                ),
+                            };
+                        } else {
+                            ui.label("TODO: Bug, please report.");
+                        }
+                    }
+                    None => {
+                        ui.label("No client selected. Use 'client scan' or 'client select' to configure.");
+                    }
+                }
             } else {
-                ui.label("Failed to get backend.");
+                ui.label("Failed to get settings.");
             }
         })
         .response
@@ -157,37 +167,43 @@ pub struct SettingsDLLPathEdit {}
 impl Widget for &mut SettingsDLLPathEdit {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
-            ui.label("Alembic DLL Path");
+            ui.label("DLL Configuration");
 
             if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                let mut settings = s.lock().unwrap();
-                if ui
-                    .text_edit_singleline(&mut settings.dll.dll_path)
-                    .changed()
-                {
-                    let _ = settings.save();
-                }
+                let settings = s.lock().unwrap();
 
-                // Indicator
-                match fs::exists(settings.dll.dll_path.clone()) {
-                    Ok(result) => match result {
-                        true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
-                        false => ui.label(
-                            RichText::new("Path does not exist. Please enter a valid path.")
-                                .color(Color32::YELLOW),
-                        ),
-                    },
-                    Err(_) => ui.label(
-                        RichText::new(
-                            "Error determining whether path exists. Please report this as a bug.",
-                        )
-                        .color(Color32::RED),
-                    ),
-                };
+                match settings.selected_dll {
+                    Some(index) => {
+                        if let Some(dll) = settings.discovered_dlls.get(index) {
+                            ui.label(format!("Type: {}", dll.dll_type()));
+                            ui.label(format!("Path: {}", dll.dll_path().display()));
+
+                            // Indicator
+                            match fs::exists(dll.dll_path()) {
+                                Ok(result) => match result {
+                                    true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
+                                    false => ui.label(
+                                        RichText::new("Path does not exist.")
+                                            .color(Color32::YELLOW),
+                                    ),
+                                },
+                                Err(_) => ui.label(
+                                    RichText::new("Error checking path.")
+                                        .color(Color32::RED),
+                                ),
+                            };
+                        } else {
+                            ui.label("TODO: Bug, please report.");
+                        }
+                    }
+                    None => {
+                        ui.label("No DLL selected. Use 'dll scan' or 'dll select' to configure.");
+                    }
+                }
             } else {
-                ui.label("Failed to get backend.");
+                ui.label("Failed to get settings.");
             }
         })
         .response

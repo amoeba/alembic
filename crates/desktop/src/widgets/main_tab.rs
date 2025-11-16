@@ -91,7 +91,10 @@ impl Widget for &mut MainTab {
                         }) {
                             let settings = s.lock().unwrap();
 
-                            Some(settings.client.clone())
+                            match settings.selected_client {
+                                Some(index) => settings.clients.get(index).cloned(),
+                                None => None,
+                            }
                         } else {
                             None
                         };
@@ -129,19 +132,22 @@ impl Widget for &mut MainTab {
                         };
 
                         // Alembic DLL Path
-                        let dll_path = if let Some(s) = ui.data_mut(|data| {
+                        let dll_config = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
                                 "settings",
                             ))
                         }) {
                             let settings = s.lock().unwrap();
 
-                            Some(settings.dll.dll_path.clone())
+                            match settings.selected_dll {
+                                Some(index) => settings.discovered_dlls.get(index).cloned(),
+                                None => None,
+                            }
                         } else {
                             None
                         };
 
-                        match try_launch(&client_info, &server_info, &account_info, dll_path) {
+                        match try_launch(&client_info, &server_info, &account_info, dll_config) {
                             Ok(val) => {
                                 println!("Launch succeeded. Launched pid is {val}!");
 
