@@ -16,6 +16,11 @@ members = [
   "crates/dll",
   "crates/tui",
 ]
+default-members = [
+  "crates/cli",
+  "crates/desktop",
+  "crates/tui",
+]
 resolver = "2"
 
 [workspace.dependencies]
