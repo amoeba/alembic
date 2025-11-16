@@ -3,7 +3,7 @@ use clap::Parser;
 use std::process::Command;
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
-use dll_syringe::process::OwnedProcess;
+use dll_syringe::process::{OwnedProcess, Process};
 
 #[derive(Parser)]
 #[command(name = "cork")]
