@@ -29,7 +29,7 @@ tarpc = { version = "0.35.0", features = ["serde-transport-json", "tcp"] }
 tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread"] }
 
 [workspace.dependencies.retour]
-version = "0.3"
+version = "0.4.0-alpha.4"
 features = ["thiscall-abi"]
 
 [workspace.dependencies.windows]
