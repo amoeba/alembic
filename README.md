@@ -47,6 +47,8 @@ The project is managed as a single Cargo Workspace with four subcrates:
 
 ## Building
 
+This project uses Rust and a full build requires a Rust Nightly toolchain.
+
 The project is divided into subcrates,
 
 - `desktop`: Desktop GUI (written in egui)
