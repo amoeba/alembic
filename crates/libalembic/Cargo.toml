@@ -26,5 +26,5 @@ tokio = { workspace = true }
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
 dll-syringe = { version = "0.15.2", features = ["payload-utils"] }
 retour = { workspace = true }
-widestring = "1.1.0"
+widestring = "1.2.1"
 windows = { workspace = true }
