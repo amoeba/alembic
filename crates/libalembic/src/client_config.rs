@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use serde::{Serialize, Deserialize};
+use std::path::{Path, PathBuf};
 
 /// Configuration for DLL injection
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,7 +53,10 @@ impl InjectConfig {
             InjectConfig::Wine(config) => {
                 // Convert C:\path\to\file to /prefix/drive_c/path/to/file
                 let dll_str = config.dll_path.display().to_string();
-                if let Some(relative) = dll_str.strip_prefix("C:\\").or_else(|| dll_str.strip_prefix("C:/")) {
+                if let Some(relative) = dll_str
+                    .strip_prefix("C:\\")
+                    .or_else(|| dll_str.strip_prefix("C:/"))
+                {
                     let unix_relative = relative.replace("\\", "/");
                     config.wine_prefix.join("drive_c").join(unix_relative)
                 } else {
@@ -149,7 +152,6 @@ impl ClientConfig {
     pub fn is_windows(&self) -> bool {
         matches!(self, ClientConfig::Windows(_))
     }
-
 }
 
 impl fmt::Display for ClientConfig {

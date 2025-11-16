@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    client_config::{ClientConfig, InjectConfig, WineClientConfig, WindowsClientConfig},
+    client_config::{ClientConfig, InjectConfig, WindowsClientConfig, WineClientConfig},
     settings::{Account, ServerInfo},
 };
 
@@ -165,7 +165,8 @@ impl<'a> Launcher {
         cmd.current_dir(&working_dir);
 
         println!("Launching client directly (cork will be called separately)");
-        println!("Launching: {} -h {} -p {} -a {}",
+        println!(
+            "Launching: {} -h {} -p {} -a {}",
             client_exe,
             self.server_info.hostname,
             self.server_info.port,
@@ -292,48 +293,50 @@ impl<'a> Launcher {
     }
 
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    fn call_cork_with_pid(&self, config: &WineClientConfig, windows_pid: u32) -> Result<(), Box<dyn Error>> {
+    fn call_cork_with_pid(
+        &self,
+        config: &WineClientConfig,
+        windows_pid: u32,
+    ) -> Result<(), Box<dyn Error>> {
         // Try both cork.exe and cork (for cross-platform compatibility)
-        let cork_path = std::env::current_exe()
-            .ok()
-            .and_then(|p| {
-                let parent = p.parent()?;
-                let exe_path = parent.join("cork.exe");
-                if exe_path.exists() {
-                    Some(exe_path)
+        let cork_path = std::env::current_exe().ok().and_then(|p| {
+            let parent = p.parent()?;
+            let exe_path = parent.join("cork.exe");
+            if exe_path.exists() {
+                Some(exe_path)
+            } else {
+                let unix_path = parent.join("cork");
+                if unix_path.exists() {
+                    Some(unix_path)
                 } else {
-                    let unix_path = parent.join("cork");
-                    if unix_path.exists() {
-                        Some(unix_path)
-                    } else {
-                        None
-                    }
+                    None
                 }
-            });
+            }
+        });
 
         if let Some(cork_path) = cork_path {
             println!("Calling cork with Windows PID {}", windows_pid);
 
-                let mut cmd = Command::new(&config.wine_executable);
-                cmd.env("WINEPREFIX", &config.prefix_path);
+            let mut cmd = Command::new(&config.wine_executable);
+            cmd.env("WINEPREFIX", &config.prefix_path);
 
-                for (key, value) in &config.additional_env {
-                    cmd.env(key, value);
-                }
+            for (key, value) in &config.additional_env {
+                cmd.env(key, value);
+            }
 
-                cmd.arg(cork_path.to_str().ok_or("Invalid cork path")?)
-                    .arg("--client")
-                    .arg("dummy")
-                    .arg("--hostname")
-                    .arg(&self.server_info.hostname)
-                    .arg("--port")
-                    .arg(&self.server_info.port)
-                    .arg("--account")
-                    .arg(&self.account_info.username)
-                    .arg("--password")
-                    .arg(&self.account_info.password)
-                    .arg("--pid")
-                    .arg(windows_pid.to_string());
+            cmd.arg(cork_path.to_str().ok_or("Invalid cork path")?)
+                .arg("--client")
+                .arg("dummy")
+                .arg("--hostname")
+                .arg(&self.server_info.hostname)
+                .arg("--port")
+                .arg(&self.server_info.port)
+                .arg("--account")
+                .arg(&self.account_info.username)
+                .arg("--password")
+                .arg(&self.account_info.password)
+                .arg("--pid")
+                .arg(windows_pid.to_string());
 
             let output = cmd.output()?;
             println!("Cork output:\n{}", String::from_utf8_lossy(&output.stdout));
@@ -420,10 +423,7 @@ impl<'a> Launcher {
         // Try up to 10 times with 500ms delays (5 seconds total)
         for attempt in 1..=10 {
             // Use pgrep to find acclient.exe process
-            let output = Command::new("pgrep")
-                .arg("-f")
-                .arg("acclient.exe")
-                .output();
+            let output = Command::new("pgrep").arg("-f").arg("acclient.exe").output();
 
             if let Ok(output) = output {
                 if output.status.success() {
@@ -438,7 +438,10 @@ impl<'a> Launcher {
             }
 
             if attempt < 10 {
-                println!("Attempt {}/10: acclient.exe not found yet, waiting...", attempt);
+                println!(
+                    "Attempt {}/10: acclient.exe not found yet, waiting...",
+                    attempt
+                );
                 thread::sleep(Duration::from_millis(500));
             }
         }
@@ -475,7 +478,11 @@ impl<'a> Launcher {
                 );
             }
 
-            println!("Injecting {} DLL from: {}", inject_config.dll_type(), dll_path.display());
+            println!(
+                "Injecting {} DLL from: {}",
+                inject_config.dll_type(),
+                dll_path.display()
+            );
 
             match self.injector.as_mut() {
                 Some(kit) => {

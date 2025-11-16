@@ -1,7 +1,7 @@
-use anyhow::Result;
 use crate::client_config::{
     ClientConfig, DllType, InjectConfig, WineClientConfig, WineInjectConfig,
 };
+use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;

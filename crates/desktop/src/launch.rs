@@ -24,12 +24,7 @@ pub fn try_launch(
         None => bail!("No account selected."),
     };
 
-    let mut launcher = Launcher::new(
-        client_config,
-        inject_config,
-        server_info,
-        account_info,
-    );
+    let mut launcher = Launcher::new(client_config, inject_config, server_info, account_info);
     let pid = launcher.find_or_launch()?;
     launcher.inject()?;
     // TODO: How to handle deinject. i.e., store the launch app-wide

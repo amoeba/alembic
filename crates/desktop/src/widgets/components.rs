@@ -143,11 +143,7 @@ impl Widget for &mut DllPicker {
                 .show_ui(ui, |ui| {
                     for (index, name) in dll_names.iter().enumerate() {
                         if ui
-                            .selectable_value(
-                                &mut settings.selected_dll,
-                                Some(index),
-                                name.clone(),
-                            )
+                            .selectable_value(&mut settings.selected_dll, Some(index), name.clone())
                             .changed()
                         {
                             let _ = settings.save();
@@ -277,15 +273,15 @@ impl Widget for &mut SettingsDLLPathEdit {
                             // Indicator
                             match fs::exists(dll.dll_path()) {
                                 Ok(result) => match result {
-                                    true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
+                                    true => ui
+                                        .label(RichText::new("Path exists.").color(Color32::GREEN)),
                                     false => ui.label(
                                         RichText::new("Path does not exist.")
                                             .color(Color32::YELLOW),
                                     ),
                                 },
                                 Err(_) => ui.label(
-                                    RichText::new("Error checking path.")
-                                        .color(Color32::RED),
+                                    RichText::new("Error checking path.").color(Color32::RED),
                                 ),
                             };
                         } else {

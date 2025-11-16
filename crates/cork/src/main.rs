@@ -68,10 +68,7 @@ fn launch_client_with_injection(
     }
 
     // Build the command line arguments
-    let arguments = format!(
-        "-h {} -p {} -a {} -v {}",
-        hostname, port, account, password
-    );
+    let arguments = format!("-h {} -p {} -a {} -v {}", hostname, port, account, password);
 
     println!("\nStarting process...");
     libalembic::injector::launch_suspended_inject_and_resume(
@@ -127,8 +124,7 @@ fn find_acclient_windows() -> Result<()> {
     println!("Cork: Searching for acclient.exe using tasklist");
 
     // Call tasklist.exe to get the process list
-    let output = Command::new("tasklist.exe")
-        .output()?;
+    let output = Command::new("tasklist.exe").output()?;
 
     if !output.status.success() {
         anyhow::bail!("tasklist.exe failed");
@@ -170,17 +166,15 @@ fn main() -> Result<()> {
             password,
             dll,
             function,
-        } => {
-            launch_client_with_injection(
-                &client,
-                &hostname,
-                &port,
-                &account,
-                &password,
-                &dll,
-                function.as_deref(),
-            )
-        }
+        } => launch_client_with_injection(
+            &client,
+            &hostname,
+            &port,
+            &account,
+            &password,
+            &dll,
+            function.as_deref(),
+        ),
         Commands::Scan => find_acclient_windows(),
     }
 }

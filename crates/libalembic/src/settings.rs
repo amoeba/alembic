@@ -129,7 +129,8 @@ impl AlembicSettings {
 
     /// Get mutable reference to selected client
     pub fn get_selected_client_mut(&mut self) -> Option<&mut ClientConfig> {
-        self.selected_client.and_then(|idx| self.clients.get_mut(idx))
+        self.selected_client
+            .and_then(|idx| self.clients.get_mut(idx))
     }
 
     /// Add a new client config and optionally select it
@@ -178,13 +179,18 @@ impl AlembicSettings {
 
     /// Get the selected DLL
     pub fn get_selected_dll(&self) -> Option<&InjectConfig> {
-        self.selected_dll.and_then(|idx| self.discovered_dlls.get(idx))
+        self.selected_dll
+            .and_then(|idx| self.discovered_dlls.get(idx))
     }
 
     /// Add or update a DLL configuration
     pub fn add_or_update_dll(&mut self, inject_config: InjectConfig) {
         // Check if we already have this DLL type
-        if let Some(existing) = self.discovered_dlls.iter_mut().find(|dll| dll.dll_type() == inject_config.dll_type()) {
+        if let Some(existing) = self
+            .discovered_dlls
+            .iter_mut()
+            .find(|dll| dll.dll_type() == inject_config.dll_type())
+        {
             // Update existing
             *existing = inject_config;
         } else {
@@ -195,12 +201,18 @@ impl AlembicSettings {
 
     /// Remove a DLL by type
     pub fn remove_dll_by_type(&mut self, dll_type: crate::client_config::DllType) {
-        self.discovered_dlls.retain(|dll| dll.dll_type() != dll_type);
+        self.discovered_dlls
+            .retain(|dll| dll.dll_type() != dll_type);
         // If we removed the selected DLL, clear the selection
         if let Some(selected_idx) = self.selected_dll {
             if selected_idx >= self.discovered_dlls.len() {
                 self.selected_dll = None;
-            } else if self.discovered_dlls.get(selected_idx).map(|dll| dll.dll_type()) == Some(dll_type) {
+            } else if self
+                .discovered_dlls
+                .get(selected_idx)
+                .map(|dll| dll.dll_type())
+                == Some(dll_type)
+            {
                 self.selected_dll = None;
             }
         }

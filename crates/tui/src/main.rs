@@ -15,10 +15,7 @@ use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
 };
-use tokio::sync::{
-    mpsc::channel,
-    Mutex,
-};
+use tokio::sync::{mpsc::channel, Mutex};
 
 pub mod app;
 pub mod tabs;
