@@ -9,7 +9,7 @@ fn main() {
     res.set_icon(icon_path);
     res.compile().expect("Failed to build.");
 
-    // Copy loog.png
+    // Copy logo.png
     let out_dir = env::var("OUT_DIR").unwrap();
 
     // OUT_DIR is the build output directory for the desktop crate which is
