@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    client_config::{ClientConfig, InjectConfig, WineClientConfig},
+    client_config::{ClientConfig, InjectConfig, WineClientConfig, WindowsClientConfig},
     settings::{Account, ServerInfo},
 };
 
