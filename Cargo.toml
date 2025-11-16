@@ -25,7 +25,7 @@ log = "0.4.22"
 once_cell = "1.20.2"
 rand = "0.8.5"
 tarpc = { version = "0.35.0", features = ["serde-transport-json", "tcp"] }
-tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread"] }
+tokio = { version = "1.48.0", features = ["macros", "net", "rt-multi-thread"] }
 
 [workspace.dependencies.retour]
 version = "0.3"
