@@ -1,16 +1,12 @@
 [package]
 name = "libalembic"
-description = "Library for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "Library for Alembic"
 readme.workspace = true
-
-# TODO: Do I want to have feature flags in this crate?
-[features]
-full = []
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
@@ -28,3 +24,7 @@ dll-syringe = "0.17.0"
 retour = { workspace = true }
 widestring = "1.1.0"
 windows = { workspace = true }
+
+# TODO: Do I want to have feature flags in this crate?
+[features]
+full = []

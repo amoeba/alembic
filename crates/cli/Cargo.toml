@@ -1,12 +1,12 @@
 [package]
 name = "cli"
-description = "CLI for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "CLI for Alembic"
 readme.workspace = true
+repository.workspace = true
+license.workspace = true
 build = "build.rs"
 
 [dependencies]

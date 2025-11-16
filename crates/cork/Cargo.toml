@@ -1,12 +1,12 @@
 [package]
 name = "cork"
-description = "Windows-only DLL injection utility for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "Windows-only DLL injection utility for Alembic"
 readme.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }

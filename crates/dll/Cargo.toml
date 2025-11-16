@@ -1,17 +1,17 @@
 [package]
 name = "dll"
-description = "Injectable DLL for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "Injectable DLL for Alembic"
 readme.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
+crate-type = ["cdylib"]
 name = "alembic"
 path = "src/lib.rs"
-crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = { workspace = true }
