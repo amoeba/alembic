@@ -104,6 +104,9 @@ enum Commands {
         #[command(subcommand)]
         command: DllCommands,
     },
+
+    /// Run cork to find and inject into running acclient.exe
+    Inject,
 }
 
 #[derive(Subcommand)]
@@ -349,6 +352,7 @@ fn main() -> anyhow::Result<()> {
             DllCommands::Show { index } => dll_show(index),
             DllCommands::Scan => dll_scan(),
         },
+        Commands::Inject => inject(),
     }
 }
 
@@ -1557,4 +1561,84 @@ fn dll_show(index: usize) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn inject() -> anyhow::Result<()> {
+    use std::process::Command;
+    use libalembic::client_config::ClientConfig;
+
+    println!("Running cork to find and inject into acclient.exe...");
+    println!();
+
+    // Get selected client config
+    let client_config = SettingsManager::get(|s| s.get_selected_client().cloned());
+    let client_config = match client_config {
+        Some(config) => config,
+        None => {
+            bail!("No client selected. Use 'alembic client select <index>' to select a client.");
+        }
+    };
+
+    // Only Wine clients are supported for now
+    let wine_config = match client_config {
+        ClientConfig::Wine(config) => config,
+        ClientConfig::Windows(_) => {
+            bail!("Inject command currently only supports Wine clients");
+        }
+    };
+
+    // Get selected DLL config
+    let dll_config = SettingsManager::get(|s| s.get_selected_dll().cloned());
+    let dll_path = match dll_config {
+        Some(config) => config.dll_path().display().to_string(),
+        None => {
+            bail!("No DLL selected. Use 'alembic dll select <index>' to select a DLL for injection.");
+        }
+    };
+
+    // Get cork.exe path
+    let cork_path = std::env::current_exe()
+        .context("Failed to get current executable path")?
+        .parent()
+        .context("Failed to get executable directory")?
+        .join("cork.exe");
+
+    if !cork_path.exists() {
+        bail!("cork.exe not found at {:?}. Make sure it's built with: cargo build --package cork --target x86_64-pc-windows-gnu", cork_path);
+    }
+
+    println!("Client: {}", wine_config.display_name);
+    println!("Wine prefix: {}", wine_config.prefix_path.display());
+    println!("DLL: {}", dll_path);
+    println!("Cork path: {}", cork_path.display());
+    println!();
+
+    // Run cork.exe under wine
+    let mut cmd = Command::new(&wine_config.wine_executable);
+    cmd.env("WINEPREFIX", &wine_config.prefix_path);
+
+    for (key, value) in &wine_config.additional_env {
+        cmd.env(key, value);
+    }
+
+    cmd.arg(cork_path.to_str().context("Invalid cork path")?);
+    cmd.arg("--dll").arg(&dll_path);
+
+    let output = cmd.output()
+        .context("Failed to execute cork.exe under wine")?;
+
+    println!("Cork output:");
+    println!("{}", String::from_utf8_lossy(&output.stdout));
+
+    if !output.stderr.is_empty() {
+        println!("Cork stderr:");
+        println!("{}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    if output.status.success() {
+        println!("Cork completed successfully");
+        Ok(())
+    } else {
+        bail!("Cork exited with status: {}", output.status);
+    }
 }
