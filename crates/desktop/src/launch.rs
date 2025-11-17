@@ -3,7 +3,7 @@ pub fn try_launch(
     client_config: &Option<libalembic::client_config::ClientConfig>,
     server_info: &Option<libalembic::settings::ServerInfo>,
     account_info: &Option<libalembic::settings::Account>,
-    inject_config: Option<libalembic::client_config::InjectConfig>,
+    inject_config: &Option<libalembic::client_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use anyhow::bail;
     use libalembic::launch::Launcher;
@@ -24,7 +24,12 @@ pub fn try_launch(
         None => bail!("No account selected."),
     };
 
-    let mut launcher = Launcher::new(client_config, inject_config, server_info, account_info);
+    let mut launcher = Launcher::new(
+        client_config,
+        inject_config.clone(),
+        server_info,
+        account_info,
+    );
     let pid = launcher.find_or_launch()?;
     launcher.inject()?;
     // TODO: How to handle deinject. i.e., store the launch app-wide
