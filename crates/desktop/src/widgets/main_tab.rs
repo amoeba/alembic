@@ -77,8 +77,6 @@ impl Widget for &mut MainTab {
                         .add_sized(Vec2::new(140.0, 70.0), Button::new("Launch"))
                         .clicked()
                     {
-                        println!("Launch clicked.");
-
                         // Client Info
                         let client_info = if let Some(s) = ui.data_mut(|data| {
                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
@@ -142,6 +140,17 @@ impl Widget for &mut MainTab {
                         } else {
                             None
                         };
+
+                        // Print comprehensive launch configuration
+                        println!("LAUNCH: Client=[{}|{}] DLL=[{}|{}] Server=[{}:{}] Account=[{}]",
+                            client_info.as_ref().map(|c| c.display_name()).unwrap_or("None"),
+                            client_info.as_ref().map(|c| if c.is_wine() { "Wine" } else { "Windows" }).unwrap_or("?"),
+                            dll_config.as_ref().map(|d| format!("{}", d.dll_type())).unwrap_or("None".to_string()),
+                            dll_config.as_ref().map(|d| d.dll_path().display().to_string()).unwrap_or("None".to_string()),
+                            server_info.as_ref().map(|s| s.hostname.as_str()).unwrap_or("None"),
+                            server_info.as_ref().map(|s| s.port.as_str()).unwrap_or("?"),
+                            account_info.as_ref().map(|a| a.username.as_str()).unwrap_or("None")
+                        );
 
                         match try_launch(&client_info, &server_info, &account_info, dll_config) {
                             Ok(val) => {
