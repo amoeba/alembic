@@ -339,8 +339,9 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
         ));
     }
 
-    // Handle exit_code
-    if exit_code != 1 {
+    // The C# code checks if exit_code != 0, treating non-zero as success
+    // This is a bit unusual, but we match that behavior for DecalStartup
+    if exit_code == 0 {
         return Err(anyhow::anyhow!("Function execution returned 0 (failure)"));
     }
 
