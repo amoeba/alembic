@@ -289,6 +289,16 @@ fn execute_function(
     // Calculate the address to execute in the target process
     let address_to_execute = injected_dll_address as u64 + function_offset;
 
+    println!(
+        "DLL injection debug: function='{}' local_base=0x{:X} func_addr=0x{:X} offset=0x{:X} remote_base=0x{:X} remote_addr=0x{:X}",
+        function_name,
+        library_address.0 as u64,
+        function_address as u64,
+        function_offset,
+        injected_dll_address,
+        address_to_execute
+    );
+
     // Execute the function in the remote process
     execute_at_address(process_handle, address_to_execute as *const ())?;
 
@@ -338,6 +348,11 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
             "GetExitCodeThread failed for function execution"
         ));
     }
+
+    println!(
+        "Remote thread exit code: 0x{:X} (decimal: {})",
+        exit_code, exit_code
+    );
 
     // The C# code checks if exit_code != 0, treating non-zero as success
     // This is a bit unusual, but we match that behavior for DecalStartup
