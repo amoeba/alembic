@@ -144,6 +144,9 @@ pub fn inject_into_process(
     let dll_path_bytes = dll_path_cstring.as_bytes_with_nul();
     let dll_path_size = dll_path_bytes.len();
 
+    // TODO: should be 44
+    println!("dll_path_size is {:?}", dll_path_size);
+
     // Allocate memory in the target process for the DLL path
     let alloc_mem_address = unsafe {
         VirtualAllocEx(
