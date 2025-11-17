@@ -142,7 +142,9 @@ pub fn inject_into_process(
 ) -> Result<()> {
     let dll_path_cstring = CString::new(dll_path).context("Failed to create DLL path CString")?;
     let dll_path_bytes = dll_path_cstring.as_bytes_with_nul();
-    let dll_path_size = dll_path_bytes.len();
+    // let dll_path_size = dll_path_bytes.len();
+    // TODO: When I set this manually to 44 injection fails
+    let dll_path_size = 44;
 
     // TODO: should be 44
     println!("dll_path_size is {:?}", dll_path_size);
