@@ -23,12 +23,13 @@ use windows::Win32::System::Threading::{
 struct MemoryGuard {
     process_handle: HANDLE,
     address: *mut std::ffi::c_void,
+    size: usize,
 }
 
 impl Drop for MemoryGuard {
     fn drop(&mut self) {
         unsafe {
-            VirtualFreeEx(self.process_handle, self.address, 0, MEM_RELEASE).ok();
+            VirtualFreeEx(self.process_handle, self.address, self.size, MEM_RELEASE).ok();
         }
     }
 }
@@ -162,6 +163,7 @@ pub fn inject_into_process(
     let _guard = MemoryGuard {
         process_handle,
         address: alloc_mem_address,
+        size: dll_path_size,
     };
 
     // Write the DLL path to the allocated memory
