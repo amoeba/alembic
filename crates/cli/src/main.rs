@@ -2,7 +2,7 @@ use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use libalembic::{
     client_config::ClientConfig,
-    launch::Launcher,
+    launcher::Launcher,
     scanner,
     settings::{Account, ServerInfo, SettingsManager},
 };

@@ -3,7 +3,7 @@ pub mod async_runtime;
 pub mod client_config;
 pub mod inject;
 pub mod injector;
-pub mod launch;
+pub mod launcher;
 pub mod msg;
 pub mod rpc;
 pub mod scanner;

@@ -6,7 +6,7 @@ pub fn try_launch(
     inject_config: &Option<libalembic::client_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use anyhow::bail;
-    use libalembic::launch::Launcher;
+    use libalembic::launcher::{ClientLauncher, Launcher};
 
     // Validate arguments
     let client_config = match client_config {
@@ -30,7 +30,7 @@ pub fn try_launch(
         server_info,
         account_info,
     );
-    let pid = launcher.find_or_launch()?;
+    let pid = launcher.launch()?;
     launcher.inject()?;
     // TODO: How to handle deinject. i.e., store the launch app-wide
 

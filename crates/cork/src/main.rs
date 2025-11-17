@@ -48,8 +48,6 @@ enum Commands {
         #[arg(long)]
         function: Option<String>,
     },
-    /// Find and display running acclient.exe processes
-    Scan,
 }
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
@@ -179,6 +177,5 @@ fn main() -> Result<()> {
             &dll,
             function.as_deref(),
         ),
-        Commands::Scan => find_acclient_windows(),
     }
 }

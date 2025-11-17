@@ -18,7 +18,13 @@ use std::fs;
 use anyhow::bail;
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
-use std::{ffi::OsString, os::windows::{ffi::OsStrExt, io::{AsHandle, AsRawHandle}}};
+use std::{
+    ffi::OsString,
+    os::windows::{
+        ffi::OsStrExt,
+        io::{AsHandle, AsRawHandle},
+    },
+};
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 use dll_syringe::process::{OwnedProcess, Process};
@@ -36,6 +42,14 @@ use windows::{
 
 /// Trait for platform-specific client launcher implementations
 pub trait ClientLauncher: std::any::Any {
+    /// Create a new launcher
+    fn new(
+        client_config: ClientConfig,
+        inject_config: Option<InjectConfig>,
+        server_info: ServerInfo,
+        account_info: Account,
+    ) -> Self;
+
     /// Launch a new client process
     fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error>;
 
@@ -49,6 +63,15 @@ pub trait ClientLauncher: std::any::Any {
     fn eject(&mut self) -> Result<(), anyhow::Error>;
 }
 
+/// Platform-specific launcher type alias
+/// On Windows: WindowsLauncherImpl
+/// On other platforms: WineLauncherImpl
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+pub type Launcher = WindowsLauncherImpl;
+
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+pub type Launcher = WineLauncherImpl;
+
 /// Windows-specific launcher implementation
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub struct WindowsLauncherImpl {
@@ -61,12 +84,28 @@ pub struct WindowsLauncherImpl {
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 impl WindowsLauncherImpl {
-    pub fn new(
-        config: WindowsClientConfig,
+    pub fn attach_or_launch_injected(&mut self) -> Result<(), Box<dyn Error>> {
+        self.find_or_launch()?;
+        self.inject()?;
+        Ok(())
+    }
+}
+
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+impl ClientLauncher for WindowsLauncherImpl {
+    fn new(
+        client_config: ClientConfig,
         inject_config: Option<InjectConfig>,
         server_info: ServerInfo,
         account_info: Account,
     ) -> Self {
+        let config = match client_config {
+            ClientConfig::Windows(config) => config,
+            ClientConfig::Wine(_) => {
+                panic!("Wine launcher is not supported on Windows MSVC platform")
+            }
+        };
+
         Self {
             config,
             inject_config,
@@ -76,10 +115,6 @@ impl WindowsLauncherImpl {
         }
     }
 
-}
-
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
-impl ClientLauncher for WindowsLauncherImpl {
     fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
         println!("Launching new client process...");
 
@@ -180,7 +215,10 @@ impl ClientLauncher for WindowsLauncherImpl {
                 dll_path.display()
             );
 
-            let client = self.client.as_ref().expect("No client process to inject into");
+            let client = self
+                .client
+                .as_ref()
+                .expect("No client process to inject into");
 
             // Determine if we need to call a function after injection
             let dll_function = match inject_config.dll_type() {
@@ -191,11 +229,7 @@ impl ClientLauncher for WindowsLauncherImpl {
             // Use the injector module to inject and optionally call the startup function
             use windows::Win32::Foundation::HANDLE;
             let handle = HANDLE(client.as_handle().as_raw_handle() as *mut std::ffi::c_void);
-            crate::injector::inject_into_process(
-                handle,
-                dll_path.to_str().unwrap(),
-                dll_function,
-            )?;
+            crate::injector::inject_into_process(handle, dll_path.to_str().unwrap(), dll_function)?;
 
             println!(
                 "Successfully injected {} DLL{}",
@@ -233,22 +267,10 @@ pub struct WineLauncherImpl {
 }
 
 impl WineLauncherImpl {
-    pub fn new(
-        config: WineClientConfig,
-        inject_config: Option<InjectConfig>,
-        server_info: ServerInfo,
-        account_info: Account,
-    ) -> Self {
-        Self {
-            config,
-            inject_config,
-            server_info,
-            account_info,
-            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            child_pid: None,
-            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            child: None,
-        }
+    pub fn attach_or_launch_injected(&mut self) -> Result<(), Box<dyn Error>> {
+        self.find_or_launch()?;
+        self.inject()?;
+        Ok(())
     }
 
     fn launch_wine(&self) -> Result<Child, Box<dyn Error>> {
@@ -277,7 +299,10 @@ impl WineLauncherImpl {
         println!("Launching client via Wine");
         println!(
             "Launching: {} -h {} -p {} -a {}",
-            client_exe, self.server_info.hostname, self.server_info.port, self.account_info.username
+            client_exe,
+            self.server_info.hostname,
+            self.server_info.port,
+            self.account_info.username
         );
 
         // Launch client
@@ -342,10 +367,7 @@ impl WineLauncherImpl {
     }
 
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    fn call_cork_with_injection(
-        &self,
-        windows_pid: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    fn call_cork_with_injection(&self, windows_pid: u32) -> Result<(), Box<dyn Error>> {
         let cork_path = std::env::current_exe().ok().and_then(|p| {
             let parent = p.parent()?;
             let exe_path = parent.join("cork.exe");
@@ -363,7 +385,10 @@ impl WineLauncherImpl {
 
         if let Some(cork_path) = cork_path {
             if let Some(inject_config) = &self.inject_config {
-                println!("Calling cork with Windows PID {} for DLL injection", windows_pid);
+                println!(
+                    "Calling cork with Windows PID {} for DLL injection",
+                    windows_pid
+                );
 
                 let mut cmd = Command::new(&self.config.wine_executable);
                 cmd.env("WINEPREFIX", &self.config.prefix_path);
@@ -412,6 +437,31 @@ impl WineLauncherImpl {
 }
 
 impl ClientLauncher for WineLauncherImpl {
+    fn new(
+        client_config: ClientConfig,
+        inject_config: Option<InjectConfig>,
+        server_info: ServerInfo,
+        account_info: Account,
+    ) -> Self {
+        let config = match client_config {
+            ClientConfig::Wine(config) => config,
+            ClientConfig::Windows(_) => {
+                panic!("Windows launcher is only supported on Windows MSVC platform")
+            }
+        };
+
+        Self {
+            config,
+            inject_config,
+            server_info,
+            account_info,
+            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+            child_pid: None,
+            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+            child: None,
+        }
+    }
+
     fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
         println!("Launching new client via Wine...");
 
@@ -466,75 +516,5 @@ impl ClientLauncher for WineLauncherImpl {
     fn eject(&mut self) -> Result<(), anyhow::Error> {
         println!("DLL ejection not applicable in Wine mode");
         Ok(())
-    }
-}
-
-pub struct Launcher {
-    launcher_impl: Box<dyn ClientLauncher>,
-}
-
-impl Launcher {
-    pub fn new(
-        client_config: ClientConfig,
-        inject_config: Option<InjectConfig>,
-        server_info: ServerInfo,
-        account_info: Account,
-    ) -> Self {
-        let launcher_impl: Box<dyn ClientLauncher> = match client_config {
-            #[cfg(all(target_os = "windows", target_env = "msvc"))]
-            ClientConfig::Windows(config) => Box::new(WindowsLauncherImpl::new(
-                config,
-                inject_config,
-                server_info,
-                account_info,
-            )),
-            #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-            ClientConfig::Windows(_) => {
-                panic!("Windows launcher is only supported on Windows MSVC platform")
-            }
-            ClientConfig::Wine(config) => Box::new(WineLauncherImpl::new(
-                config,
-                inject_config,
-                server_info,
-                account_info,
-            )),
-        };
-
-        Launcher { launcher_impl }
-    }
-
-    pub fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        self.launcher_impl.launch()
-    }
-
-    pub fn find_or_launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        self.launcher_impl.find_or_launch()
-    }
-
-    pub fn inject(&mut self) -> Result<(), anyhow::Error> {
-        self.launcher_impl.inject()
-    }
-
-    pub fn eject(&mut self) -> Result<(), anyhow::Error> {
-        self.launcher_impl.eject()
-    }
-
-    pub fn attach_or_launch_injected(&mut self) -> Result<(), Box<dyn Error>> {
-        self.find_or_launch()?;
-        self.inject()?;
-        Ok(())
-    }
-
-    /// Take ownership of the wine child process for stdout/stderr monitoring
-    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    pub fn take_child(&mut self) -> Option<Child> {
-        // Downcast to WineLauncherImpl if possible
-        if let Some(wine_impl) = (self.launcher_impl.as_mut() as &mut dyn std::any::Any)
-            .downcast_mut::<WineLauncherImpl>()
-        {
-            wine_impl.take_child()
-        } else {
-            None
-        }
     }
 }

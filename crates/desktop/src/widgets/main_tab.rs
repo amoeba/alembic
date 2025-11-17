@@ -152,7 +152,7 @@ impl Widget for &mut MainTab {
                             account_info.as_ref().map(|a| a.username.as_str()).unwrap_or("None")
                         );
 
-                        match try_launch(&client_info, &server_info, &account_info, dll_config) {
+                        match try_launch(&client_info, &server_info, &account_info, &dll_config) {
                             Ok(val) => {
                                 println!("Launch succeeded. Launched pid is {val}!");
 

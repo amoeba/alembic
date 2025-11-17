@@ -340,7 +340,7 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
     }
 
     // Handle exit_code
-    if exit_code != 0 {
+    if exit_code != 1 {
         return Err(anyhow::anyhow!("Function execution returned 0 (failure)"));
     }
 
