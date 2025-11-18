@@ -4470,9 +4470,9 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.27.0"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce1475c515a4f03a8a7129bb5228b81a781a86cb0b3fbbc19e1c556d491a401f"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
  "strum_macros 0.27.0",
 ]
@@ -5008,7 +5008,7 @@ dependencies = [
  "futures",
  "libalembic",
  "ratatui",
- "strum 0.27.0",
+ "strum 0.27.2",
  "tarpc",
  "tokio",
 ]
