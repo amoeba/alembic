@@ -1,9 +1,6 @@
-use std::{
-    fs,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
-use eframe::egui::{self, Color32, Layout, Response, RichText, Ui, Widget};
+use eframe::egui::{self, Layout, Response, RichText, Ui, Widget};
 use libalembic::settings::AlembicSettings;
 
 pub fn centered_text(ui: &mut Ui, text: &str) -> Response {
@@ -208,41 +205,143 @@ pub struct SettingsGameClientPathEdit {}
 
 impl Widget for &mut SettingsGameClientPathEdit {
     fn ui(self, ui: &mut Ui) -> Response {
+        use egui_extras::{Column, TableBuilder};
+
         ui.vertical(|ui| {
-            ui.label("Game Client Configuration");
+            ui.label("Game Clients");
+            ui.add_space(8.0);
 
             if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                let settings = s.lock().unwrap();
+                let mut settings = s.lock().unwrap();
+                let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
 
-                match settings.selected_client {
-                    Some(index) => {
-                        if let Some(client) = settings.clients.get(index) {
-                            ui.label(format!("Name: {}", client.display_name()));
-                            ui.label(format!("Path: {}", client.install_path().display()));
-                            ui.label(format!("Type: {}", if client.is_wine() { "Wine" } else { "Windows" }));
+                // Scan button
+                if ui.button("Scan for Clients").clicked() {
+                    match libalembic::scanner::scan_all() {
+                        Ok(discovered) => {
+                            let had_no_clients = settings.clients.is_empty();
+                            let mut added_count = 0;
 
-                            // Indicator
-                            match fs::exists(client.install_path()) {
-                                Ok(result) => match result {
-                                    true => ui.label(RichText::new("Path exists.").color(Color32::GREEN)),
-                                    false => ui.label(
-                                        RichText::new("Path does not exist.")
-                                            .color(Color32::YELLOW),
-                                    ),
-                                },
-                                Err(_) => ui.label(
-                                    RichText::new("Error checking path.")
-                                        .color(Color32::RED),
-                                ),
-                            };
-                        } else {
-                            ui.label("TODO: Bug, please report.");
+                            for config in discovered {
+                                // Check if already exists
+                                let already_exists = settings.clients
+                                    .iter()
+                                    .any(|existing| existing.install_path() == config.install_path());
+
+                                if !already_exists {
+                                    let should_select = had_no_clients && added_count == 0;
+                                    settings.add_client(config, should_select);
+                                    settings.is_configured = true;
+                                    added_count += 1;
+                                }
+                            }
+
+                            if added_count > 0 {
+                                let _ = settings.save();
+                                println!("Added {} new client(s)", added_count);
+                            } else {
+                                println!("No new clients found");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error scanning for clients: {}", e);
                         }
                     }
-                    None => {
-                        ui.label("No client selected. Use 'client scan' or 'client select' to configure.");
+                }
+
+                ui.add_space(8.0);
+
+                if settings.clients.is_empty() {
+                    ui.label("No clients configured. Click 'Scan for Clients' to discover clients.");
+                } else {
+                    let mut to_remove: Option<usize> = None;
+
+                    TableBuilder::new(ui)
+                        .id_salt("clients_table")
+                        .striped(true)
+                        .resizable(true)
+                        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                        .column(Column::auto())      // Index
+                        .column(Column::remainder()) // Path
+                        .column(Column::auto())      // Type
+                        .column(Column::auto())      // Delete button
+                        .header(text_height, |mut header| {
+                            header.col(|ui| {
+                                ui.strong("#");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Path");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Type");
+                            });
+                            header.col(|ui| {
+                                ui.strong("");
+                            });
+                        })
+                        .body(|mut body| {
+                            let selected_client = settings.selected_client;
+                            let mut new_selection: Option<usize> = None;
+
+                            for (index, client) in settings.clients.iter().enumerate() {
+                                let is_selected = Some(index) == selected_client;
+
+                                body.row(text_height, |mut row| {
+                                    // Index column
+                                    row.col(|ui| {
+                                        let text = if is_selected {
+                                            RichText::new(format!("* {}", index)).strong()
+                                        } else {
+                                            RichText::new(format!("  {}", index))
+                                        };
+                                        if ui.selectable_label(is_selected, text).clicked() {
+                                            new_selection = Some(index);
+                                        }
+                                    });
+
+                                    // Path column
+                                    row.col(|ui| {
+                                        ui.label(client.install_path().display().to_string());
+                                    });
+
+                                    // Type column
+                                    row.col(|ui| {
+                                        let client_type = if client.is_wine() { "wine" } else { "Windows" };
+                                        ui.label(client_type);
+                                    });
+
+                                    // Delete button column
+                                    row.col(|ui| {
+                                        if ui.button("Delete").clicked() {
+                                            to_remove = Some(index);
+                                        }
+                                    });
+                                });
+                            }
+
+                            // Handle selection change
+                            if let Some(index) = new_selection {
+                                settings.selected_client = Some(index);
+                                let _ = settings.save();
+                            }
+                        });
+
+                    // Handle deletion
+                    if let Some(index) = to_remove {
+                        settings.clients.remove(index);
+
+                        // Update selected_client if needed
+                        if let Some(selected) = settings.selected_client {
+                            if selected == index {
+                                settings.selected_client = None;
+                            } else if selected > index {
+                                settings.selected_client = Some(selected - 1);
+                            }
+                        }
+
+                        let _ = settings.save();
                     }
                 }
             } else {
@@ -256,40 +355,140 @@ pub struct SettingsDLLPathEdit {}
 
 impl Widget for &mut SettingsDLLPathEdit {
     fn ui(self, ui: &mut Ui) -> Response {
+        use egui_extras::{Column, TableBuilder};
+
         ui.vertical(|ui| {
-            ui.label("DLL Configuration");
+            ui.label("DLLs");
+            ui.add_space(8.0);
 
             if let Some(s) = ui.data_mut(|data| {
                 data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
             }) {
-                let settings = s.lock().unwrap();
+                let mut settings = s.lock().unwrap();
+                let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
 
-                match settings.selected_dll {
-                    Some(index) => {
-                        if let Some(dll) = settings.discovered_dlls.get(index) {
-                            ui.label(format!("Type: {}", dll.dll_type()));
-                            ui.label(format!("Path: {}", dll.dll_path().display()));
+                // Scan button
+                if ui.button("Scan for DLLs").clicked() {
+                    match libalembic::scanner::scan_for_decal_dlls() {
+                        Ok(discovered_dlls) => {
+                            if discovered_dlls.is_empty() {
+                                println!("No Decal installations found");
+                            } else {
+                                let had_no_dlls = settings.discovered_dlls.is_empty();
 
-                            // Indicator
-                            match fs::exists(dll.dll_path()) {
-                                Ok(result) => match result {
-                                    true => ui
-                                        .label(RichText::new("Path exists.").color(Color32::GREEN)),
-                                    false => ui.label(
-                                        RichText::new("Path does not exist.")
-                                            .color(Color32::YELLOW),
-                                    ),
-                                },
-                                Err(_) => ui.label(
-                                    RichText::new("Error checking path.").color(Color32::RED),
-                                ),
-                            };
-                        } else {
-                            ui.label("TODO: Bug, please report.");
+                                for dll in discovered_dlls {
+                                    settings.add_or_update_dll(dll);
+                                }
+
+                                // Auto-select first DLL if there were no DLLs before
+                                if had_no_dlls && !settings.discovered_dlls.is_empty() && settings.selected_dll.is_none() {
+                                    settings.selected_dll = Some(0);
+                                }
+
+                                let _ = settings.save();
+                                println!("DLL scan complete");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error scanning for DLLs: {}", e);
                         }
                     }
-                    None => {
-                        ui.label("No DLL selected. Use 'dll scan' or 'dll select' to configure.");
+                }
+
+                ui.add_space(8.0);
+
+                if settings.discovered_dlls.is_empty() {
+                    ui.label("No DLLs configured. Click 'Scan for DLLs' to discover DLLs.");
+                } else {
+                    let mut to_remove: Option<usize> = None;
+
+                    TableBuilder::new(ui)
+                        .id_salt("dlls_table")
+                        .striped(true)
+                        .resizable(true)
+                        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                        .column(Column::auto())      // Index
+                        .column(Column::remainder()) // Path
+                        .column(Column::auto())      // Type
+                        .column(Column::auto())      // Delete button
+                        .header(text_height, |mut header| {
+                            header.col(|ui| {
+                                ui.strong("#");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Path");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Type");
+                            });
+                            header.col(|ui| {
+                                ui.strong("");
+                            });
+                        })
+                        .body(|mut body| {
+                            let selected_dll = settings.selected_dll;
+                            let mut new_selection: Option<usize> = None;
+
+                            for (index, dll) in settings.discovered_dlls.iter().enumerate() {
+                                let is_selected = Some(index) == selected_dll;
+
+                                body.row(text_height, |mut row| {
+                                    // Index column
+                                    row.col(|ui| {
+                                        let text = if is_selected {
+                                            RichText::new(format!("* {}", index)).strong()
+                                        } else {
+                                            RichText::new(format!("  {}", index))
+                                        };
+                                        if ui.selectable_label(is_selected, text).clicked() {
+                                            new_selection = Some(index);
+                                        }
+                                    });
+
+                                    // Path column
+                                    row.col(|ui| {
+                                        ui.label(dll.dll_path().display().to_string());
+                                    });
+
+                                    // Type column
+                                    row.col(|ui| {
+                                        let dll_variant = match dll {
+                                            libalembic::client_config::InjectConfig::Wine(_) => "wine",
+                                            libalembic::client_config::InjectConfig::Windows(_) => "Windows",
+                                        };
+                                        ui.label(dll_variant);
+                                    });
+
+                                    // Delete button column
+                                    row.col(|ui| {
+                                        if ui.button("Delete").clicked() {
+                                            to_remove = Some(index);
+                                        }
+                                    });
+                                });
+                            }
+
+                            // Handle selection change
+                            if let Some(index) = new_selection {
+                                settings.selected_dll = Some(index);
+                                let _ = settings.save();
+                            }
+                        });
+
+                    // Handle deletion
+                    if let Some(index) = to_remove {
+                        settings.discovered_dlls.remove(index);
+
+                        // Update selected_dll if needed
+                        if let Some(selected) = settings.selected_dll {
+                            if selected == index {
+                                settings.selected_dll = None;
+                            } else if selected > index {
+                                settings.selected_dll = Some(selected - 1);
+                            }
+                        }
+
+                        let _ = settings.save();
                     }
                 }
             } else {
