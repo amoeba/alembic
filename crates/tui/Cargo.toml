@@ -13,6 +13,6 @@ crossterm = "0.28.1"
 libalembic = { path = "../libalembic" }
 futures = { workspace = true }
 ratatui = "0.29.0"
-strum = { version = "0.27.0", features = ["derive", "strum_macros"] }
+strum = { version = "0.27.2", features = ["derive", "strum_macros"] }
 tarpc = { workspace = true }
 tokio = { workspace = true }
