@@ -4,6 +4,7 @@ compile_error!("cork can only be built for i686-pc-windows-msvc target. Use: car
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use std::path::Path;
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 use dll_syringe::process::{OwnedProcess, Process};
@@ -68,6 +69,38 @@ fn launch_client_with_injection(
     if let Some(func) = dll_function {
         println!("  Function: {}", func);
     }
+
+    // Verify that acclient.exe exists
+    let client_file = Path::new(client_path);
+    if !client_file.exists() {
+        anyhow::bail!(
+            "ERROR: AC client executable not found at path: {}\nPlease verify the --client path is correct.",
+            client_path
+        );
+    }
+    if !client_file.is_file() {
+        anyhow::bail!(
+            "ERROR: AC client path exists but is not a file: {}\nPlease provide a path to acclient.exe",
+            client_path
+        );
+    }
+    println!("✓ AC client executable found");
+
+    // Verify that the DLL exists
+    let dll_file = Path::new(dll_path);
+    if !dll_file.exists() {
+        anyhow::bail!(
+            "ERROR: DLL not found at path: {}\nPlease verify the --dll path is correct.",
+            dll_path
+        );
+    }
+    if !dll_file.is_file() {
+        anyhow::bail!(
+            "ERROR: DLL path exists but is not a file: {}\nPlease provide a path to a valid DLL file.",
+            dll_path
+        );
+    }
+    println!("✓ DLL file found");
 
     // Build the command line arguments
     let arguments = format!("-h {} -p {} -a {} -v {}", hostname, port, account, password);
