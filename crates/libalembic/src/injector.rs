@@ -29,7 +29,8 @@ struct MemoryGuard {
 impl Drop for MemoryGuard {
     fn drop(&mut self) {
         unsafe {
-            VirtualFreeEx(self.process_handle, self.address, self.size, MEM_RELEASE).ok();
+            // When using MEM_RELEASE, the size parameter must be 0 per Microsoft documentation
+            VirtualFreeEx(self.process_handle, self.address, 0, MEM_RELEASE).ok();
         }
     }
 }
@@ -142,12 +143,11 @@ pub fn inject_into_process(
 ) -> Result<()> {
     let dll_path_cstring = CString::new(dll_path).context("Failed to create DLL path CString")?;
     let dll_path_bytes = dll_path_cstring.as_bytes_with_nul();
-    // let dll_path_size = dll_path_bytes.len();
-    // TODO: When I set this manually to 44 injection fails
-    let dll_path_size = 44;
+    let dll_path_size = dll_path_bytes.len();
 
-    // TODO: should be 44
-    println!("dll_path_size is {:?}", dll_path_size);
+    println!("DLL path: {:?}", dll_path);
+    println!("DLL path bytes: {:?}", dll_path_bytes);
+    println!("DLL path size: {}", dll_path_size);
 
     // Allocate memory in the target process for the DLL path
     let alloc_mem_address = unsafe {
@@ -232,6 +232,8 @@ pub fn inject_into_process(
         return Err(anyhow::anyhow!("GetExitCodeThread failed"));
     }
 
+    println!("Injected DLL base address: 0x{:X}", injected_dll_address);
+
     if injected_dll_address == 0 {
         return Err(anyhow::anyhow!(
             "DLL injection failed - LoadLibraryA returned 0"
@@ -290,6 +292,9 @@ fn execute_function(
         function_name
     ))?;
 
+    println!("Local library base: 0x{:X}", library_address.0 as u64);
+    println!("Function address (local): 0x{:X}", function_address as u64);
+
     // Calculate the offset of the function from the DLL base
     let function_offset = function_address as u64 - library_address.0 as u64;
 
@@ -297,7 +302,7 @@ fn execute_function(
     let address_to_execute = injected_dll_address as u64 + function_offset;
 
     println!(
-        "DLL injection debug: function='{}' local_base=0x{:X} func_addr=0x{:X} offset=0x{:X} remote_base=0x{:X} remote_addr=0x{:X}",
+        "DLL injection summary: function='{}' local_base=0x{:X} func_addr=0x{:X} offset=0x{:X} remote_base=0x{:X} remote_addr=0x{:X}",
         function_name,
         library_address.0 as u64,
         function_address as u64,
