@@ -2,7 +2,7 @@ use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use libalembic::{
     client_config::ClientConfig,
-    launcher::Launcher,
+    launcher::{ClientLauncher, Launcher},
     scanner,
     settings::{Account, ServerInfo, SettingsManager},
 };
@@ -746,8 +746,6 @@ fn get_timestamp() -> String {
 }
 
 fn client_list() -> anyhow::Result<()> {
-    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
-
     let clients = SettingsManager::get(|s| s.clients.clone());
     let selected_client = SettingsManager::get(|s| s.selected_client);
 
@@ -757,51 +755,11 @@ fn client_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["#", "Name", "Path", "Type"]);
-
     for (idx, config) in clients.iter().enumerate() {
         let is_selected = Some(idx) == selected_client;
-
-        let index_cell = if is_selected {
-            Cell::new(idx.to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(idx.to_string())
-        };
-
-        let client_type = if config.is_wine() { "Wine" } else { "Windows" };
-
-        let name_cell = if is_selected {
-            Cell::new(config.display_name()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(config.display_name())
-        };
-
-        let path_cell = if is_selected {
-            Cell::new(config.install_path().display().to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(config.install_path().display().to_string())
-        };
-
-        let type_cell = if is_selected {
-            Cell::new(client_type).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(client_type)
-        };
-
-        table.add_row(vec![index_cell, name_cell, path_cell, type_cell]);
-    }
-
-    println!("{}", table);
-
-    if selected_client.is_some() {
-        println!(
-            "\nSelected: index {} (shown in bold)",
-            selected_client.unwrap()
-        );
+        let marker = if is_selected { " * " } else { "   " };
+        let client_type = if config.is_wine() { "wine" } else { "Windows" };
+        println!("{}{}: {} ({})", marker, idx, config.install_path().display(), client_type);
     }
 
     Ok(())
@@ -944,8 +902,6 @@ fn server_add(name: String, hostname: String, port: String) -> anyhow::Result<()
 }
 
 fn server_list() -> anyhow::Result<()> {
-    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
-
     let servers = SettingsManager::get(|s| s.servers.clone());
     let selected_server = SettingsManager::get(|s| s.selected_server);
 
@@ -954,49 +910,10 @@ fn server_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["#", "Name", "Hostname", "Port"]);
-
     for (index, server) in servers.iter().enumerate() {
         let is_selected = Some(index) == selected_server;
-
-        let index_cell = if is_selected {
-            Cell::new(index.to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(index.to_string())
-        };
-
-        let name_cell = if is_selected {
-            Cell::new(&server.name).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(&server.name)
-        };
-
-        let hostname_cell = if is_selected {
-            Cell::new(&server.hostname).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(&server.hostname)
-        };
-
-        let port_cell = if is_selected {
-            Cell::new(&server.port).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(&server.port)
-        };
-
-        table.add_row(vec![index_cell, name_cell, hostname_cell, port_cell]);
-    }
-
-    println!("{}", table);
-
-    if selected_server.is_some() {
-        println!(
-            "\nSelected: index {} (shown in bold)",
-            selected_server.unwrap()
-        );
+        let marker = if is_selected { " * " } else { "   " };
+        println!("{}{}: {}", marker, index, server.name);
     }
 
     Ok(())
@@ -1094,8 +1011,6 @@ fn account_add(server: usize, username: String, password: String) -> anyhow::Res
 }
 
 fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
-    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
-
     let accounts = SettingsManager::get(|s| s.accounts.clone());
     let servers = SettingsManager::get(|s| s.servers.clone());
     let selected_account = SettingsManager::get(|s| s.selected_account);
@@ -1136,14 +1051,9 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["#", "Server", "Username"]);
-
     for (index, account) in &filtered_accounts {
         let is_selected = Some(*index) == selected_account;
+        let marker = if is_selected { " * " } else { "   " };
 
         let server_name = if account.server_index < servers.len() {
             &servers[account.server_index].name
@@ -1151,34 +1061,7 @@ fn account_list(server_filter: Option<usize>) -> anyhow::Result<()> {
             "<unknown>"
         };
 
-        let index_cell = if is_selected {
-            Cell::new(index.to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(index.to_string())
-        };
-
-        let server_cell = if is_selected {
-            Cell::new(server_name).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(server_name)
-        };
-
-        let username_cell = if is_selected {
-            Cell::new(&account.username).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(&account.username)
-        };
-
-        table.add_row(vec![index_cell, server_cell, username_cell]);
-    }
-
-    println!("{}", table);
-
-    if selected_account.is_some() {
-        println!(
-            "\nSelected: index {} (shown in bold)",
-            selected_account.unwrap()
-        );
+        println!("{}{}: {}@{}", marker, index, account.username, server_name);
     }
 
     Ok(())
@@ -1370,8 +1253,6 @@ fn dll_scan() -> anyhow::Result<()> {
 }
 
 fn dll_list() -> anyhow::Result<()> {
-    use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table};
-
     let (discovered_dlls, selected_dll) =
         SettingsManager::get(|s| (s.discovered_dlls.clone(), s.selected_dll));
 
@@ -1381,56 +1262,16 @@ fn dll_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["#", "Type", "DLL", "Path"]);
-
     for (idx, dll) in discovered_dlls.iter().enumerate() {
         let is_selected = Some(idx) == selected_dll;
-
-        let index_cell = if is_selected {
-            Cell::new(idx.to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(idx.to_string())
-        };
+        let marker = if is_selected { " * " } else { "   " };
 
         let dll_variant = match dll {
-            libalembic::client_config::InjectConfig::Wine(_) => "Wine",
+            libalembic::client_config::InjectConfig::Wine(_) => "wine",
             libalembic::client_config::InjectConfig::Windows(_) => "Windows",
         };
 
-        // Type column: Wine/Windows
-        let type_cell = if is_selected {
-            Cell::new(dll_variant).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(dll_variant)
-        };
-
-        // DLL column: Alembic/Decal
-        let dll_name_cell = if is_selected {
-            Cell::new(dll.dll_type().to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(dll.dll_type().to_string())
-        };
-
-        let path_cell = if is_selected {
-            Cell::new(dll.dll_path().display().to_string()).add_attribute(Attribute::Bold)
-        } else {
-            Cell::new(dll.dll_path().display().to_string())
-        };
-
-        table.add_row(vec![index_cell, type_cell, dll_name_cell, path_cell]);
-    }
-
-    println!("{}", table);
-
-    if selected_dll.is_some() {
-        println!(
-            "\nSelected: index {} (shown in bold)",
-            selected_dll.unwrap()
-        );
+        println!("{}{}: {} ({})", marker, idx, dll.dll_path().display(), dll_variant);
     }
 
     Ok(())
