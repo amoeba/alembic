@@ -2,6 +2,62 @@
 
 ![Alembic Logo](./crates/desktop/assets/logo.png)
 
+Alembic is a cross-platform GUI and CLI Asheron's Call launcher supporting both [Decal](https://decaldev.com) and my own minimal Decal reimplementation [Alembic](#alembic).
+
+## Status
+
+It's not feature complete so here's what works today:
+
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th colspan="3" style="text-align: center">CLI</th>
+      <th colspan="3" style="text-align: center">Desktop</th>
+    </tr>
+    <tr>
+      <th>&nbsp;</th>
+      <th>Launching</th>
+      <th>Decal</th>
+      <th>Alembic</th>
+      <th>Launching</th>
+      <th>Decal</th>
+      <th>Alembic</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Windows</th>
+      <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <th>Linux</th>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <th>macOS</th>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+  </tbody>
+</table>
+
+## Alembic
+
 Tiny demonstration of using the [dll-syringe](https://github.com/OpenByteDev/dll-syringe/) and [retour-rs](https://github.com/Hpmason/retour-rs) to hook Asheron's Call client functions and [egui](https://www.egui.rs) to give all of that a UI.
 
 Built for my curiosity.
