@@ -226,9 +226,9 @@ impl Widget for &mut SettingsGameClientPathEdit {
 
                             for config in discovered {
                                 // Check if already exists
-                                let already_exists = settings.clients
-                                    .iter()
-                                    .any(|existing| existing.install_path() == config.install_path());
+                                let already_exists = settings.clients.iter().any(|existing| {
+                                    existing.install_path() == config.install_path()
+                                });
 
                                 if !already_exists {
                                     let should_select = had_no_clients && added_count == 0;
@@ -254,7 +254,9 @@ impl Widget for &mut SettingsGameClientPathEdit {
                 ui.add_space(8.0);
 
                 if settings.clients.is_empty() {
-                    ui.label("No clients configured. Click 'Scan for Clients' to discover clients.");
+                    ui.label(
+                        "No clients configured. Click 'Scan for Clients' to discover clients.",
+                    );
                 } else {
                     let mut to_remove: Option<usize> = None;
 
@@ -263,10 +265,10 @@ impl Widget for &mut SettingsGameClientPathEdit {
                         .striped(true)
                         .resizable(true)
                         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                        .column(Column::auto())      // Index
+                        .column(Column::auto()) // Index
                         .column(Column::remainder()) // Path
-                        .column(Column::auto())      // Type
-                        .column(Column::auto())      // Delete button
+                        .column(Column::auto()) // Type
+                        .column(Column::auto()) // Delete button
                         .header(text_height, |mut header| {
                             header.col(|ui| {
                                 ui.strong("#");
@@ -308,7 +310,8 @@ impl Widget for &mut SettingsGameClientPathEdit {
 
                                     // Type column
                                     row.col(|ui| {
-                                        let client_type = if client.is_wine() { "wine" } else { "Windows" };
+                                        let client_type =
+                                            if client.is_wine() { "wine" } else { "Windows" };
                                         ui.label(client_type);
                                     });
 
@@ -381,7 +384,10 @@ impl Widget for &mut SettingsDLLPathEdit {
                                 }
 
                                 // Auto-select first DLL if there were no DLLs before
-                                if had_no_dlls && !settings.discovered_dlls.is_empty() && settings.selected_dll.is_none() {
+                                if had_no_dlls
+                                    && !settings.discovered_dlls.is_empty()
+                                    && settings.selected_dll.is_none()
+                                {
                                     settings.selected_dll = Some(0);
                                 }
 
@@ -407,10 +413,10 @@ impl Widget for &mut SettingsDLLPathEdit {
                         .striped(true)
                         .resizable(true)
                         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                        .column(Column::auto())      // Index
+                        .column(Column::auto()) // Index
                         .column(Column::remainder()) // Path
-                        .column(Column::auto())      // Type
-                        .column(Column::auto())      // Delete button
+                        .column(Column::auto()) // Type
+                        .column(Column::auto()) // Delete button
                         .header(text_height, |mut header| {
                             header.col(|ui| {
                                 ui.strong("#");
@@ -453,8 +459,12 @@ impl Widget for &mut SettingsDLLPathEdit {
                                     // Type column
                                     row.col(|ui| {
                                         let dll_variant = match dll {
-                                            libalembic::client_config::InjectConfig::Wine(_) => "wine",
-                                            libalembic::client_config::InjectConfig::Windows(_) => "Windows",
+                                            libalembic::client_config::InjectConfig::Wine(_) => {
+                                                "wine"
+                                            }
+                                            libalembic::client_config::InjectConfig::Windows(_) => {
+                                                "Windows"
+                                            }
                                         };
                                         ui.label(dll_variant);
                                     });

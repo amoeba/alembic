@@ -1,13 +1,16 @@
-// Enforce that cork can ONLY be built for 32-bit Windows (i686-pc-windows-msvc)
-#[cfg(not(all(target_arch = "x86", target_os = "windows", target_env = "msvc")))]
-compile_error!("cork can only be built for i686-pc-windows-msvc target. Use: cargo build --target i686-pc-windows-msvc -p cork");
+// Cork is a Windows executable that can be built for either:
+// - i686-pc-windows-msvc (32-bit MSVC, native Windows build)
+// - x86_64-pc-windows-gnu (64-bit MinGW, cross-compile from Linux/macOS)
+// - i686-pc-windows-gnu (32-bit MinGW, cross-compile from Linux/macOS)
+#[cfg(not(target_os = "windows"))]
+compile_error!("cork can only be built for Windows targets");
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::Path;
 
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
-use dll_syringe::process::{OwnedProcess, Process};
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+use std::process::Command;
 
 #[derive(Parser)]
 #[command(name = "cork")]
@@ -130,64 +133,6 @@ fn launch_client_with_injection(
     anyhow::bail!("Cork client launching is only supported on Windows");
 }
 
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
-fn find_acclient_windows() -> Result<()> {
-    println!("Cork: Searching for acclient.exe process using Windows API");
-
-    if let Some(process) = OwnedProcess::find_first_by_name("acclient") {
-        match process.pid() {
-            Ok(pid) => {
-                println!("Found acclient.exe!");
-                println!("  Process ID: {}", pid);
-                println!("\nDone. Exiting without injection.");
-                return Ok(());
-            }
-            Err(e) => {
-                println!("Found acclient.exe but couldn't get PID: {}", e);
-            }
-        }
-    } else {
-        println!("No acclient.exe process found");
-    }
-
-    println!("\nDone. Exiting without injection.");
-    Ok(())
-}
-
-#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-fn find_acclient_windows() -> Result<()> {
-    println!("Cork: Searching for acclient.exe using tasklist");
-
-    // Call tasklist.exe to get the process list
-    let output = Command::new("tasklist.exe").output()?;
-
-    if !output.status.success() {
-        anyhow::bail!("tasklist.exe failed");
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    println!("tasklist output:\n{}", stdout);
-
-    // Parse output looking for acclient.exe
-    // Format is: acclient.exe,32
-    for line in stdout.lines() {
-        if line.starts_with("acclient.exe,") {
-            let parts: Vec<&str> = line.split(',').collect();
-            if parts.len() >= 2 {
-                if let Ok(pid) = parts[1].trim().parse::<u32>() {
-                    println!("\nFound acclient.exe!");
-                    println!("  Process ID: {}", pid);
-                    println!("\nDone. Exiting without injection.");
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    println!("\nNo acclient.exe process found");
-    println!("\nDone. Exiting without injection.");
-    Ok(())
-}
 
 fn main() -> Result<()> {
     let args = Args::parse();

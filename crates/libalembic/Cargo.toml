@@ -20,11 +20,13 @@ tarpc = { workspace = true }
 tokio = { workspace = true }
 
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
-dll-syringe = "0.17.0"
+dll-syringe = { version = "0.17.0", optional = true }
 retour = { workspace = true }
 widestring = "1.1.0"
 windows = { workspace = true }
 
-# TODO: Do I want to have feature flags in this crate?
 [features]
-full = []
+default = []
+# Enable Alembic launcher support (requires nightly Rust for dll-syringe)
+alembic = ["dll-syringe"]
+full = ["alembic"]
