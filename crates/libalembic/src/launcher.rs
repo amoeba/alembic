@@ -7,9 +7,15 @@ use std::{
 };
 
 use crate::{
-    client_config::{ClientConfig, DllType, InjectConfig, WindowsClientConfig, WineClientConfig},
+    client_config::{ClientConfig, DllType, InjectConfig},
     settings::{Account, ServerInfo},
 };
+
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+use crate::client_config::WindowsClientConfig;
+
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+use crate::client_config::WineClientConfig;
 
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 use std::fs;
@@ -169,7 +175,16 @@ impl ClientLauncher for WindowsLauncherImpl {
                     let _ = CloseHandle(process_info.hProcess);
 
                     self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap());
-                    Ok(NonZero::new(process_info.dwProcessId).unwrap())
+                    let pid = NonZero::new(process_info.dwProcessId).unwrap();
+
+                    // Inject if we have an inject config
+                    if self.inject_config.is_some() {
+                        if let Err(e) = self.inject() {
+                            eprintln!("Warning: Failed to inject DLL: {}", e);
+                        }
+                    }
+
+                    Ok(pid)
                 }
                 Err(error) => {
                     eprintln!("CreateProcessW failure: {error:?}");
@@ -186,15 +201,24 @@ impl ClientLauncher for WindowsLauncherImpl {
         // Try to find existing acclient process
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
             self.client = Some(target);
-            match self.client.as_ref().unwrap().pid() {
-                Ok(val) => return Ok(val),
+            let pid = match self.client.as_ref().unwrap().pid() {
+                Ok(val) => val,
                 Err(err) => return Err(err),
+            };
+
+            // Inject if we have an inject config
+            if self.inject_config.is_some() {
+                if let Err(e) = self.inject() {
+                    eprintln!("Warning: Failed to inject DLL: {}", e);
+                }
             }
+
+            return Ok(pid);
         }
 
         println!("Couldn't find existing client to inject into. Launching instead.");
 
-        // Launch new process
+        // Launch new process (which will handle injection internally)
         self.launch()
     }
 
@@ -473,16 +497,18 @@ impl ClientLauncher for WineLauncherImpl {
                     self.child_pid = Some(unix_pid);
                     self.child = Some(child);
 
-                    // Get Windows PID and call cork for injection
-                    match self.get_windows_pid_from_wine() {
-                        Ok(windows_pid) => {
-                            println!("Unix PID: {}, Windows PID: {}", unix_pid, windows_pid);
-                            if let Err(e) = self.call_cork_with_injection(windows_pid) {
-                                println!("Error calling cork for injection: {}", e);
+                    // Get Windows PID and call cork for injection if InjectConfig is present
+                    if self.inject_config.is_some() {
+                        match self.get_windows_pid_from_wine() {
+                            Ok(windows_pid) => {
+                                println!("Unix PID: {}, Windows PID: {}", unix_pid, windows_pid);
+                                if let Err(e) = self.call_cork_with_injection(windows_pid) {
+                                    eprintln!("Warning: Failed to inject DLL: {}", e);
+                                }
                             }
-                        }
-                        Err(e) => {
-                            println!("Error getting Windows PID: {}", e);
+                            Err(e) => {
+                                eprintln!("Warning: Error getting Windows PID for injection: {}", e);
+                            }
                         }
                     }
                 }

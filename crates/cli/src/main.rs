@@ -527,7 +527,6 @@ fn run_launcher(
         account_info.clone(),
     );
     launcher.find_or_launch()?;
-    launcher.inject()?;
 
     // Capture child process stdout/stderr on non-Windows platforms
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
