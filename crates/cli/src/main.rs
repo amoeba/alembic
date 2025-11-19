@@ -147,6 +147,9 @@ enum AccountCommands {
         index: usize,
     },
 
+    /// Clear the selected account
+    Reset,
+
     /// Remove an account by index
     Remove {
         /// Index of the account to remove (from 'account list')
@@ -187,6 +190,9 @@ enum ClientCommands {
         /// Index of the client to select (from 'client list')
         index: usize,
     },
+
+    /// Clear the selected client
+    Reset,
 
     /// Remove a client by index
     Remove {
@@ -229,6 +235,9 @@ enum ServerCommands {
         /// Index of the server to select (from 'server list')
         index: usize,
     },
+
+    /// Clear the selected server
+    Reset,
 
     /// Remove a server by index
     Remove {
@@ -303,6 +312,7 @@ fn main() -> anyhow::Result<()> {
                 } => account_add(server, username, password),
                 AccountCommands::List { server } => account_list(server),
                 AccountCommands::Select { index } => account_select(index),
+                AccountCommands::Reset => account_reset(),
                 AccountCommands::Remove { index } => account_remove(index),
             },
             ConfigCommands::Client { command } => match command {
@@ -315,6 +325,7 @@ fn main() -> anyhow::Result<()> {
                 } => client_add(mode, client_path, launcher_path, wine_prefix, env_vars),
                 ClientCommands::List => client_list(),
                 ClientCommands::Select { index } => client_select(index),
+                ClientCommands::Reset => client_reset(),
                 ClientCommands::Remove { index } => client_remove(index),
                 ClientCommands::Show { index } => client_show(index),
                 ClientCommands::Scan => client_scan(),
@@ -327,6 +338,7 @@ fn main() -> anyhow::Result<()> {
                 } => server_add(name, hostname, port),
                 ServerCommands::List => server_list(),
                 ServerCommands::Select { index } => server_select(index),
+                ServerCommands::Reset => server_reset(),
                 ServerCommands::Remove { index } => server_remove(index),
             },
             ConfigCommands::Dll { command } => match command {
@@ -865,6 +877,22 @@ fn client_select(index: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn client_reset() -> anyhow::Result<()> {
+    let was_selected = SettingsManager::get(|s| s.selected_client.is_some());
+
+    SettingsManager::modify(|settings| {
+        settings.selected_client = None;
+    })?;
+
+    if was_selected {
+        println!("✓ Client selection cleared");
+    } else {
+        println!("No client was selected");
+    }
+
+    Ok(())
+}
+
 fn client_remove(index: usize) -> anyhow::Result<()> {
     let removed = SettingsManager::get(|s| {
         if index < s.clients.len() {
@@ -945,6 +973,22 @@ fn server_select(index: usize) -> anyhow::Result<()> {
     })?;
 
     println!("✓ Selected server: {}", server_name);
+
+    Ok(())
+}
+
+fn server_reset() -> anyhow::Result<()> {
+    let was_selected = SettingsManager::get(|s| s.selected_server.is_some());
+
+    SettingsManager::modify(|settings| {
+        settings.selected_server = None;
+    })?;
+
+    if was_selected {
+        println!("✓ Server selection cleared");
+    } else {
+        println!("No server was selected");
+    }
 
     Ok(())
 }
@@ -1093,6 +1137,22 @@ fn account_select(index: usize) -> anyhow::Result<()> {
     })?;
 
     println!("✓ Selected account: {}", username);
+
+    Ok(())
+}
+
+fn account_reset() -> anyhow::Result<()> {
+    let was_selected = SettingsManager::get(|s| s.selected_account.is_some());
+
+    SettingsManager::modify(|settings| {
+        settings.selected_account = None;
+    })?;
+
+    if was_selected {
+        println!("✓ Account selection cleared");
+    } else {
+        println!("No account was selected");
+    }
 
     Ok(())
 }
