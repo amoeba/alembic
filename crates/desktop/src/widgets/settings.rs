@@ -2,13 +2,26 @@ use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
 
 use crate::application::AppPage;
 
-use super::components::{SettingsDLLPathEdit, SettingsGameClientPathEdit};
+use super::{
+    settings_clients_tab::SettingsClientsTab, settings_dlls_tab::SettingsDllsTab,
+    settings_tab::{SettingsTab, SettingsTabContent},
+};
 
-pub struct Settings {}
+pub struct Settings {
+    settings_tab: SettingsTab,
+}
 
 impl Settings {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            settings_tab: SettingsTab {
+                tabs: vec![
+                    SettingsTabContent::Clients(SettingsClientsTab {}),
+                    SettingsTabContent::Dlls(SettingsDllsTab {}),
+                ],
+                selected_tab: 0,
+            },
+        }
     }
 }
 
@@ -33,9 +46,7 @@ impl Widget for &mut Settings {
                 ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
                     ui.heading("Settings");
                     ui.add_space(16.0);
-                    ui.add(&mut SettingsGameClientPathEdit {});
-                    ui.add_space(16.0);
-                    ui.add(&mut SettingsDLLPathEdit {});
+                    ui.add(&mut self.settings_tab);
                 });
             });
         })
