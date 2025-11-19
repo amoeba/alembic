@@ -19,11 +19,13 @@ serde_json = "1.0"
 tarpc = { workspace = true }
 tokio = { workspace = true }
 
-[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
-dll-syringe = { version = "0.17.0", optional = true }
+[target.'cfg(target_os = "windows")'.dependencies]
 retour = { workspace = true }
 widestring = "1.1.0"
 windows = { workspace = true }
+
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
+dll-syringe = { version = "0.17.0", optional = true }
 
 [features]
 default = []

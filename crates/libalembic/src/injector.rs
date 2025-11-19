@@ -1,4 +1,4 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
+#![cfg(target_os = "windows")]
 
 //! Native Rust implementation of DLL injection functionality
 //! Based on Mag-ACClientLauncher's Injector.cs
@@ -124,6 +124,58 @@ pub fn launch_suspended_inject_and_resume(
     }
 
     result
+}
+
+/// Launch a process without DLL injection (just create and resume)
+pub fn launch_without_injection(
+    executable_path: &str,
+    executable_args: &str,
+) -> Result<()> {
+    // Combine filename and executable_args into command line
+    let command_line = format!("{} {}", executable_path, executable_args);
+    let command_line_cstring =
+        CString::new(command_line).context("Failed to create command line CString")?;
+
+    // Get working directory from the executable path
+    let working_dir = Path::new(executable_path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .context("Failed to get working directory from file path")?;
+    let working_dir_cstring =
+        CString::new(working_dir).context("Failed to create working directory CString")?;
+
+    let mut startup_info: STARTUPINFOA = unsafe { std::mem::zeroed() };
+    startup_info.cb = std::mem::size_of::<STARTUPINFOA>() as u32;
+
+    let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+
+    // Create the process normally (not suspended)
+    let success = unsafe {
+        CreateProcessA(
+            PCSTR::null(),
+            PSTR(command_line_cstring.as_ptr() as *mut u8),
+            None,
+            None,
+            false,
+            Default::default(), // No special flags - just launch normally
+            None,
+            PCSTR(working_dir_cstring.as_ptr() as *const u8),
+            &startup_info,
+            &mut process_info,
+        )
+    };
+
+    if !success.is_ok() {
+        return Err(anyhow::anyhow!("CreateProcessA failed"));
+    }
+
+    // Close handles (no need to resume since we didn't suspend)
+    unsafe {
+        CloseHandle(process_info.hThread).ok();
+        CloseHandle(process_info.hProcess).ok();
+    }
+
+    Ok(())
 }
 
 /// Inject a DLL into an existing process

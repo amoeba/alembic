@@ -22,7 +22,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Launch a new AC client with DLL injection
+    /// Launch a new AC client with optional DLL injection
     Launch {
         /// Path to acclient.exe
         #[arg(long)]
@@ -46,7 +46,7 @@ enum Commands {
 
         /// Path to DLL to inject (e.g., C:\\Program Files (x86)\\Decal 3.0\\Inject.dll)
         #[arg(long)]
-        dll: String,
+        dll: Option<String>,
 
         /// Optional function name to execute in the DLL after injection (e.g., "DecalStartup")
         #[arg(long)]
@@ -54,23 +54,30 @@ enum Commands {
     },
 }
 
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
+#[cfg(target_os = "windows")]
 fn launch_client_with_injection(
     client_path: &str,
     hostname: &str,
     port: &str,
     account: &str,
     password: &str,
-    dll_path: &str,
+    dll_path: Option<&str>,
     dll_function: Option<&str>,
 ) -> Result<()> {
-    println!("Cork: Launching AC client with DLL injection");
+    if dll_path.is_some() {
+        println!("Cork: Launching AC client with DLL injection");
+    } else {
+        println!("Cork: Launching AC client (no DLL injection)");
+    }
     println!("  Client: {}", client_path);
     println!("  Server: {}:{}", hostname, port);
     println!("  Account: {}", account);
-    println!("  DLL: {}", dll_path);
-    if let Some(func) = dll_function {
-        println!("  Function: {}", func);
+
+    if let Some(dll) = dll_path {
+        println!("  DLL: {}", dll);
+        if let Some(func) = dll_function {
+            println!("  Function: {}", func);
+        }
     }
 
     // Verify that acclient.exe exists
@@ -89,45 +96,56 @@ fn launch_client_with_injection(
     }
     println!("✓ AC client executable found");
 
-    // Verify that the DLL exists
-    let dll_file = Path::new(dll_path);
-    if !dll_file.exists() {
-        anyhow::bail!(
-            "ERROR: DLL not found at path: {}\nPlease verify the --dll path is correct.",
-            dll_path
-        );
+    // Verify that the DLL exists (if provided)
+    if let Some(dll) = dll_path {
+        let dll_file = Path::new(dll);
+        if !dll_file.exists() {
+            anyhow::bail!(
+                "ERROR: DLL not found at path: {}\nPlease verify the --dll path is correct.",
+                dll
+            );
+        }
+        if !dll_file.is_file() {
+            anyhow::bail!(
+                "ERROR: DLL path exists but is not a file: {}\nPlease provide a path to a valid DLL file.",
+                dll
+            );
+        }
+        println!("✓ DLL file found");
     }
-    if !dll_file.is_file() {
-        anyhow::bail!(
-            "ERROR: DLL path exists but is not a file: {}\nPlease provide a path to a valid DLL file.",
-            dll_path
-        );
-    }
-    println!("✓ DLL file found");
 
     // Build the command line arguments
     let arguments = format!("-h {} -p {} -a {} -v {}", hostname, port, account, password);
 
     println!("\nStarting process...");
-    libalembic::injector::launch_suspended_inject_and_resume(
-        client_path,
-        &arguments,
-        dll_path,
-        dll_function,
-    )?;
 
-    println!("Client launched and DLL injected successfully!");
+    if let Some(dll) = dll_path {
+        libalembic::injector::launch_suspended_inject_and_resume(
+            client_path,
+            &arguments,
+            dll,
+            dll_function,
+        )?;
+        println!("Client launched and DLL injected successfully!");
+    } else {
+        libalembic::injector::launch_without_injection(
+            client_path,
+            &arguments,
+        )?;
+        println!("Client launched successfully!");
+    }
+
     Ok(())
 }
 
-#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+#[cfg(not(target_os = "windows"))]
 fn launch_client_with_injection(
     _client_path: &str,
     _hostname: &str,
     _port: &str,
     _account: &str,
     _password: &str,
-    _dll_path: &str,
+    _dll_path: Option<&str>,
     _dll_function: Option<&str>,
 ) -> Result<()> {
     anyhow::bail!("Cork client launching is only supported on Windows");
@@ -152,7 +170,7 @@ fn main() -> Result<()> {
             &port,
             &account,
             &password,
-            &dll,
+            dll.as_deref(),
             function.as_deref(),
         ),
     }

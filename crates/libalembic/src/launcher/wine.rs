@@ -32,19 +32,49 @@ impl WineLauncherImpl {
     /// Launch client using cork (which handles injection if configured)
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
     fn launch_with_cork(&self) -> Result<Child, Box<dyn Error>> {
-        // Find cork.exe in the same directory as the current executable
+        use std::path::PathBuf;
+
+        // Find cork.exe - try multiple locations for dev vs release
         let cork_path = std::env::current_exe()
             .ok()
-            .and_then(|p| {
-                let parent = p.parent()?;
-                let exe_path = parent.join("cork.exe");
-                if exe_path.exists() {
-                    Some(exe_path)
-                } else {
-                    None
+            .and_then(|exe_path| {
+                let parent = exe_path.parent()?;
+
+                // Strategy 1: Same directory as executable (release/installed)
+                let same_dir = parent.join("cork.exe");
+                if same_dir.exists() {
+                    return Some(same_dir);
                 }
+
+                // Strategy 2: Development mode - look in cargo target directory
+                // e.g., if exe is at target/debug/desktop, look for target/x86_64-pc-windows-gnu/debug/cork.exe
+                // Try matching build type first (debug/release), then try the other
+                if let Some(target_dir) = parent.parent() {
+                    let build_type = parent.file_name()?; // "debug" or "release"
+
+                    // Try same build type first
+                    let same_type_path = target_dir
+                        .join("x86_64-pc-windows-gnu")
+                        .join(build_type)
+                        .join("cork.exe");
+                    if same_type_path.exists() {
+                        return Some(same_type_path);
+                    }
+
+                    // Fall back to opposite build type
+                    let other_type = if build_type == "debug" { "release" } else { "debug" };
+                    let other_type_path = target_dir
+                        .join("x86_64-pc-windows-gnu")
+                        .join(other_type)
+                        .join("cork.exe");
+                    if other_type_path.exists() {
+                        return Some(other_type_path);
+                    }
+                }
+
+                None
             })
-            .ok_or("cork.exe not found in executable directory")?;
+            .ok_or("cork.exe not found. Expected in same directory as executable or target/x86_64-pc-windows-gnu/[debug|release]/")?;
 
         let client_exe = format!("{}\\acclient.exe", self.config.install_path.display());
 
@@ -91,10 +121,11 @@ impl WineLauncherImpl {
                 DllType::Alembic => None,
             };
 
-            if let Some(func) = dll_function {
-                println!("  Function: {}", func);
-                cmd.arg("--function").arg(func);
-            }
+            // TEMPORARILY DISABLED: Calling the function causes issues under Wine/MinGW
+            // if let Some(func) = dll_function {
+            //     println!("  Function: {}", func);
+            //     cmd.arg("--function").arg(func);
+            // }
         }
 
         // For debugging: inherit stdout/stderr so we can see cork's output

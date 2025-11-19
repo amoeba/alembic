@@ -264,6 +264,9 @@ enum DllCommands {
         index: usize,
     },
 
+    /// Clear the selected DLL
+    Reset,
+
     /// Remove a DLL configuration by index
     Remove {
         /// Index of the DLL to remove
@@ -335,6 +338,7 @@ fn main() -> anyhow::Result<()> {
                 } => dll_add(platform, dll_type, path, wine_prefix),
                 DllCommands::List => dll_list(),
                 DllCommands::Select { index } => dll_select(index),
+                DllCommands::Reset => dll_reset(),
                 DllCommands::Remove { index } => dll_remove(index),
                 DllCommands::Show { index } => dll_show(index),
                 DllCommands::Scan => dll_scan(),
@@ -758,7 +762,13 @@ fn client_list() -> anyhow::Result<()> {
         let is_selected = Some(idx) == selected_client;
         let marker = if is_selected { " * " } else { "   " };
         let client_type = if config.is_wine() { "wine" } else { "Windows" };
-        println!("{}{}: {} ({})", marker, idx, config.install_path().display(), client_type);
+        println!(
+            "{}{}: {} ({})",
+            marker,
+            idx,
+            config.install_path().display(),
+            client_type
+        );
     }
 
     Ok(())
@@ -1270,7 +1280,13 @@ fn dll_list() -> anyhow::Result<()> {
             libalembic::client_config::InjectConfig::Windows(_) => "Windows",
         };
 
-        println!("{}{}: {} ({})", marker, idx, dll.dll_path().display(), dll_variant);
+        println!(
+            "{}{}: {} ({})",
+            marker,
+            idx,
+            dll.dll_path().display(),
+            dll_variant
+        );
     }
 
     Ok(())
@@ -1397,7 +1413,7 @@ fn dll_select(index: usize) -> anyhow::Result<()> {
 
     if index >= dll_count {
         println!("Invalid DLL index: {}", index);
-        println!("Use 'alembic dll list' to see available DLLs.");
+        println!("Use 'alembic config dll list' to see available DLLs.");
         return Ok(());
     }
 
@@ -1406,6 +1422,22 @@ fn dll_select(index: usize) -> anyhow::Result<()> {
     })?;
 
     println!("✓ Selected DLL at index {}", index);
+
+    Ok(())
+}
+
+fn dll_reset() -> anyhow::Result<()> {
+    let was_selected = SettingsManager::get(|s| s.selected_dll.is_some());
+
+    SettingsManager::modify(|settings| {
+        settings.selected_dll = None;
+    })?;
+
+    if was_selected {
+        println!("✓ DLL selection cleared");
+    } else {
+        println!("No DLL was selected");
+    }
 
     Ok(())
 }
