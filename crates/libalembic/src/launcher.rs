@@ -293,16 +293,26 @@ pub struct WineLauncherImpl {
 impl WineLauncherImpl {
     pub fn attach_or_launch_injected(&mut self) -> Result<(), Box<dyn Error>> {
         self.find_or_launch()?;
-        self.inject()?;
         Ok(())
     }
 
-    fn launch_wine(&self) -> Result<Child, Box<dyn Error>> {
+    /// Launch client using cork (which handles injection if configured)
+    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+    fn launch_with_cork(&self) -> Result<Child, Box<dyn Error>> {
+        // Find cork.exe in the same directory as the current executable
+        let cork_path = std::env::current_exe().ok().and_then(|p| {
+            let parent = p.parent()?;
+            let exe_path = parent.join("cork.exe");
+            if exe_path.exists() {
+                Some(exe_path)
+            } else {
+                None
+            }
+        }).ok_or("cork.exe not found in executable directory")?;
+
         let client_exe = format!("{}\\acclient.exe", self.config.install_path.display());
 
         let mut cmd = Command::new(&self.config.wine_executable);
-
-        // Set WINEPREFIX
         cmd.env("WINEPREFIX", &self.config.prefix_path);
 
         // Set additional environment variables
@@ -310,147 +320,56 @@ impl WineLauncherImpl {
             cmd.env(key, value);
         }
 
-        // Convert Windows path to Unix path for working directory
-        let windows_path_str = self.config.install_path.display().to_string();
-        let unix_path = windows_path_str
-            .trim_start_matches("C:\\")
-            .trim_start_matches("C:/")
-            .replace("\\", "/");
-        let working_dir = self.config.prefix_path.join("drive_c").join(&unix_path);
+        println!("Launching client via Wine using cork");
+        println!("  Client: {}", client_exe);
+        println!("  Server: {}:{}", self.server_info.hostname, self.server_info.port);
+        println!("  Account: {}", self.account_info.username);
 
-        cmd.current_dir(&working_dir);
-
-        println!("Launching client via Wine");
-        println!(
-            "Launching: {} -h {} -p {} -a {}",
-            client_exe,
-            self.server_info.hostname,
-            self.server_info.port,
-            self.account_info.username
-        );
-
-        // Launch client
-        cmd.arg(&client_exe)
-            .arg("-h")
+        // Build cork command
+        cmd.arg(cork_path.to_str().ok_or("Invalid cork path")?)
+            .arg("launch")
+            .arg("--client")
+            .arg(&client_exe)
+            .arg("--hostname")
             .arg(&self.server_info.hostname)
-            .arg("-p")
+            .arg("--port")
             .arg(&self.server_info.port)
-            .arg("-a")
+            .arg("--account")
             .arg(&self.account_info.username)
-            .arg("-v")
+            .arg("--password")
             .arg(&self.account_info.password);
+
+        // Add DLL injection parameters if configured
+        if let Some(inject_config) = &self.inject_config {
+            println!("  DLL: {}", inject_config.dll_path().display());
+
+            cmd.arg("--dll")
+                .arg(inject_config.dll_path().display().to_string());
+
+            // Determine if we need to call a function after injection
+            let dll_function = match inject_config.dll_type() {
+                DllType::Decal => Some("DecalStartup"),
+                DllType::Alembic => None,
+            };
+
+            if let Some(func) = dll_function {
+                println!("  Function: {}", func);
+                cmd.arg("--function").arg(func);
+            }
+        }
 
         // Pipe stdout/stderr
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
         let child = cmd.spawn()?;
-
         Ok(child)
     }
 
-    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    fn get_windows_pid_from_wine(&self) -> Result<u32, Box<dyn Error>> {
-        use std::thread;
-        use std::time::Duration;
-
-        println!("Waiting for acclient.exe to start in wine...");
-        thread::sleep(Duration::from_millis(2000));
-
-        let mut cmd = Command::new(&self.config.wine_executable);
-        cmd.env("WINEPREFIX", &self.config.prefix_path);
-
-        for (key, value) in &self.config.additional_env {
-            cmd.env(key, value);
-        }
-
-        cmd.arg("winedbg");
-        cmd.arg("--command");
-        cmd.arg("info proc");
-
-        let output = cmd.output()?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        println!("winedbg output:\n{}", stdout);
-
-        // Parse the output to find acclient.exe
-        for line in stdout.lines() {
-            if line.contains("acclient.exe") {
-                println!("Found acclient.exe line: {}", line);
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if let Some(pid_str) = parts.first() {
-                    if let Ok(pid) = u32::from_str_radix(pid_str, 16) {
-                        println!("Extracted Windows PID: 0x{} (decimal: {})", pid_str, pid);
-                        return Ok(pid);
-                    }
-                }
-            }
-        }
-
-        Err("Could not find Windows PID for acclient.exe".into())
-    }
-
-    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    fn call_cork_with_injection(&self, windows_pid: u32) -> Result<(), Box<dyn Error>> {
-        let cork_path = std::env::current_exe().ok().and_then(|p| {
-            let parent = p.parent()?;
-            let exe_path = parent.join("cork.exe");
-            if exe_path.exists() {
-                Some(exe_path)
-            } else {
-                let unix_path = parent.join("cork");
-                if unix_path.exists() {
-                    Some(unix_path)
-                } else {
-                    None
-                }
-            }
-        });
-
-        if let Some(cork_path) = cork_path {
-            if let Some(inject_config) = &self.inject_config {
-                println!(
-                    "Calling cork with Windows PID {} for DLL injection",
-                    windows_pid
-                );
-
-                let mut cmd = Command::new(&self.config.wine_executable);
-                cmd.env("WINEPREFIX", &self.config.prefix_path);
-
-                for (key, value) in &self.config.additional_env {
-                    cmd.env(key, value);
-                }
-
-                // Determine if we need to call a function after injection
-                let dll_function = match inject_config.dll_type() {
-                    DllType::Decal => Some("DecalStartup"),
-                    DllType::Alembic => None,
-                };
-
-                cmd.arg(cork_path.to_str().ok_or("Invalid cork path")?)
-                    .arg("inject")
-                    .arg("--pid")
-                    .arg(windows_pid.to_string())
-                    .arg("--dll")
-                    .arg(inject_config.dll_path().display().to_string());
-
-                if let Some(func) = dll_function {
-                    cmd.arg("--function").arg(func);
-                }
-
-                let output = cmd.output()?;
-                println!("Cork output:\n{}", String::from_utf8_lossy(&output.stdout));
-                if !output.stderr.is_empty() {
-                    println!("Cork stderr:\n{}", String::from_utf8_lossy(&output.stderr));
-                }
-            } else {
-                println!("No DLL injection configured for Wine launch");
-            }
-        } else {
-            println!("cork binary not found - DLL injection skipped");
-        }
-
-        Ok(())
+    /// Fallback: launch client directly without cork (no injection support)
+    #[cfg(all(target_os = "windows", target_env = "msvc"))]
+    fn launch_with_cork(&self) -> Result<Child, Box<dyn Error>> {
+        Err("Cork launching not supported on Windows MSVC".into())
     }
 
     /// Take ownership of the wine child process for stdout/stderr monitoring
@@ -489,28 +408,13 @@ impl ClientLauncher for WineLauncherImpl {
     fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
         println!("Launching new client via Wine...");
 
-        match self.launch_wine() {
+        match self.launch_with_cork() {
             Ok(child) => {
                 let unix_pid = child.id();
                 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
                 {
                     self.child_pid = Some(unix_pid);
                     self.child = Some(child);
-
-                    // Get Windows PID and call cork for injection if InjectConfig is present
-                    if self.inject_config.is_some() {
-                        match self.get_windows_pid_from_wine() {
-                            Ok(windows_pid) => {
-                                println!("Unix PID: {}, Windows PID: {}", unix_pid, windows_pid);
-                                if let Err(e) = self.call_cork_with_injection(windows_pid) {
-                                    eprintln!("Warning: Failed to inject DLL: {}", e);
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("Warning: Error getting Windows PID for injection: {}", e);
-                            }
-                        }
-                    }
                 }
                 #[cfg(all(target_os = "windows", target_env = "msvc"))]
                 {
