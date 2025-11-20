@@ -5,10 +5,12 @@ use eframe::egui::{self, Align, Layout, Response, Ui, Vec2, Widget};
 use libalembic::{
     launcher::{
         launcher::{Launcher, LauncherImpl},
-        windows::WindowsLauncher,
+        noop::NoopLauncher,
     },
     settings::AlembicSettings,
 };
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+use libalembic::launcher::windows::WindowsLauncher;
 
 use super::{
     components::{AccountPicker, ServerPicker},
@@ -85,6 +87,7 @@ impl Widget for &mut MainTab {
                         println!("No launcher. Must launch first.")
                     } else {
                         match self.launcher.as_mut().unwrap() {
+                            #[cfg(all(target_os = "windows", target_env = "msvc"))]
                             LauncherImpl::WindowsLauncher(windows_launcher) => {
                                 match windows_launcher.eject() {
                                     Ok(_) => println!("Eject success"),
@@ -104,6 +107,7 @@ impl Widget for &mut MainTab {
                         println!("Must launch first.")
                     } else {
                         match self.launcher.as_mut().unwrap() {
+                            #[cfg(all(target_os = "windows", target_env = "msvc"))]
                             libalembic::launcher::launcher::LauncherImpl::WindowsLauncher(
                                 windows_launcher,
                             ) => match windows_launcher.inject() {
@@ -172,16 +176,29 @@ impl Widget for &mut MainTab {
                     };
 
                     // Create our launcher
-                    self.launcher = Some(LauncherImpl::WindowsLauncher(WindowsLauncher::new(
-                        client_info.clone().unwrap(),
-                        server_info.clone().unwrap(),
-                        account_info.clone().unwrap(),
-                        dll_info.unwrap().clone(),
-                    )));
+                    #[cfg(all(target_os = "windows", target_env = "msvc"))]
+                    {
+                        self.launcher = Some(LauncherImpl::WindowsLauncher(WindowsLauncher::new(
+                            client_info.clone().unwrap(),
+                            server_info.clone().unwrap(),
+                            account_info.clone().unwrap(),
+                            dll_info.unwrap().clone(),
+                        )));
+                    }
+                    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+                    {
+                        self.launcher = Some(LauncherImpl::NoopLauncher(NoopLauncher::new(
+                            client_info.clone().unwrap(),
+                            server_info.clone().unwrap(),
+                            account_info.clone().unwrap(),
+                            dll_info.unwrap().clone(),
+                        )));
+                    }
 
                     println!("FindOrLaunch clicked with launcher {:?}", self.launcher);
                     match &mut self.launcher {
                         Some(launcher) => match launcher {
+                            #[cfg(all(target_os = "windows", target_env = "msvc"))]
                             LauncherImpl::WindowsLauncher(windows_launcher) => {
                                 match windows_launcher.find_or_launch() {
                                     Ok(info) => println!(

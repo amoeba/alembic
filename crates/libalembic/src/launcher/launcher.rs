@@ -2,7 +2,9 @@ use std::error::Error;
 
 use crate::settings::{AccountInfo, ClientInfo, DllInfo, ServerInfo};
 
-use super::{noop::NoopLauncher, windows::WindowsLauncher, wine::WineLauncher};
+use super::{noop::NoopLauncher, wine::WineLauncher};
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
+use super::windows::WindowsLauncher;
 
 // Define a container for the return value of launch so this can be
 // cross-platform
@@ -20,6 +22,7 @@ pub enum LaunchResult {
 // Define an enum of Launcher impls so we can refer to any at once
 #[derive(Debug)]
 pub enum LauncherImpl {
+    #[cfg(all(target_os = "windows", target_env = "msvc"))]
     WindowsLauncher(WindowsLauncher),
     WineLauncher(WineLauncher),
     NoopLauncher(NoopLauncher),
