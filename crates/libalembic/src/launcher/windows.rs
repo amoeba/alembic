@@ -67,15 +67,21 @@ impl ClientLauncher for WindowsLauncherImpl {
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
 
         let cmd_line = format!(
-            "{}\\acclient.exe -h {} -p {} -a {} -v {}",
-            self.config.install_path.display(),
+            "{} -h {} -p {} -a {} -v {}",
+            self.config.client_path.display(),
             self.server_info.hostname,
             self.server_info.port,
             self.account_info.username,
             self.account_info.password,
         );
 
-        let current_dir = format!("{}\\", self.config.install_path.display());
+        // Get the parent directory of acclient.exe as the working directory
+        let current_dir = self
+            .config
+            .client_path
+            .parent()
+            .map(|p| format!("{}\\", p.display()))
+            .unwrap_or_else(|| String::from(".\\"));
 
         let cmd_line_wide: Vec<u16> = OsString::from(&cmd_line)
             .encode_wide()

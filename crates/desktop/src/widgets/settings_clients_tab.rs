@@ -33,12 +33,14 @@ impl Widget for &mut SettingsClientsTab {
                     // Add buttons for different client types
                     ui.horizontal(|ui| {
                         if ui.button("New Wine Client").clicked() {
+                            let mut wine_env = std::collections::HashMap::new();
+                            wine_env.insert("WINEPREFIX".to_string(), "/path/to/prefix".to_string());
+
                             let new_client = ClientConfig::Wine(WineClientConfig {
-                                display_name: "Wine Client".to_string(),
-                                install_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call"),
-                                wine_executable: std::path::PathBuf::from("/usr/local/bin/wine64"),
-                                prefix_path: std::path::PathBuf::from("/path/to/prefix"),
-                                additional_env: std::collections::HashMap::new(),
+                                name: "Wine Client".to_string(),
+                                client_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call\\acclient.exe"),
+                                wine_executable_path: std::path::PathBuf::from("/usr/local/bin/wine64"),
+                                wine_env,
                             });
 
                             settings.clients.push(new_client);
@@ -48,8 +50,8 @@ impl Widget for &mut SettingsClientsTab {
                         #[cfg(target_os = "windows")]
                         if ui.button("New Windows Client").clicked() {
                             let new_client = ClientConfig::Windows(WindowsClientConfig {
-                                display_name: "Windows Client".to_string(),
-                                install_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call"),
+                                name: "Windows Client".to_string(),
+                                client_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call\\acclient.exe"),
                             });
 
                             settings.clients.push(new_client);
@@ -71,7 +73,7 @@ impl Widget for &mut SettingsClientsTab {
                         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                         .column(Column::auto()) // Type
                         .column(Column::auto()) // Name
-                        .column(Column::remainder()) // Install Path
+                        .column(Column::remainder()) // Client Path
                         .column(Column::auto()) // Delete
                         .header(text_height, |mut header| {
                             header.col(|ui| {
@@ -81,7 +83,7 @@ impl Widget for &mut SettingsClientsTab {
                                 ui.strong("Name");
                             });
                             header.col(|ui| {
-                                ui.strong("Install Path");
+                                ui.strong("Client Path");
                             });
                             header.col(|ui| {
                                 ui.strong("Delete");
@@ -110,28 +112,32 @@ impl Widget for &mut SettingsClientsTab {
                                         if ui.text_edit_singleline(&mut name).changed() {
                                             match &mut settings.clients[i] {
                                                 ClientConfig::Wine(config) => {
-                                                    config.display_name = name;
+                                                    config.name = name;
                                                 }
                                                 ClientConfig::Windows(config) => {
-                                                    config.display_name = name;
+                                                    config.name = name;
                                                 }
                                             }
                                             did_update = true;
                                         }
                                     });
 
-                                    // Install Path (editable)
+                                    // Client Path (editable)
                                     table_row.col(|ui| {
-                                        let mut path_string = settings.clients[i].install_path().display().to_string();
+                                        let current_path = match &settings.clients[i] {
+                                            ClientConfig::Wine(config) => &config.client_path,
+                                            ClientConfig::Windows(config) => &config.client_path,
+                                        };
+                                        let mut path_string = current_path.display().to_string();
 
                                         if ui.text_edit_singleline(&mut path_string).changed() {
                                             match &mut settings.clients[i] {
                                                 ClientConfig::Wine(config) => {
-                                                    config.install_path =
+                                                    config.client_path =
                                                         std::path::PathBuf::from(&path_string);
                                                 }
                                                 ClientConfig::Windows(config) => {
-                                                    config.install_path =
+                                                    config.client_path =
                                                         std::path::PathBuf::from(&path_string);
                                                 }
                                             }

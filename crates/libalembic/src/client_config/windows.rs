@@ -5,26 +5,24 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowsClientConfig {
-    /// Display name (e.g., "Asheron's Call - Main Installation")
-    pub display_name: String,
-    /// Path to AC installation (C:\Turbine\Asheron's Call)
-    pub install_path: PathBuf,
+    pub name: String,
+    pub client_path: PathBuf,
 }
 
 impl ClientConfiguration for WindowsClientConfig {
     fn display_name(&self) -> &str {
-        &self.display_name
+        &self.name
     }
 
     fn install_path(&self) -> &Path {
-        &self.install_path
+        self.client_path.parent().unwrap_or_else(|| Path::new(""))
     }
 }
 
 impl fmt::Display for WindowsClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Name: {}", self.display_name)?;
-        writeln!(f, "Install path: {}", self.install_path.display())?;
+        writeln!(f, "Name: {}", self.name)?;
+        writeln!(f, "Client path: {}", self.client_path.display())?;
         write!(f, "Type: Windows")
     }
 }

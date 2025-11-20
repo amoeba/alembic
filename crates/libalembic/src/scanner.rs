@@ -35,9 +35,9 @@ fn unix_to_windows_path(unix_path: &Path) -> Result<PathBuf> {
 }
 
 /// Scan a Wine prefix for Alembic and Decal DLL installations
-fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
+fn find_dlls_in_prefix(wine_prefix_path: &Path) -> Vec<InjectConfig> {
     let mut inject_configs = vec![];
-    let drive_c = prefix_path.join("drive_c");
+    let drive_c = wine_prefix_path.join("drive_c");
 
     if !drive_c.exists() {
         return inject_configs;
@@ -62,7 +62,7 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
                     dll_type: DllType::Alembic,
                     dll_path: windows_path,
                     startup_function: None,
-                    wine_prefix: Some(prefix_path.to_path_buf()),
+                    wine_prefix: Some(wine_prefix_path.to_path_buf()),
                 });
             }
         }
@@ -88,7 +88,7 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
                     dll_type: DllType::Decal,
                     dll_path: windows_path,
                     startup_function: Some("DecalStartup".to_string()),
-                    wine_prefix: Some(prefix_path.to_path_buf()),
+                    wine_prefix: Some(wine_prefix_path.to_path_buf()),
                 });
             }
         }
@@ -102,18 +102,18 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
 // ============================================================================
 
 pub struct WineScanner {
-    wine_executable: PathBuf,
+    wine_executable_path: PathBuf,
 }
 
 impl WineScanner {
-    pub fn new(wine_executable: PathBuf) -> Self {
-        Self { wine_executable }
+    pub fn new(wine_executable_path: PathBuf) -> Self {
+        Self { wine_executable_path }
     }
 
-    fn scan_prefix(&self, prefix_path: &Path) -> Result<Vec<ClientConfig>> {
+    fn scan_prefix(&self, wine_prefix_path: &Path) -> Result<Vec<ClientConfig>> {
         let mut configs = vec![];
 
-        let drive_c = prefix_path.join("drive_c");
+        let drive_c = wine_prefix_path.join("drive_c");
         if !drive_c.exists() || !drive_c.is_dir() {
             return Ok(configs);
         }
@@ -130,15 +130,17 @@ impl WineScanner {
             let exe_path = ac_path.join("acclient.exe");
 
             if exe_path.exists() {
-                // Convert Unix path to Windows path
-                let windows_path = self.unix_to_windows_path(&ac_path)?;
+                // Convert Unix path to Windows path for acclient.exe
+                let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
+
+                let mut wine_env = HashMap::new();
+                wine_env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
 
                 configs.push(ClientConfig::Wine(WineClientConfig {
-                    display_name: format!("Wine: {}", prefix_path.display()),
-                    install_path: windows_path,
-                    wine_executable: self.wine_executable.clone(),
-                    prefix_path: prefix_path.to_path_buf(),
-                    additional_env: HashMap::new(),
+                    name: format!("Wine: {}", wine_prefix_path.display()),
+                    client_path: windows_exe_path,
+                    wine_executable_path: self.wine_executable_path.clone(),
+                    wine_env,
                 }));
 
                 break; // Only add once per prefix
@@ -272,13 +274,13 @@ impl WhiskyScanner {
 
     fn scan_prefix(
         &self,
-        prefix_path: &Path,
+        wine_prefix_path: &Path,
         wine_exe: &Path,
         bottle_name: &str,
     ) -> Result<Vec<ClientConfig>> {
         let mut configs = vec![];
 
-        let drive_c = prefix_path.join("drive_c");
+        let drive_c = wine_prefix_path.join("drive_c");
         if !drive_c.exists() {
             return Ok(configs);
         }
@@ -295,14 +297,16 @@ impl WhiskyScanner {
             let exe_path = ac_path.join("acclient.exe");
 
             if exe_path.exists() {
-                let windows_path = self.unix_to_windows_path(&ac_path)?;
+                let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
+
+                let mut wine_env = HashMap::new();
+                wine_env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
 
                 configs.push(ClientConfig::Wine(WineClientConfig {
-                    display_name: format!("Whisky: {}", bottle_name),
-                    install_path: windows_path,
-                    wine_executable: wine_exe.to_path_buf(),
-                    prefix_path: prefix_path.to_path_buf(),
-                    additional_env: HashMap::new(),
+                    name: format!("Whisky: {}", bottle_name),
+                    client_path: windows_exe_path,
+                    wine_executable_path: wine_exe.to_path_buf(),
+                    wine_env,
                 }));
 
                 break;
@@ -420,10 +424,10 @@ impl ClientScanner for WindowsScanner {
             let client_exe = path.join("acclient.exe");
 
             if client_exe.exists() {
-                let display_name = format!("Asheron's Call - {}", search_path);
+                let name = format!("Asheron's Call - {}", search_path);
                 configs.push(ClientConfig::Windows(WindowsClientConfig {
-                    display_name,
-                    install_path: path,
+                    name,
+                    client_path: client_exe,
                 }));
             }
         }
@@ -673,8 +677,8 @@ fn scan_wine_for_decal_dlls(_scanner: &WineScanner) -> Result<Vec<InjectConfig>>
 
 /// Find the AC installation directory in a Wine prefix
 #[allow(dead_code)]
-fn find_ac_in_prefix(prefix_path: &Path) -> Option<PathBuf> {
-    let drive_c = prefix_path.join("drive_c");
+fn find_ac_in_prefix(wine_prefix_path: &Path) -> Option<PathBuf> {
+    let drive_c = wine_prefix_path.join("drive_c");
     if !drive_c.exists() {
         return None;
     }

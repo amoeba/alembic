@@ -6,41 +6,35 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WineClientConfig {
-    /// Display name (e.g., "Whisky Bottle: AC", "Wine: ~/.wine")
-    pub display_name: String,
-    /// AC installation in Windows format (C:\Turbine\Asheron's Call)
-    pub install_path: PathBuf,
-    /// Wine executable path (wine64, wine, etc.)
-    pub wine_executable: PathBuf,
-    /// Wine prefix directory (WINEPREFIX)
-    pub prefix_path: PathBuf,
-    /// Additional environment variables
-    pub additional_env: HashMap<String, String>,
+    pub name: String,
+    pub client_path: PathBuf,
+    pub wine_executable_path: PathBuf,
+    pub wine_env: HashMap<String, String>,
 }
 
 impl ClientConfiguration for WineClientConfig {
     fn display_name(&self) -> &str {
-        &self.display_name
+        &self.name
     }
 
     fn install_path(&self) -> &Path {
-        &self.install_path
+        // Return the parent directory of acclient.exe as the install path
+        self.client_path.parent().unwrap_or_else(|| Path::new(""))
     }
 }
 
 impl fmt::Display for WineClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Name: {}", self.display_name)?;
-        writeln!(f, "Install path: {}", self.install_path.display())?;
+        writeln!(f, "Name: {}", self.name)?;
+        writeln!(f, "Client path: {}", self.client_path.display())?;
         writeln!(f, "Type: Wine")?;
-        writeln!(f, "Wine executable: {}", self.wine_executable.display())?;
-        writeln!(f, "Wine prefix: {}", self.prefix_path.display())?;
+        writeln!(f, "Wine executable: {}", self.wine_executable_path.display())?;
 
-        if !self.additional_env.is_empty() {
+        if !self.wine_env.is_empty() {
             writeln!(f)?;
-            writeln!(f, "Environment variables:")?;
-            for (key, value) in &self.additional_env {
-                writeln!(f, "{}={}", key, value)?;
+            writeln!(f, "Wine environment variables:")?;
+            for (key, value) in &self.wine_env {
+                writeln!(f, "  {}={}", key, value)?;
             }
         }
 

@@ -97,13 +97,12 @@ impl ClientLauncher for WineLauncherImpl {
                 )
             })?;
 
-        let client_exe = format!("{}\\acclient.exe", self.config.install_path.display());
+        let client_exe = self.config.client_path.display().to_string();
 
-        let mut cmd = Command::new(&self.config.wine_executable);
-        cmd.env("WINEPREFIX", &self.config.prefix_path);
+        let mut cmd = Command::new(&self.config.wine_executable_path);
 
-        // Set additional environment variables
-        for (key, value) in &self.config.additional_env {
+        // Set Wine environment variables (including WINEPREFIX)
+        for (key, value) in &self.config.wine_env {
             cmd.env(key, value);
         }
 
