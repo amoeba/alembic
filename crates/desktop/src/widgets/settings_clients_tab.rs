@@ -3,15 +3,9 @@ use std::sync::{Arc, Mutex};
 use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use libalembic::{
-    client_config::{ClientConfig, ClientConfiguration},
+    client_config::{ClientConfig, ClientType},
     settings::AlembicSettings,
 };
-
-#[cfg(not(target_os = "windows"))]
-use libalembic::client_config::WineClientConfig;
-
-#[cfg(target_os = "windows")]
-use libalembic::client_config::{WineClientConfig, WindowsClientConfig};
 
 use super::components::centered_text;
 
@@ -33,15 +27,16 @@ impl Widget for &mut SettingsClientsTab {
                     // Add buttons for different client types
                     ui.horizontal(|ui| {
                         if ui.button("New Wine Client").clicked() {
-                            let mut wine_env = std::collections::HashMap::new();
-                            wine_env.insert("WINEPREFIX".to_string(), "/path/to/prefix".to_string());
+                            let mut env = std::collections::HashMap::new();
+                            env.insert("WINEPREFIX".to_string(), "/path/to/prefix".to_string());
 
-                            let new_client = ClientConfig::Wine(WineClientConfig {
+                            let new_client = ClientConfig {
                                 name: "Wine Client".to_string(),
+                                client_type: ClientType::Wine,
                                 client_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call\\acclient.exe"),
-                                wine_executable_path: std::path::PathBuf::from("/usr/local/bin/wine64"),
-                                wine_env,
-                            });
+                                wrapper_program: Some(std::path::PathBuf::from("/usr/local/bin/wine64")),
+                                env,
+                            };
 
                             settings.clients.push(new_client);
                             let _ = settings.save();
@@ -49,10 +44,13 @@ impl Widget for &mut SettingsClientsTab {
 
                         #[cfg(target_os = "windows")]
                         if ui.button("New Windows Client").clicked() {
-                            let new_client = ClientConfig::Windows(WindowsClientConfig {
+                            let new_client = ClientConfig {
                                 name: "Windows Client".to_string(),
+                                client_type: ClientType::Windows,
                                 client_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call\\acclient.exe"),
-                            });
+                                wrapper_program: None,
+                                env: std::collections::HashMap::new(),
+                            };
 
                             settings.clients.push(new_client);
                             let _ = settings.save();
@@ -98,49 +96,29 @@ impl Widget for &mut SettingsClientsTab {
                                 body.row(text_height, |mut table_row| {
                                     // Type (non-editable)
                                     table_row.col(|ui| {
-                                        let type_str = match &settings.clients[i] {
-                                            ClientConfig::Wine(_) => "Wine",
-                                            ClientConfig::Windows(_) => "Windows",
+                                        let type_str = match settings.clients[i].client_type {
+                                            ClientType::Wine => "Wine",
+                                            ClientType::Windows => "Windows",
                                         };
                                         ui.label(type_str);
                                     });
 
                                     // Display Name (editable)
                                     table_row.col(|ui| {
-                                        let mut name = settings.clients[i].display_name().to_string();
+                                        let mut name = settings.clients[i].name.clone();
 
                                         if ui.text_edit_singleline(&mut name).changed() {
-                                            match &mut settings.clients[i] {
-                                                ClientConfig::Wine(config) => {
-                                                    config.name = name;
-                                                }
-                                                ClientConfig::Windows(config) => {
-                                                    config.name = name;
-                                                }
-                                            }
+                                            settings.clients[i].name = name;
                                             did_update = true;
                                         }
                                     });
 
                                     // Client Path (editable)
                                     table_row.col(|ui| {
-                                        let current_path = match &settings.clients[i] {
-                                            ClientConfig::Wine(config) => &config.client_path,
-                                            ClientConfig::Windows(config) => &config.client_path,
-                                        };
-                                        let mut path_string = current_path.display().to_string();
+                                        let mut path_string = settings.clients[i].client_path.display().to_string();
 
                                         if ui.text_edit_singleline(&mut path_string).changed() {
-                                            match &mut settings.clients[i] {
-                                                ClientConfig::Wine(config) => {
-                                                    config.client_path =
-                                                        std::path::PathBuf::from(&path_string);
-                                                }
-                                                ClientConfig::Windows(config) => {
-                                                    config.client_path =
-                                                        std::path::PathBuf::from(&path_string);
-                                                }
-                                            }
+                                            settings.clients[i].client_path = std::path::PathBuf::from(&path_string);
                                             did_update = true;
                                         }
                                     });

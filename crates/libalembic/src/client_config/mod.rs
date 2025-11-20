@@ -1,52 +1,56 @@
-mod traits;
-mod windows;
-mod wine;
-
-pub use traits::ClientConfiguration;
-pub use windows::WindowsClientConfig;
-pub use wine::WineClientConfig;
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ClientConfig {
-    Windows(WindowsClientConfig),
-    Wine(WineClientConfig),
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ClientType {
+    Windows,
+    Wine,
 }
 
-impl ClientConfiguration for ClientConfig {
-    fn display_name(&self) -> &str {
-        match self {
-            ClientConfig::Windows(c) => c.display_name(),
-            ClientConfig::Wine(c) => c.display_name(),
-        }
-    }
-
-    fn install_path(&self) -> &Path {
-        match self {
-            ClientConfig::Windows(c) => c.install_path(),
-            ClientConfig::Wine(c) => c.install_path(),
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientConfig {
+    pub name: String,
+    pub client_type: ClientType,
+    pub client_path: PathBuf,
+    pub wrapper_program: Option<PathBuf>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
 }
 
 impl ClientConfig {
     pub fn is_wine(&self) -> bool {
-        matches!(self, ClientConfig::Wine(_))
+        self.client_type == ClientType::Wine
     }
 
     pub fn is_windows(&self) -> bool {
-        matches!(self, ClientConfig::Windows(_))
+        self.client_type == ClientType::Windows
+    }
+
+    pub fn install_path(&self) -> &Path {
+        self.client_path.parent().unwrap_or_else(|| Path::new(""))
     }
 }
 
 impl fmt::Display for ClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ClientConfig::Windows(config) => write!(f, "{}", config),
-            ClientConfig::Wine(config) => write!(f, "{}", config),
+        writeln!(f, "Name: {}", self.name)?;
+        writeln!(f, "Client path: {}", self.client_path.display())?;
+        writeln!(f, "Type: {:?}", self.client_type)?;
+
+        if let Some(wrapper) = &self.wrapper_program {
+            writeln!(f, "Wrapper program: {}", wrapper.display())?;
         }
+
+        if !self.env.is_empty() {
+            writeln!(f)?;
+            writeln!(f, "Environment variables:")?;
+            for (key, value) in &self.env {
+                writeln!(f, "  {}={}", key, value)?;
+            }
+        }
+
+        Ok(())
     }
 }

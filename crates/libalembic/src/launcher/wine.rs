@@ -6,14 +6,14 @@ use std::{
 };
 
 use crate::{
-    client_config::{ClientConfig, WineClientConfig},
+    client_config::ClientConfig,
     inject_config::InjectConfig,
     launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
 
 pub struct WineLauncherImpl {
-    config: WineClientConfig,
+    config: ClientConfig,
     inject_config: Option<InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
@@ -30,15 +30,12 @@ impl ClientLauncher for WineLauncherImpl {
         server_info: ServerInfo,
         account_info: Account,
     ) -> Self {
-        let config = match client_config {
-            ClientConfig::Wine(config) => config,
-            ClientConfig::Windows(_) => {
-                panic!("Windows launcher is only supported on Windows MSVC platform")
-            }
-        };
+        if !client_config.is_wine() {
+            panic!("Wine launcher requires a Wine client configuration");
+        }
 
         Self {
-            config,
+            config: client_config,
             inject_config,
             server_info,
             account_info,
@@ -99,10 +96,16 @@ impl ClientLauncher for WineLauncherImpl {
 
         let client_exe = self.config.client_path.display().to_string();
 
-        let mut cmd = Command::new(&self.config.wine_executable_path);
+        let wine_exe = self
+            .config
+            .wrapper_program
+            .as_ref()
+            .expect("Wine config must have wrapper_program set");
+
+        let mut cmd = Command::new(wine_exe);
 
         // Set Wine environment variables (including WINEPREFIX)
-        for (key, value) in &self.config.wine_env {
+        for (key, value) in &self.config.env {
             cmd.env(key, value);
         }
 

@@ -24,14 +24,14 @@ use windows::{
 };
 
 use crate::{
-    client_config::{ClientConfig, WindowsClientConfig},
+    client_config::ClientConfig,
     inject_config::InjectConfig,
     launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
 
 pub struct WindowsLauncherImpl {
-    config: WindowsClientConfig,
+    config: ClientConfig,
     inject_config: Option<InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
@@ -45,15 +45,12 @@ impl ClientLauncher for WindowsLauncherImpl {
         server_info: ServerInfo,
         account_info: Account,
     ) -> Self {
-        let config = match client_config {
-            ClientConfig::Windows(config) => config,
-            ClientConfig::Wine(_) => {
-                panic!("Wine launcher is not supported on Windows MSVC platform")
-            }
-        };
+        if !client_config.is_windows() {
+            panic!("Windows launcher requires a Windows client configuration");
+        }
 
         Self {
-            config,
+            config: client_config,
             inject_config,
             server_info,
             account_info,

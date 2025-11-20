@@ -1,4 +1,4 @@
-use crate::client_config::{ClientConfig, WineClientConfig};
+use crate::client_config::{ClientConfig, ClientType};
 use crate::inject_config::{DllType, InjectConfig};
 use anyhow::Result;
 use std::collections::HashMap;
@@ -133,15 +133,16 @@ impl WineScanner {
                 // Convert Unix path to Windows path for acclient.exe
                 let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
 
-                let mut wine_env = HashMap::new();
-                wine_env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
+                let mut env = HashMap::new();
+                env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
 
-                configs.push(ClientConfig::Wine(WineClientConfig {
+                configs.push(ClientConfig {
                     name: format!("Wine: {}", wine_prefix_path.display()),
+                    client_type: ClientType::Wine,
                     client_path: windows_exe_path,
-                    wine_executable_path: self.wine_executable_path.clone(),
-                    wine_env,
-                }));
+                    wrapper_program: Some(self.wine_executable_path.clone()),
+                    env,
+                });
 
                 break; // Only add once per prefix
             }
@@ -299,15 +300,16 @@ impl WhiskyScanner {
             if exe_path.exists() {
                 let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
 
-                let mut wine_env = HashMap::new();
-                wine_env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
+                let mut env = HashMap::new();
+                env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
 
-                configs.push(ClientConfig::Wine(WineClientConfig {
+                configs.push(ClientConfig {
                     name: format!("Whisky: {}", bottle_name),
+                    client_type: ClientType::Wine,
                     client_path: windows_exe_path,
-                    wine_executable_path: wine_exe.to_path_buf(),
-                    wine_env,
-                }));
+                    wrapper_program: Some(wine_exe.to_path_buf()),
+                    env,
+                });
 
                 break;
             }
@@ -406,8 +408,6 @@ impl ClientScanner for WindowsScanner {
     }
 
     fn scan(&self) -> Result<Vec<ClientConfig>> {
-        use crate::client_config::WindowsClientConfig;
-
         let mut configs = vec![];
 
         // Common AC installation paths on Windows
@@ -425,10 +425,13 @@ impl ClientScanner for WindowsScanner {
 
             if client_exe.exists() {
                 let name = format!("Asheron's Call - {}", search_path);
-                configs.push(ClientConfig::Windows(WindowsClientConfig {
+                configs.push(ClientConfig {
                     name,
+                    client_type: ClientType::Windows,
                     client_path: client_exe,
-                }));
+                    wrapper_program: None,
+                    env: HashMap::new(),
+                });
             }
         }
 

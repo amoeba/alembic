@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Layout, Response, RichText, Ui, Widget};
-use libalembic::client_config::ClientConfiguration;
 use libalembic::settings::AlembicSettings;
 
 pub fn centered_text(ui: &mut Ui, text: &str) -> Response {
@@ -77,7 +76,7 @@ impl Widget for &mut ClientPicker {
             let client_names: Vec<String> = settings
                 .clients
                 .iter()
-                .map(|client| client.display_name().to_string())
+                .map(|client| client.name.clone())
                 .collect();
 
             let selected_text = if client_names.len() > 0 {
