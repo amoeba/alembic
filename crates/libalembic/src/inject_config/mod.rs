@@ -46,7 +46,15 @@ impl InjectConfig {
 
 impl fmt::Display for InjectConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Type: {}", if self.wine_prefix.is_some() { "Wine" } else { "Windows" })?;
+        writeln!(
+            f,
+            "Type: {}",
+            if self.wine_prefix.is_some() {
+                "Wine"
+            } else {
+                "Windows"
+            }
+        )?;
         writeln!(f, "DLL Type: {}", self.dll_type)?;
         writeln!(f, "DLL Path: {}", self.dll_path.display())?;
         if let Some(prefix) = &self.wine_prefix {
