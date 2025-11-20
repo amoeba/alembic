@@ -1,6 +1,5 @@
-use crate::client_config::{
-    ClientConfig, DllType, InjectConfig, WineClientConfig, WineInjectConfig,
-};
+use crate::client_config::{ClientConfig, WineClientConfig};
+use crate::inject_config::{DllType, InjectConfig};
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -59,12 +58,12 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
         if alembic_path.exists() {
             // Convert Unix path to Windows path
             if let Ok(windows_path) = unix_to_windows_path(&alembic_path) {
-                inject_configs.push(InjectConfig::Wine(WineInjectConfig {
+                inject_configs.push(InjectConfig {
                     dll_type: DllType::Alembic,
-                    wine_prefix: prefix_path.to_path_buf(),
                     dll_path: windows_path,
                     startup_function: None,
-                }));
+                    wine_prefix: Some(prefix_path.to_path_buf()),
+                });
             }
         }
     }
@@ -85,12 +84,12 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
         if decal_path.exists() {
             // Convert Unix path to Windows path
             if let Ok(windows_path) = unix_to_windows_path(&decal_path) {
-                inject_configs.push(InjectConfig::Wine(WineInjectConfig {
+                inject_configs.push(InjectConfig {
                     dll_type: DllType::Decal,
-                    wine_prefix: prefix_path.to_path_buf(),
                     dll_path: windows_path,
                     startup_function: Some("DecalStartup".to_string()),
-                }));
+                    wine_prefix: Some(prefix_path.to_path_buf()),
+                });
             }
         }
     }
@@ -496,8 +495,6 @@ pub fn scan_all() -> Result<Vec<ClientConfig>> {
 /// Scan for DLLs on Windows
 #[cfg(target_os = "windows")]
 fn scan_windows_for_dlls() -> Vec<InjectConfig> {
-    use crate::client_config::WindowsInjectConfig;
-
     let mut inject_configs = vec![];
 
     // Search for Alembic.dll in AC installation directories
@@ -512,11 +509,12 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
     for search_path in alembic_search_paths {
         let alembic_path = PathBuf::from(search_path).join("Alembic.dll");
         if alembic_path.exists() {
-            inject_configs.push(InjectConfig::Windows(WindowsInjectConfig {
+            inject_configs.push(InjectConfig {
                 dll_path: alembic_path,
                 dll_type: DllType::Alembic,
                 startup_function: None,
-            }));
+                wine_prefix: None,
+            });
         }
     }
 
@@ -533,11 +531,12 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
     for search_path in decal_search_paths {
         let decal_path = PathBuf::from(search_path).join("Inject.dll");
         if decal_path.exists() {
-            inject_configs.push(InjectConfig::Windows(WindowsInjectConfig {
+            inject_configs.push(InjectConfig {
                 dll_path: decal_path,
                 dll_type: DllType::Decal,
                 startup_function: Some("DecalStartup".to_string()),
-            }));
+                wine_prefix: None,
+            });
         }
     }
 
@@ -618,7 +617,7 @@ fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfi
                 let dll_configs = find_dlls_in_prefix(&prefix);
 
                 for dll_config in dll_configs {
-                    if dll_config.dll_type() == DllType::Decal {
+                    if dll_config.dll_type == DllType::Decal {
                         all_dlls.push(dll_config);
                     }
                 }
@@ -662,7 +661,7 @@ fn scan_wine_for_decal_dlls(_scanner: &WineScanner) -> Result<Vec<InjectConfig>>
             let dll_configs = find_dlls_in_prefix(&prefix);
 
             for dll_config in dll_configs {
-                if dll_config.dll_type() == DllType::Decal {
+                if dll_config.dll_type == DllType::Decal {
                     all_dlls.push(dll_config);
                 }
             }

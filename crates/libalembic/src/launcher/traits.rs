@@ -1,7 +1,8 @@
 use std::num::NonZero;
 
 use crate::{
-    client_config::{ClientConfig, InjectConfig},
+    client_config::ClientConfig,
+    inject_config::InjectConfig,
     settings::{Account, ServerInfo},
 };
 

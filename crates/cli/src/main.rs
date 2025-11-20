@@ -489,7 +489,7 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
     );
     println!("Account: {}", account_info.username);
     if let Some(ref dll) = inject_config {
-        println!("DLL: {} ({})", dll.dll_type(), dll.dll_path().display());
+        println!("DLL: {} ({})", dll.dll_type, dll.dll_path.display());
     } else {
         println!("DLL: None (no injection)");
     }
@@ -499,7 +499,7 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
 
 fn run_launcher(
     client_config: ClientConfig,
-    inject_config: Option<libalembic::client_config::InjectConfig>,
+    inject_config: Option<libalembic::inject_config::InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
 ) -> anyhow::Result<()> {
@@ -1296,7 +1296,7 @@ fn dll_scan() -> anyhow::Result<()> {
 
     println!("Found Decal installation:");
     for dll in &discovered_dlls {
-        println!("  Path: {}", dll.dll_path().display());
+        println!("  Path: {}", dll.dll_path.display());
     }
     println!();
 
@@ -1335,16 +1335,17 @@ fn dll_list() -> anyhow::Result<()> {
         let is_selected = Some(idx) == selected_dll;
         let marker = if is_selected { " * " } else { "   " };
 
-        let dll_variant = match dll {
-            libalembic::client_config::InjectConfig::Wine(_) => "wine",
-            libalembic::client_config::InjectConfig::Windows(_) => "Windows",
+        let dll_variant = if dll.wine_prefix.is_some() {
+            "Wine"
+        } else {
+            "Windows"
         };
 
         println!(
             "{}{}: {} ({})",
             marker,
             idx,
-            dll.dll_path().display(),
+            dll.dll_path.display(),
             dll_variant
         );
     }
@@ -1358,8 +1359,8 @@ fn dll_remove(index: usize) -> anyhow::Result<()> {
     let dll_info = SettingsManager::get(|s| {
         s.discovered_dlls.get(index).map(|dll| {
             (
-                dll.dll_type().to_string(),
-                dll.dll_path().display().to_string(),
+                dll.dll_type.to_string(),
+                dll.dll_path.display().to_string(),
             )
         })
     });
@@ -1415,7 +1416,7 @@ fn dll_add(
     dll_path: String,
     wine_prefix: Option<String>,
 ) -> anyhow::Result<()> {
-    use libalembic::client_config::{DllType, InjectConfig, WindowsInjectConfig, WineInjectConfig};
+    use libalembic::inject_config::{DllType, InjectConfig};
     use std::path::PathBuf;
 
     // Parse DLL type
@@ -1436,23 +1437,13 @@ fn dll_add(
         DllType::Alembic => None,
     };
 
-    // Create the appropriate InjectConfig variant
-    let inject_config = match platform.to_lowercase().as_str() {
-        "windows" => InjectConfig::Windows(WindowsInjectConfig {
-            dll_type,
-            dll_path: PathBuf::from(dll_path),
-            startup_function: startup_function.clone(),
-        }),
+    // Determine wine_prefix based on platform
+    let wine_prefix = match platform.to_lowercase().as_str() {
+        "windows" => None,
         "wine" => {
-            let wine_prefix = wine_prefix
+            let prefix = wine_prefix
                 .ok_or_else(|| anyhow::anyhow!("--wine-prefix is required for wine platform"))?;
-
-            InjectConfig::Wine(WineInjectConfig {
-                dll_type,
-                wine_prefix: PathBuf::from(wine_prefix),
-                dll_path: PathBuf::from(dll_path),
-                startup_function,
-            })
+            Some(PathBuf::from(prefix))
         }
         _ => {
             anyhow::bail!(
@@ -1462,9 +1453,17 @@ fn dll_add(
         }
     };
 
+    // Create the InjectConfig
+    let inject_config = InjectConfig {
+        dll_type,
+        dll_path: PathBuf::from(dll_path),
+        startup_function,
+        wine_prefix,
+    };
+
     println!("Adding DLL configuration:");
-    println!("  Type: {}", inject_config.dll_type());
-    println!("  Path: {}", inject_config.dll_path().display());
+    println!("  Type: {}", inject_config.dll_type);
+    println!("  Path: {}", inject_config.dll_path.display());
 
     SettingsManager::modify(|settings| {
         settings.add_or_update_dll(inject_config);
@@ -1555,7 +1554,7 @@ fn inject() -> anyhow::Result<()> {
     // Get selected DLL config
     let dll_config = SettingsManager::get(|s| s.get_selected_dll().cloned());
     let dll_path = match dll_config {
-        Some(config) => config.dll_path().display().to_string(),
+        Some(config) => config.dll_path.display().to_string(),
         None => {
             bail!(
                 "No DLL selected. Use 'alembic dll select <index>' to select a DLL for injection."

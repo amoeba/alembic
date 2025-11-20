@@ -3,12 +3,9 @@ use std::sync::{Arc, Mutex};
 use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use libalembic::{
-    client_config::{DllType, InjectConfig, WineInjectConfig},
+    inject_config::{DllType, InjectConfig},
     settings::AlembicSettings,
 };
-
-#[cfg(target_os = "windows")]
-use libalembic::client_config::WindowsInjectConfig;
 
 use super::components::centered_text;
 
@@ -30,26 +27,26 @@ impl Widget for &mut SettingsDllsTab {
                     // Add buttons for different DLL types
                     ui.horizontal(|ui| {
                         if ui.button("New Decal").clicked() {
-                            let new_dll = InjectConfig::Wine(WineInjectConfig {
+                            let new_dll = InjectConfig {
                                 dll_type: DllType::Decal,
-                                wine_prefix: std::path::PathBuf::from("/path/to/prefix"),
                                 dll_path: std::path::PathBuf::from(
                                     "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
                                 ),
                                 startup_function: Some("DecalStartup".to_string()),
-                            });
+                                wine_prefix: Some(std::path::PathBuf::from("/path/to/prefix")),
+                            };
 
                             settings.discovered_dlls.push(new_dll);
                             let _ = settings.save();
                         }
 
                         if ui.button("New Alembic").clicked() {
-                            let new_dll = InjectConfig::Wine(WineInjectConfig {
+                            let new_dll = InjectConfig {
                                 dll_type: DllType::Alembic,
-                                wine_prefix: std::path::PathBuf::from("/path/to/prefix"),
                                 dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
                                 startup_function: None,
-                            });
+                                wine_prefix: Some(std::path::PathBuf::from("/path/to/prefix")),
+                            };
 
                             settings.discovered_dlls.push(new_dll);
                             let _ = settings.save();
@@ -57,13 +54,14 @@ impl Widget for &mut SettingsDllsTab {
 
                         #[cfg(target_os = "windows")]
                         if ui.button("New Decal").clicked() {
-                            let new_dll = InjectConfig::Windows(WindowsInjectConfig {
+                            let new_dll = InjectConfig {
                                 dll_path: std::path::PathBuf::from(
                                     "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
                                 ),
                                 dll_type: DllType::Decal,
                                 startup_function: Some("DecalStartup".to_string()),
-                            });
+                                wine_prefix: None,
+                            };
 
                             settings.discovered_dlls.push(new_dll);
                             let _ = settings.save();
@@ -71,11 +69,12 @@ impl Widget for &mut SettingsDllsTab {
 
                         #[cfg(target_os = "windows")]
                         if ui.button("New Alembic").clicked() {
-                            let new_dll = InjectConfig::Windows(WindowsInjectConfig {
+                            let new_dll = InjectConfig {
                                 dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
                                 dll_type: DllType::Alembic,
                                 startup_function: None,
-                            });
+                                wine_prefix: None,
+                            };
 
                             settings.discovered_dlls.push(new_dll);
                             let _ = settings.save();
@@ -121,9 +120,10 @@ impl Widget for &mut SettingsDllsTab {
                                 body.row(text_height, |mut table_row| {
                                     // Platform (non-editable)
                                     table_row.col(|ui| {
-                                        let platform_str = match &settings.discovered_dlls[i] {
-                                            InjectConfig::Wine(_) => "Wine",
-                                            InjectConfig::Windows(_) => "Windows",
+                                        let platform_str = if settings.discovered_dlls[i].wine_prefix.is_some() {
+                                            "Wine"
+                                        } else {
+                                            "Windows"
                                         };
                                         ui.label(platform_str);
                                     });
@@ -131,27 +131,20 @@ impl Widget for &mut SettingsDllsTab {
                                     // Type (non-editable)
                                     table_row.col(|ui| {
                                         let type_str =
-                                            settings.discovered_dlls[i].dll_type().to_string();
+                                            settings.discovered_dlls[i].dll_type.to_string();
                                         ui.label(type_str);
                                     });
 
                                     // DLL Path (editable)
                                     table_row.col(|ui| {
                                         let mut path_string = settings.discovered_dlls[i]
-                                            .dll_path()
+                                            .dll_path
                                             .display()
                                             .to_string();
 
                                         if ui.text_edit_singleline(&mut path_string).changed() {
                                             let new_path = std::path::PathBuf::from(&path_string);
-                                            match &mut settings.discovered_dlls[i] {
-                                                InjectConfig::Wine(config) => {
-                                                    config.dll_path = new_path;
-                                                }
-                                                InjectConfig::Windows(config) => {
-                                                    config.dll_path = new_path;
-                                                }
-                                            }
+                                            settings.discovered_dlls[i].dll_path = new_path;
                                             did_update = true;
                                         }
                                     });

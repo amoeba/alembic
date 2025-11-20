@@ -6,7 +6,8 @@ use std::{
 };
 
 use crate::{
-    client_config::{ClientConfig, InjectConfig, WineClientConfig},
+    client_config::{ClientConfig, WineClientConfig},
+    inject_config::InjectConfig,
     launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
@@ -132,12 +133,12 @@ impl ClientLauncher for WineLauncherImpl {
 
         // Add DLL injection parameters if configured
         if let Some(inject_config) = &self.inject_config {
-            println!("  DLL: {}", inject_config.dll_path().display());
+            println!("  DLL: {}", inject_config.dll_path.display());
 
             cmd.arg("--dll")
-                .arg(inject_config.dll_path().display().to_string());
+                .arg(inject_config.dll_path.display().to_string());
 
-            if let Some(func) = inject_config.startup_function() {
+            if let Some(func) = &inject_config.startup_function {
                 println!("  Function: {}", func);
                 cmd.arg("--function").arg(func);
             }

@@ -3,7 +3,7 @@ pub fn try_launch(
     client_config: &Option<libalembic::client_config::ClientConfig>,
     server_info: &Option<libalembic::settings::ServerInfo>,
     account_info: &Option<libalembic::settings::Account>,
-    inject_config: &Option<libalembic::client_config::InjectConfig>,
+    inject_config: &Option<libalembic::inject_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use anyhow::bail;
     use libalembic::launcher::{traits::ClientLauncher, Launcher};
@@ -41,7 +41,7 @@ pub fn try_launch(
     client_config: &Option<libalembic::client_config::ClientConfig>,
     server_info: &Option<libalembic::settings::ServerInfo>,
     account_info: &Option<libalembic::settings::Account>,
-    inject_config: &Option<libalembic::client_config::InjectConfig>,
+    inject_config: &Option<libalembic::inject_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use anyhow::bail;
     use libalembic::launcher::{traits::ClientLauncher, Launcher};

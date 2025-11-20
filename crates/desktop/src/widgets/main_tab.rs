@@ -145,8 +145,8 @@ impl Widget for &mut MainTab {
                         println!("LAUNCH: Client=[{}|{}] DLL=[{}|{}] Server=[{}:{}] Account=[{}]",
                             client_info.as_ref().map(|c| c.display_name()).unwrap_or("None"),
                             client_info.as_ref().map(|c| if c.is_wine() { "Wine" } else { "Windows" }).unwrap_or("?"),
-                            dll_config.as_ref().map(|d| format!("{}", d.dll_type())).unwrap_or("None".to_string()),
-                            dll_config.as_ref().map(|d| d.dll_path().display().to_string()).unwrap_or("None".to_string()),
+                            dll_config.as_ref().map(|d| format!("{}", d.dll_type)).unwrap_or("None".to_string()),
+                            dll_config.as_ref().map(|d| d.dll_path.display().to_string()).unwrap_or("None".to_string()),
                             server_info.as_ref().map(|s| s.hostname.as_str()).unwrap_or("None"),
                             server_info.as_ref().map(|s| s.port.as_str()).unwrap_or("?"),
                             account_info.as_ref().map(|a| a.username.as_str()).unwrap_or("None")

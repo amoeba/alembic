@@ -123,7 +123,7 @@ impl Widget for &mut DllPicker {
             let dll_names: Vec<String> = settings
                 .discovered_dlls
                 .iter()
-                .map(|dll| format!("{}", dll.dll_type()))
+                .map(|dll| format!("{}", dll.dll_type))
                 .collect();
 
             let selected_text = if dll_names.len() > 0 {
@@ -453,18 +453,15 @@ impl Widget for &mut SettingsDLLPathEdit {
 
                                     // Path column
                                     row.col(|ui| {
-                                        ui.label(dll.dll_path().display().to_string());
+                                        ui.label(dll.dll_path.display().to_string());
                                     });
 
                                     // Type column
                                     row.col(|ui| {
-                                        let dll_variant = match dll {
-                                            libalembic::client_config::InjectConfig::Wine(_) => {
-                                                "wine"
-                                            }
-                                            libalembic::client_config::InjectConfig::Windows(_) => {
-                                                "Windows"
-                                            }
+                                        let dll_variant = if dll.wine_prefix.is_some() {
+                                            "Wine"
+                                        } else {
+                                            "Windows"
                                         };
                                         ui.label(dll_variant);
                                     });

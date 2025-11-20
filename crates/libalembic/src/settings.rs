@@ -9,7 +9,8 @@ use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::client_config::{ClientConfig, InjectConfig};
+use crate::client_config::ClientConfig;
+use crate::inject_config::InjectConfig;
 
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
@@ -189,7 +190,7 @@ impl AlembicSettings {
         if let Some(existing) = self
             .discovered_dlls
             .iter_mut()
-            .find(|dll| dll.dll_type() == inject_config.dll_type())
+            .find(|dll| dll.dll_type == inject_config.dll_type)
         {
             // Update existing
             *existing = inject_config;
@@ -200,9 +201,9 @@ impl AlembicSettings {
     }
 
     /// Remove a DLL by type
-    pub fn remove_dll_by_type(&mut self, dll_type: crate::client_config::DllType) {
+    pub fn remove_dll_by_type(&mut self, dll_type: crate::inject_config::DllType) {
         self.discovered_dlls
-            .retain(|dll| dll.dll_type() != dll_type);
+            .retain(|dll| dll.dll_type != dll_type);
         // If we removed the selected DLL, clear the selection
         if let Some(selected_idx) = self.selected_dll {
             if selected_idx >= self.discovered_dlls.len() {
@@ -210,7 +211,7 @@ impl AlembicSettings {
             } else if self
                 .discovered_dlls
                 .get(selected_idx)
-                .map(|dll| dll.dll_type())
+                .map(|dll| dll.dll_type)
                 == Some(dll_type)
             {
                 self.selected_dll = None;
