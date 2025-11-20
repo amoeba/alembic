@@ -76,7 +76,7 @@ impl Widget for &mut ClientPicker {
             let client_names: Vec<String> = settings
                 .clients
                 .iter()
-                .map(|client| client.name.clone())
+                .map(|client| client.name().to_string())
                 .collect();
 
             let selected_text = if client_names.len() > 0 {

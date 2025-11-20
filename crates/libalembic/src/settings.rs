@@ -9,8 +9,61 @@ use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::client_config::ClientConfig;
+use crate::client_config::{WindowsClientConfig, WineClientConfig};
 use crate::inject_config::InjectConfig;
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum ClientConfigType {
+    Windows(WindowsClientConfig),
+    Wine(WineClientConfig),
+}
+
+impl ClientConfigType {
+    pub fn name(&self) -> &str {
+        match self {
+            ClientConfigType::Windows(c) => &c.name,
+            ClientConfigType::Wine(c) => &c.name,
+        }
+    }
+
+    pub fn client_path(&self) -> &std::path::Path {
+        match self {
+            ClientConfigType::Windows(c) => &c.client_path,
+            ClientConfigType::Wine(c) => &c.client_path,
+        }
+    }
+
+    pub fn wrapper_program(&self) -> Option<&std::path::Path> {
+        match self {
+            ClientConfigType::Windows(_) => None,
+            ClientConfigType::Wine(c) => c.wrapper_program.as_deref(),
+        }
+    }
+
+    pub fn install_path(&self) -> &std::path::Path {
+        self.client_path().parent().unwrap_or_else(|| std::path::Path::new(""))
+    }
+
+    pub fn is_wine(&self) -> bool {
+        matches!(self, ClientConfigType::Wine(_))
+    }
+
+    pub fn is_windows(&self) -> bool {
+        matches!(self, ClientConfigType::Windows(_))
+    }
+}
+
+impl std::fmt::Display for ClientConfigType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::client_config::ClientConfig;
+
+        match self {
+            ClientConfigType::Windows(c) => ClientConfig::fmt_display(c, f),
+            ClientConfigType::Wine(c) => ClientConfig::fmt_display(c, f),
+        }
+    }
+}
 
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_DIR_NAME: &str = "Alembic";
@@ -87,7 +140,7 @@ pub struct AlembicSettings {
 
     /// All discovered/configured client installations
     #[serde(default)]
-    pub clients: Vec<ClientConfig>,
+    pub clients: Vec<ClientConfigType>,
 
     /// Index of the currently selected client
     #[serde(default)]
@@ -124,18 +177,18 @@ impl AlembicSettings {
     }
 
     /// Get the currently selected client config
-    pub fn get_selected_client(&self) -> Option<&ClientConfig> {
+    pub fn get_selected_client(&self) -> Option<&ClientConfigType> {
         self.selected_client.and_then(|idx| self.clients.get(idx))
     }
 
     /// Get mutable reference to selected client
-    pub fn get_selected_client_mut(&mut self) -> Option<&mut ClientConfig> {
+    pub fn get_selected_client_mut(&mut self) -> Option<&mut ClientConfigType> {
         self.selected_client
             .and_then(|idx| self.clients.get_mut(idx))
     }
 
     /// Add a new client config and optionally select it
-    pub fn add_client(&mut self, config: ClientConfig, select: bool) {
+    pub fn add_client(&mut self, config: ClientConfigType, select: bool) {
         self.clients.push(config);
         if select || self.selected_client.is_none() {
             self.selected_client = Some(self.clients.len() - 1);
@@ -143,7 +196,7 @@ impl AlembicSettings {
     }
 
     /// Remove a client config by index
-    pub fn remove_client(&mut self, index: usize) -> Option<ClientConfig> {
+    pub fn remove_client(&mut self, index: usize) -> Option<ClientConfigType> {
         if index < self.clients.len() {
             let removed = self.clients.remove(index);
 

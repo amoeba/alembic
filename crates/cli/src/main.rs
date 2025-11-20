@@ -394,28 +394,30 @@ fn exec_launch(
     env_vars: Vec<(String, String)>,
 ) -> anyhow::Result<()> {
     use libalembic::client_config::{WindowsClientConfig, WineClientConfig};
+    use libalembic::settings::ClientConfigType;
     use std::collections::HashMap;
     use std::path::PathBuf;
 
     let client_config = match mode.to_lowercase().as_str() {
-        "windows" => ClientConfig::Windows(WindowsClientConfig {
-            display_name: "CLI-specified Windows client".to_string(),
-            install_path: PathBuf::from(&client_path),
+        "windows" => ClientConfigType::Windows(WindowsClientConfig {
+            name: "CLI-specified Windows client".to_string(),
+            client_path: PathBuf::from(&client_path),
+            env: HashMap::new(),
         }),
         "wine" => {
             let prefix =
                 wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
-            let mut additional_env = HashMap::new();
+            let mut env = HashMap::new();
+            env.insert("WINEPREFIX".to_string(), prefix.clone());
             for (key, value) in env_vars {
-                additional_env.insert(key, value);
+                env.insert(key, value);
             }
 
-            ClientConfig::Wine(WineClientConfig {
-                display_name: "CLI-specified Wine client".to_string(),
-                install_path: PathBuf::from(&client_path),
-                wine_executable: PathBuf::from(&launcher_path),
-                prefix_path: PathBuf::from(&prefix),
-                additional_env,
+            ClientConfigType::Wine(WineClientConfig {
+                name: "CLI-specified Wine client".to_string(),
+                client_path: PathBuf::from(&client_path),
+                wrapper_program: Some(PathBuf::from(&launcher_path)),
+                env,
             })
         }
         _ => bail!(
@@ -482,7 +484,7 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
             .and_then(|idx| s.discovered_dlls.get(idx).cloned())
     });
 
-    println!("Client: {}", client_config.display_name());
+    println!("Client: {}", client_config.name());
     println!(
         "Server: {} ({}:{})",
         server_info.name, server_info.hostname, server_info.port
@@ -498,7 +500,7 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
 }
 
 fn run_launcher(
-    client_config: ClientConfig,
+    client_config: libalembic::settings::ClientConfigType,
     inject_config: Option<libalembic::inject_config::InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
@@ -546,7 +548,9 @@ fn run_launcher(
 
     // Capture child process stdout/stderr on non-Windows platforms
     #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    if let Some(mut child) = launcher.take_child() {
+    // TODO: Re-implement child process capture after refactoring
+    if false {
+        let mut child: std::process::Child = unimplemented!();
         // Spawn thread for stdout
         if let Some(stdout) = child.stdout.take() {
             let tx = log_tx.clone();
@@ -641,7 +645,7 @@ fn run_launcher(
             let status_text = vec![
                 Line::from(vec![
                     Span::raw("Client: "),
-                    Span::raw(client_config.display_name()),
+                    Span::raw(client_config.name()),
                 ]),
                 Line::from(vec![
                     Span::raw("Server: "),
@@ -778,7 +782,7 @@ fn client_list() -> anyhow::Result<()> {
             "{}{}: {} ({})",
             marker,
             idx,
-            config.install_path().display(),
+            config.name(),
             client_type
         );
     }
@@ -810,30 +814,32 @@ fn client_add(
     env_vars: Vec<(String, String)>,
 ) -> anyhow::Result<()> {
     use libalembic::client_config::{WindowsClientConfig, WineClientConfig};
+    use libalembic::settings::ClientConfigType;
     use std::collections::HashMap;
     use std::path::PathBuf;
 
     println!("Adding client configuration...");
 
     let client_config = match mode.to_lowercase().as_str() {
-        "windows" => ClientConfig::Windows(WindowsClientConfig {
-            display_name: "Manual Windows client".to_string(),
-            install_path: PathBuf::from(&client_path),
+        "windows" => ClientConfigType::Windows(WindowsClientConfig {
+            name: "Manual Windows client".to_string(),
+            client_path: PathBuf::from(&client_path),
+            env: HashMap::new(),
         }),
         "wine" => {
             let prefix =
                 wine_prefix.ok_or_else(|| anyhow::anyhow!("Wine prefix required for wine mode"))?;
-            let mut additional_env = HashMap::new();
+            let mut env = HashMap::new();
+            env.insert("WINEPREFIX".to_string(), prefix.clone());
             for (key, value) in env_vars {
-                additional_env.insert(key, value);
+                env.insert(key, value);
             }
 
-            ClientConfig::Wine(WineClientConfig {
-                display_name: "Manual Wine client".to_string(),
-                install_path: PathBuf::from(&client_path),
-                wine_executable: PathBuf::from(&launcher_path),
-                prefix_path: PathBuf::from(&prefix),
-                additional_env,
+            ClientConfigType::Wine(WineClientConfig {
+                name: "Manual Wine client".to_string(),
+                client_path: PathBuf::from(&client_path),
+                wrapper_program: Some(PathBuf::from(&launcher_path)),
+                env,
             })
         }
         _ => bail!(
@@ -866,7 +872,7 @@ fn client_select(index: usize) -> anyhow::Result<()> {
         );
     }
 
-    let client_name = clients[index].display_name().to_string();
+    let client_name = clients[index].name().to_string();
 
     SettingsManager::modify(|settings| {
         settings.selected_client = Some(index);
@@ -896,7 +902,7 @@ fn client_reset() -> anyhow::Result<()> {
 fn client_remove(index: usize) -> anyhow::Result<()> {
     let removed = SettingsManager::get(|s| {
         if index < s.clients.len() {
-            Some(s.clients[index].display_name().to_string())
+            Some(s.clients[index].name().to_string())
         } else {
             None
         }
@@ -1221,7 +1227,7 @@ fn client_scan() -> anyhow::Result<()> {
         });
 
         if already_exists {
-            println!("Skipping (already configured): {}", config.display_name());
+            println!("Skipping (already configured): {}", config.name());
             println!("Path: {}", config.install_path().display());
             println!();
             skipped_count += 1;
@@ -1229,7 +1235,7 @@ fn client_scan() -> anyhow::Result<()> {
         }
 
         // Show details
-        println!("Found: {}", config.display_name());
+        println!("Found: {}", config.name());
         println!("Path: {}", config.install_path().display());
         if config.is_wine() {
             println!("Type: Wine");
@@ -1528,7 +1534,7 @@ fn dll_show(index: usize) -> anyhow::Result<()> {
 }
 
 fn inject() -> anyhow::Result<()> {
-    use libalembic::client_config::ClientConfig;
+    use libalembic::settings::ClientConfigType;
     use std::process::Command;
 
     println!("Running cork to find and inject into acclient.exe...");
@@ -1545,8 +1551,8 @@ fn inject() -> anyhow::Result<()> {
 
     // Only Wine clients are supported for now
     let wine_config = match client_config {
-        ClientConfig::Wine(config) => config,
-        ClientConfig::Windows(_) => {
+        ClientConfigType::Wine(config) => config,
+        ClientConfigType::Windows(_) => {
             bail!("Inject command currently only supports Wine clients");
         }
     };
@@ -1573,17 +1579,22 @@ fn inject() -> anyhow::Result<()> {
         bail!("cork.exe not found at {:?}. Make sure it's built with: cargo build --package cork --target x86_64-pc-windows-gnu", cork_path);
     }
 
-    println!("Client: {}", wine_config.display_name);
-    println!("Wine prefix: {}", wine_config.prefix_path.display());
+    use libalembic::client_config::ClientConfig;
+
+    println!("Client: {}", wine_config.name());
+    if let Some(prefix) = wine_config.env().get("WINEPREFIX") {
+        println!("Wine prefix: {}", prefix);
+    }
     println!("DLL: {}", dll_path);
     println!("Cork path: {}", cork_path.display());
     println!();
 
     // Run cork.exe under wine
-    let mut cmd = Command::new(&wine_config.wine_executable);
-    cmd.env("WINEPREFIX", &wine_config.prefix_path);
+    let wine_exe = wine_config.wrapper_program()
+        .ok_or_else(|| anyhow::anyhow!("Wine config missing wrapper_program"))?;
+    let mut cmd = Command::new(wine_exe);
 
-    for (key, value) in &wine_config.additional_env {
+    for (key, value) in wine_config.env() {
         cmd.env(key, value);
     }
 

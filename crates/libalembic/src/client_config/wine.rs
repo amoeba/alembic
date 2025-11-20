@@ -1,43 +1,37 @@
-use super::traits::ClientConfiguration;
+use super::traits::ClientConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WineClientConfig {
     pub name: String,
     pub client_path: PathBuf,
-    pub wine_executable_path: PathBuf,
-    pub wine_env: HashMap<String, String>,
+    pub wrapper_program: Option<PathBuf>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
 }
 
-impl ClientConfiguration for WineClientConfig {
-    fn display_name(&self) -> &str {
+impl ClientConfig for WineClientConfig {
+    fn name(&self) -> &str {
         &self.name
     }
 
-    fn install_path(&self) -> &Path {
-        // Return the parent directory of acclient.exe as the install path
-        self.client_path.parent().unwrap_or_else(|| Path::new(""))
+    fn client_path(&self) -> &Path {
+        &self.client_path
+    }
+
+    fn wrapper_program(&self) -> Option<&Path> {
+        self.wrapper_program.as_deref()
+    }
+
+    fn env(&self) -> &HashMap<String, String> {
+        &self.env
     }
 }
 
-impl fmt::Display for WineClientConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Name: {}", self.name)?;
-        writeln!(f, "Client path: {}", self.client_path.display())?;
-        writeln!(f, "Type: Wine")?;
-        writeln!(f, "Wine executable: {}", self.wine_executable_path.display())?;
-
-        if !self.wine_env.is_empty() {
-            writeln!(f)?;
-            writeln!(f, "Wine environment variables:")?;
-            for (key, value) in &self.wine_env {
-                writeln!(f, "  {}={}", key, value)?;
-            }
-        }
-
-        Ok(())
+impl std::fmt::Display for WineClientConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        ClientConfig::fmt_display(self, f)
     }
 }

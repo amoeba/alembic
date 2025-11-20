@@ -1,28 +1,36 @@
-use super::traits::ClientConfiguration;
+use super::traits::ClientConfig;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowsClientConfig {
     pub name: String,
     pub client_path: PathBuf,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
 }
 
-impl ClientConfiguration for WindowsClientConfig {
-    fn display_name(&self) -> &str {
+impl ClientConfig for WindowsClientConfig {
+    fn name(&self) -> &str {
         &self.name
     }
 
-    fn install_path(&self) -> &Path {
-        self.client_path.parent().unwrap_or_else(|| Path::new(""))
+    fn client_path(&self) -> &Path {
+        &self.client_path
+    }
+
+    fn wrapper_program(&self) -> Option<&Path> {
+        None
+    }
+
+    fn env(&self) -> &HashMap<String, String> {
+        &self.env
     }
 }
 
-impl fmt::Display for WindowsClientConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Name: {}", self.name)?;
-        writeln!(f, "Client path: {}", self.client_path.display())?;
-        write!(f, "Type: Windows")
+impl std::fmt::Display for WindowsClientConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        ClientConfig::fmt_display(self, f)
     }
 }

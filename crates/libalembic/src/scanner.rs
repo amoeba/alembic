@@ -1,5 +1,6 @@
-use crate::client_config::{ClientConfig, ClientType};
+use crate::client_config::{WineClientConfig, WindowsClientConfig};
 use crate::inject_config::{DllType, InjectConfig};
+use crate::settings::ClientConfigType;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -11,7 +12,7 @@ pub trait ClientScanner {
     fn name(&self) -> &str;
 
     /// Scan for client installations and return discovered configs
-    fn scan(&self) -> Result<Vec<ClientConfig>>;
+    fn scan(&self) -> Result<Vec<ClientConfigType>>;
 
     /// Check if this scanner is available on the current platform
     fn is_available(&self) -> bool;
@@ -110,7 +111,7 @@ impl WineScanner {
         Self { wine_executable_path }
     }
 
-    fn scan_prefix(&self, wine_prefix_path: &Path) -> Result<Vec<ClientConfig>> {
+    fn scan_prefix(&self, wine_prefix_path: &Path) -> Result<Vec<ClientConfigType>> {
         let mut configs = vec![];
 
         let drive_c = wine_prefix_path.join("drive_c");
@@ -136,13 +137,12 @@ impl WineScanner {
                 let mut env = HashMap::new();
                 env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
 
-                configs.push(ClientConfig {
+                configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Wine: {}", wine_prefix_path.display()),
-                    client_type: ClientType::Wine,
                     client_path: windows_exe_path,
                     wrapper_program: Some(self.wine_executable_path.clone()),
                     env,
-                });
+                }));
 
                 break; // Only add once per prefix
             }
@@ -169,7 +169,7 @@ impl ClientScanner for WineScanner {
         "Wine"
     }
 
-    fn scan(&self) -> Result<Vec<ClientConfig>> {
+    fn scan(&self) -> Result<Vec<ClientConfigType>> {
         let mut all_configs = vec![];
 
         // Check standard wine prefix locations
@@ -278,7 +278,7 @@ impl WhiskyScanner {
         wine_prefix_path: &Path,
         wine_exe: &Path,
         bottle_name: &str,
-    ) -> Result<Vec<ClientConfig>> {
+    ) -> Result<Vec<ClientConfigType>> {
         let mut configs = vec![];
 
         let drive_c = wine_prefix_path.join("drive_c");
@@ -303,13 +303,12 @@ impl WhiskyScanner {
                 let mut env = HashMap::new();
                 env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
 
-                configs.push(ClientConfig {
+                configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Whisky: {}", bottle_name),
-                    client_type: ClientType::Wine,
                     client_path: windows_exe_path,
                     wrapper_program: Some(wine_exe.to_path_buf()),
                     env,
-                });
+                }));
 
                 break;
             }
@@ -336,7 +335,7 @@ impl ClientScanner for WhiskyScanner {
         "Whisky"
     }
 
-    fn scan(&self) -> Result<Vec<ClientConfig>> {
+    fn scan(&self) -> Result<Vec<ClientConfigType>> {
         let mut all_configs = vec![];
 
         // Get list of bottles
@@ -407,7 +406,7 @@ impl ClientScanner for WindowsScanner {
         "Windows File System"
     }
 
-    fn scan(&self) -> Result<Vec<ClientConfig>> {
+    fn scan(&self) -> Result<Vec<ClientConfigType>> {
         let mut configs = vec![];
 
         // Common AC installation paths on Windows
@@ -425,13 +424,11 @@ impl ClientScanner for WindowsScanner {
 
             if client_exe.exists() {
                 let name = format!("Asheron's Call - {}", search_path);
-                configs.push(ClientConfig {
+                configs.push(ClientConfigType::Windows(WindowsClientConfig {
                     name,
-                    client_type: ClientType::Windows,
                     client_path: client_exe,
-                    wrapper_program: None,
                     env: HashMap::new(),
-                });
+                }));
             }
         }
 
@@ -476,7 +473,7 @@ pub fn get_available_scanners() -> Vec<Box<dyn ClientScanner>> {
 }
 
 /// Scan using all available scanners and aggregate results
-pub fn scan_all() -> Result<Vec<ClientConfig>> {
+pub fn scan_all() -> Result<Vec<ClientConfigType>> {
     let scanners = get_available_scanners();
     let mut all_configs = vec![];
 

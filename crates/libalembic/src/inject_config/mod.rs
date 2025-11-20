@@ -17,7 +17,6 @@ pub struct InjectConfig {
     pub startup_function: Option<String>,
     /// Wine prefix path (needed for Wine to convert Windows path to Unix path)
     /// None on native Windows, Some on Wine/macOS/Linux
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub wine_prefix: Option<PathBuf>,
 }
 

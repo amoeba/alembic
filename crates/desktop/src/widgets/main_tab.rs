@@ -143,7 +143,7 @@ impl Widget for &mut MainTab {
 
                         // Print comprehensive launch configuration
                         println!("LAUNCH: Client=[{}|{}] DLL=[{}|{}] Server=[{}:{}] Account=[{}]",
-                            client_info.as_ref().map(|c| c.name.as_str()).unwrap_or("None"),
+                            client_info.as_ref().map(|c| c.name()).unwrap_or("None"),
                             client_info.as_ref().map(|c| if c.is_wine() { "Wine" } else { "Windows" }).unwrap_or("?"),
                             dll_config.as_ref().map(|d| format!("{}", d.dll_type)).unwrap_or("None".to_string()),
                             dll_config.as_ref().map(|d| d.dll_path.display().to_string()).unwrap_or("None".to_string()),

@@ -24,14 +24,14 @@ use windows::{
 };
 
 use crate::{
-    client_config::ClientConfig,
+    client_config::WindowsClientConfig,
     inject_config::InjectConfig,
     launcher::traits::ClientLauncher,
-    settings::{Account, ServerInfo},
+    settings::{Account, ClientConfigType, ServerInfo},
 };
 
 pub struct WindowsLauncherImpl {
-    config: ClientConfig,
+    config: WindowsClientConfig,
     inject_config: Option<InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
@@ -40,17 +40,18 @@ pub struct WindowsLauncherImpl {
 
 impl ClientLauncher for WindowsLauncherImpl {
     fn new(
-        client_config: ClientConfig,
+        client_config: ClientConfigType,
         inject_config: Option<InjectConfig>,
         server_info: ServerInfo,
         account_info: Account,
     ) -> Self {
-        if !client_config.is_windows() {
-            panic!("Windows launcher requires a Windows client configuration");
-        }
+        let config = match client_config {
+            ClientConfigType::Windows(windows_config) => windows_config,
+            _ => panic!("Windows launcher requires a Windows client configuration"),
+        };
 
         Self {
-            config: client_config,
+            config,
             inject_config,
             server_info,
             account_info,

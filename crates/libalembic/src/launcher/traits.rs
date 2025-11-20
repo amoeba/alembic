@@ -1,16 +1,15 @@
 use std::num::NonZero;
 
 use crate::{
-    client_config::ClientConfig,
     inject_config::InjectConfig,
-    settings::{Account, ServerInfo},
+    settings::{Account, ClientConfigType, ServerInfo},
 };
 
 /// Trait for platform-specific client launcher implementations
 pub trait ClientLauncher: std::any::Any {
     /// Create a new launcher
     fn new(
-        client_config: ClientConfig,
+        client_config: ClientConfigType,
         inject_config: Option<InjectConfig>,
         server_info: ServerInfo,
         account_info: Account,

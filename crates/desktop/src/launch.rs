@@ -1,6 +1,6 @@
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub fn try_launch(
-    client_config: &Option<libalembic::client_config::ClientConfig>,
+    client_config: &Option<libalembic::settings::ClientConfigType>,
     server_info: &Option<libalembic::settings::ServerInfo>,
     account_info: &Option<libalembic::settings::Account>,
     inject_config: &Option<libalembic::inject_config::InjectConfig>,
@@ -38,7 +38,7 @@ pub fn try_launch(
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub fn try_launch(
-    client_config: &Option<libalembic::client_config::ClientConfig>,
+    client_config: &Option<libalembic::settings::ClientConfigType>,
     server_info: &Option<libalembic::settings::ServerInfo>,
     account_info: &Option<libalembic::settings::Account>,
     inject_config: &Option<libalembic::inject_config::InjectConfig>,
