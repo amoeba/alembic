@@ -6,10 +6,9 @@ use std::{
 
 use crate::{
     client_config::{ClientConfig, DllType, InjectConfig, WineClientConfig},
+    launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
-
-use super::ClientLauncher;
 
 /// Wine-specific launcher implementation
 pub struct WineLauncherImpl {
