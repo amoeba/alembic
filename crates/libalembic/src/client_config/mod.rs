@@ -8,8 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
 
-/// Complete configuration for a client installation
-/// Combines location info with how to launch it
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClientConfig {
     Windows(WindowsClientConfig),
