@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Layout, Response, RichText, Ui, Widget};
+use libalembic::client_config::ClientConfiguration;
 use libalembic::settings::AlembicSettings;
 
 pub fn centered_text(ui: &mut Ui, text: &str) -> Response {

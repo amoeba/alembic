@@ -1,7 +1,8 @@
+use super::traits::ClientConfiguration;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WineClientConfig {
@@ -15,6 +16,16 @@ pub struct WineClientConfig {
     pub prefix_path: PathBuf,
     /// Additional environment variables
     pub additional_env: HashMap<String, String>,
+}
+
+impl ClientConfiguration for WineClientConfig {
+    fn display_name(&self) -> &str {
+        &self.display_name
+    }
+
+    fn install_path(&self) -> &Path {
+        &self.install_path
+    }
 }
 
 impl fmt::Display for WineClientConfig {

@@ -1,6 +1,8 @@
+mod traits;
 mod windows;
 mod wine;
 
+pub use traits::ClientConfiguration;
 pub use windows::WindowsClientConfig;
 pub use wine::WineClientConfig;
 
@@ -14,21 +16,23 @@ pub enum ClientConfig {
     Wine(WineClientConfig),
 }
 
+impl ClientConfiguration for ClientConfig {
+    fn display_name(&self) -> &str {
+        match self {
+            ClientConfig::Windows(c) => c.display_name(),
+            ClientConfig::Wine(c) => c.display_name(),
+        }
+    }
+
+    fn install_path(&self) -> &Path {
+        match self {
+            ClientConfig::Windows(c) => c.install_path(),
+            ClientConfig::Wine(c) => c.install_path(),
+        }
+    }
+}
+
 impl ClientConfig {
-    pub fn display_name(&self) -> &str {
-        match self {
-            ClientConfig::Windows(c) => &c.display_name,
-            ClientConfig::Wine(c) => &c.display_name,
-        }
-    }
-
-    pub fn install_path(&self) -> &Path {
-        match self {
-            ClientConfig::Windows(c) => &c.install_path,
-            ClientConfig::Wine(c) => &c.install_path,
-        }
-    }
-
     pub fn is_wine(&self) -> bool {
         matches!(self, ClientConfig::Wine(_))
     }

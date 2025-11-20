@@ -5,6 +5,7 @@ use crate::{
     launch::try_launch,
 };
 use eframe::egui::{self, Align, Button, Layout, Response, Ui, Vec2, Widget};
+use libalembic::client_config::ClientConfiguration;
 use libalembic::settings::AlembicSettings;
 
 use super::{

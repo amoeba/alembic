@@ -2,7 +2,10 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
-use libalembic::{client_config::ClientConfig, settings::AlembicSettings};
+use libalembic::{
+    client_config::{ClientConfig, ClientConfiguration},
+    settings::AlembicSettings,
+};
 
 #[cfg(not(target_os = "windows"))]
 use libalembic::client_config::WineClientConfig;
