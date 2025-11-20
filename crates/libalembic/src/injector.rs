@@ -127,10 +127,7 @@ pub fn launch_suspended_inject_and_resume(
 }
 
 /// Launch a process without DLL injection (just create and resume)
-pub fn launch_without_injection(
-    executable_path: &str,
-    executable_args: &str,
-) -> Result<()> {
+pub fn launch_without_injection(executable_path: &str, executable_args: &str) -> Result<()> {
     // Combine filename and executable_args into command line
     let command_line = format!("{} {}", executable_path, executable_args);
     let command_line_cstring =

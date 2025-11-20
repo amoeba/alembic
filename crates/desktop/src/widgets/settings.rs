@@ -3,7 +3,8 @@ use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
 use crate::application::AppPage;
 
 use super::{
-    settings_clients_tab::SettingsClientsTab, settings_dlls_tab::SettingsDllsTab,
+    settings_clients_tab::SettingsClientsTab,
+    settings_dlls_tab::SettingsDllsTab,
     settings_tab::{SettingsTab, SettingsTabContent},
 };
 

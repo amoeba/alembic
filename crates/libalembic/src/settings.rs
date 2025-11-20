@@ -42,7 +42,9 @@ impl ClientConfigType {
     }
 
     pub fn install_path(&self) -> &std::path::Path {
-        self.client_path().parent().unwrap_or_else(|| std::path::Path::new(""))
+        self.client_path()
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new(""))
     }
 
     pub fn is_wine(&self) -> bool {
@@ -255,8 +257,7 @@ impl AlembicSettings {
 
     /// Remove a DLL by type
     pub fn remove_dll_by_type(&mut self, dll_type: crate::inject_config::DllType) {
-        self.discovered_dlls
-            .retain(|dll| dll.dll_type != dll_type);
+        self.discovered_dlls.retain(|dll| dll.dll_type != dll_type);
         // If we removed the selected DLL, clear the selection
         if let Some(selected_idx) = self.selected_dll {
             if selected_idx >= self.discovered_dlls.len() {

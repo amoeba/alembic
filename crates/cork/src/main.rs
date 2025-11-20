@@ -128,10 +128,7 @@ fn launch_client_with_injection(
         )?;
         println!("Client launched and DLL injected successfully!");
     } else {
-        libalembic::injector::launch_without_injection(
-            client_path,
-            &arguments,
-        )?;
+        libalembic::injector::launch_without_injection(client_path, &arguments)?;
         println!("Client launched successfully!");
     }
 
@@ -150,7 +147,6 @@ fn launch_client_with_injection(
 ) -> Result<()> {
     anyhow::bail!("Cork client launching is only supported on Windows");
 }
-
 
 fn main() -> Result<()> {
     let args = Args::parse();

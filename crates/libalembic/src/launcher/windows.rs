@@ -166,7 +166,7 @@ impl ClientLauncher for WindowsLauncherImpl {
 
     fn inject(&mut self) -> Result<(), anyhow::Error> {
         if let Some(inject_config) = &self.inject_config {
-            let dll_path = inject_config.filesystem_path();
+            let dll_path = inject_config.dll_path;
 
             if !fs::exists(&dll_path)? {
                 bail!(
@@ -188,7 +188,11 @@ impl ClientLauncher for WindowsLauncherImpl {
 
             // Use the injector module to inject and optionally call the startup function
             let handle = HANDLE(client.as_handle().as_raw_handle() as *mut std::ffi::c_void);
-            crate::injector::inject_into_process(handle, dll_path.to_str().unwrap(), inject_config.startup_function.as_deref())?;
+            crate::injector::inject_into_process(
+                handle,
+                dll_path.to_str().unwrap(),
+                inject_config.startup_function.as_deref(),
+            )?;
 
             println!(
                 "Successfully injected {} DLL{}",

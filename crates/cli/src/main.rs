@@ -643,10 +643,7 @@ fn run_launcher(
 
             // Status panel
             let status_text = vec![
-                Line::from(vec![
-                    Span::raw("Client: "),
-                    Span::raw(client_config.name()),
-                ]),
+                Line::from(vec![Span::raw("Client: "), Span::raw(client_config.name())]),
                 Line::from(vec![
                     Span::raw("Server: "),
                     Span::raw(format!(
@@ -778,13 +775,7 @@ fn client_list() -> anyhow::Result<()> {
         let is_selected = Some(idx) == selected_client;
         let marker = if is_selected { " * " } else { "   " };
         let client_type = if config.is_wine() { "Wine" } else { "Windows" };
-        println!(
-            "{}{}: {} ({})",
-            marker,
-            idx,
-            config.name(),
-            client_type
-        );
+        println!("{}{}: {} ({})", marker, idx, config.name(), client_type);
     }
 
     Ok(())
@@ -1363,12 +1354,9 @@ fn dll_remove(index: usize) -> anyhow::Result<()> {
     use std::io::{self, Write};
 
     let dll_info = SettingsManager::get(|s| {
-        s.discovered_dlls.get(index).map(|dll| {
-            (
-                dll.dll_type.to_string(),
-                dll.dll_path.display().to_string(),
-            )
-        })
+        s.discovered_dlls
+            .get(index)
+            .map(|dll| (dll.dll_type.to_string(), dll.dll_path.display().to_string()))
     });
 
     let (dll_type, dll_path) = match dll_info {
@@ -1590,7 +1578,8 @@ fn inject() -> anyhow::Result<()> {
     println!();
 
     // Run cork.exe under wine
-    let wine_exe = wine_config.wrapper_program()
+    let wine_exe = wine_config
+        .wrapper_program()
         .ok_or_else(|| anyhow::anyhow!("Wine config missing wrapper_program"))?;
     let mut cmd = Command::new(wine_exe);
 

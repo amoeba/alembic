@@ -120,11 +120,12 @@ impl Widget for &mut SettingsDllsTab {
                                 body.row(text_height, |mut table_row| {
                                     // Platform (non-editable)
                                     table_row.col(|ui| {
-                                        let platform_str = if settings.discovered_dlls[i].wine_prefix.is_some() {
-                                            "Wine"
-                                        } else {
-                                            "Windows"
-                                        };
+                                        let platform_str =
+                                            if settings.discovered_dlls[i].wine_prefix.is_some() {
+                                                "Wine"
+                                            } else {
+                                                "Windows"
+                                            };
                                         ui.label(platform_str);
                                     });
 

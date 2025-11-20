@@ -32,8 +32,12 @@ impl Widget for &mut SettingsClientsTab {
 
                             let new_client = ClientConfigType::Wine(WineClientConfig {
                                 name: "Wine Client".to_string(),
-                                client_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call\\acclient.exe"),
-                                wrapper_program: Some(std::path::PathBuf::from("/usr/local/bin/wine64")),
+                                client_path: std::path::PathBuf::from(
+                                    "C:\\Turbine\\Asheron's Call\\acclient.exe",
+                                ),
+                                wrapper_program: Some(std::path::PathBuf::from(
+                                    "/usr/local/bin/wine64",
+                                )),
                                 env,
                             });
 
@@ -45,7 +49,9 @@ impl Widget for &mut SettingsClientsTab {
                         if ui.button("New Windows Client").clicked() {
                             let new_client = ClientConfigType::Windows(WindowsClientConfig {
                                 name: "Windows Client".to_string(),
-                                client_path: std::path::PathBuf::from("C:\\Turbine\\Asheron's Call\\acclient.exe"),
+                                client_path: std::path::PathBuf::from(
+                                    "C:\\Turbine\\Asheron's Call\\acclient.exe",
+                                ),
                                 env: std::collections::HashMap::new(),
                             });
 
@@ -120,15 +126,25 @@ impl Widget for &mut SettingsClientsTab {
                                     // Client Path (editable)
                                     table_row.col(|ui| {
                                         let current_path = match &settings.clients[i] {
-                                            ClientConfigType::Wine(c) => c.client_path.display().to_string(),
-                                            ClientConfigType::Windows(c) => c.client_path.display().to_string(),
+                                            ClientConfigType::Wine(c) => {
+                                                c.client_path.display().to_string()
+                                            }
+                                            ClientConfigType::Windows(c) => {
+                                                c.client_path.display().to_string()
+                                            }
                                         };
                                         let mut path_string = current_path;
 
                                         if ui.text_edit_singleline(&mut path_string).changed() {
                                             match &mut settings.clients[i] {
-                                                ClientConfigType::Wine(c) => c.client_path = std::path::PathBuf::from(&path_string),
-                                                ClientConfigType::Windows(c) => c.client_path = std::path::PathBuf::from(&path_string),
+                                                ClientConfigType::Wine(c) => {
+                                                    c.client_path =
+                                                        std::path::PathBuf::from(&path_string)
+                                                }
+                                                ClientConfigType::Windows(c) => {
+                                                    c.client_path =
+                                                        std::path::PathBuf::from(&path_string)
+                                                }
                                             }
                                             did_update = true;
                                         }

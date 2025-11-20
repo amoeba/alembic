@@ -1,4 +1,4 @@
-use crate::client_config::{WineClientConfig, WindowsClientConfig};
+use crate::client_config::{WindowsClientConfig, WineClientConfig};
 use crate::inject_config::{DllType, InjectConfig};
 use crate::settings::ClientConfigType;
 use anyhow::Result;
@@ -63,7 +63,6 @@ fn find_dlls_in_prefix(wine_prefix_path: &Path) -> Vec<InjectConfig> {
                     dll_type: DllType::Alembic,
                     dll_path: windows_path,
                     startup_function: None,
-                    wine_prefix: Some(wine_prefix_path.to_path_buf()),
                 });
             }
         }
@@ -89,7 +88,6 @@ fn find_dlls_in_prefix(wine_prefix_path: &Path) -> Vec<InjectConfig> {
                     dll_type: DllType::Decal,
                     dll_path: windows_path,
                     startup_function: Some("DecalStartup".to_string()),
-                    wine_prefix: Some(wine_prefix_path.to_path_buf()),
                 });
             }
         }
@@ -108,7 +106,9 @@ pub struct WineScanner {
 
 impl WineScanner {
     pub fn new(wine_executable_path: PathBuf) -> Self {
-        Self { wine_executable_path }
+        Self {
+            wine_executable_path,
+        }
     }
 
     fn scan_prefix(&self, wine_prefix_path: &Path) -> Result<Vec<ClientConfigType>> {
@@ -135,7 +135,10 @@ impl WineScanner {
                 let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
 
                 let mut env = HashMap::new();
-                env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
+                env.insert(
+                    "WINEPREFIX".to_string(),
+                    wine_prefix_path.display().to_string(),
+                );
 
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Wine: {}", wine_prefix_path.display()),
@@ -301,7 +304,10 @@ impl WhiskyScanner {
                 let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
 
                 let mut env = HashMap::new();
-                env.insert("WINEPREFIX".to_string(), wine_prefix_path.display().to_string());
+                env.insert(
+                    "WINEPREFIX".to_string(),
+                    wine_prefix_path.display().to_string(),
+                );
 
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Whisky: {}", bottle_name),
