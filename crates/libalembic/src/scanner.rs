@@ -5,6 +5,7 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 
 /// Trait for client installation scanners
 pub trait ClientScanner {
@@ -17,10 +18,6 @@ pub trait ClientScanner {
     /// Check if this scanner is available on the current platform
     fn is_available(&self) -> bool;
 }
-
-// ============================================================================
-// DLL DETECTION HELPERS
-// ============================================================================
 
 /// Convert a Unix path within a Wine prefix to a Windows-style path
 fn unix_to_windows_path(unix_path: &Path) -> Result<PathBuf> {
@@ -36,29 +33,16 @@ fn unix_to_windows_path(unix_path: &Path) -> Result<PathBuf> {
 }
 
 /// Scan a Wine prefix for Alembic and Decal DLL installations
-fn find_dlls_in_prefix(wine_prefix_path: &Path) -> Vec<InjectConfig> {
+fn find_dlls_in_prefix() -> Vec<InjectConfig> {
+    // TODO: Factor all of this out into real Scanner impls, this code is not good
     let mut inject_configs = vec![];
-    let drive_c = wine_prefix_path.join("drive_c");
 
-    if !drive_c.exists() {
-        return inject_configs;
-    }
-
-    // Check for Alembic.dll in AC installation directories
-    let alembic_search_paths = [
-        "Turbine/Asheron's Call",
-        "Program Files/Turbine/Asheron's Call",
-        "Program Files (x86)/Turbine/Asheron's Call",
-        "AC",
-        "Games/AC",
-    ];
-
+    // TODO: Check for Alembic.dll in AC installation directories
+    let alembic_search_paths = ["./Alembic.dll"];
     for search_path in alembic_search_paths {
-        let dll_dir = drive_c.join(search_path);
-        let alembic_path = dll_dir.join("Alembic.dll");
-        if alembic_path.exists() {
-            // Convert Unix path to Windows path
-            if let Ok(windows_path) = unix_to_windows_path(&alembic_path) {
+        let path = Path::new(search_path);
+        if path.exists() {
+            if let Ok(windows_path) = unix_to_windows_path(&path) {
                 inject_configs.push(InjectConfig {
                     dll_type: DllType::Alembic,
                     dll_path: windows_path,
@@ -68,25 +52,14 @@ fn find_dlls_in_prefix(wine_prefix_path: &Path) -> Vec<InjectConfig> {
         }
     }
 
-    // Check for Decal's Inject.dll in common Decal installation directories
-    let decal_search_paths = [
-        "Decal",
-        "Decal 3.0",
-        "Program Files/Decal",
-        "Program Files/Decal 3.0",
-        "Program Files (x86)/Decal",
-        "Program Files (x86)/Decal 3.0",
-    ];
-
+    let decal_search_paths = [r"C:\Program Files (x86)\Decal 3.0"];
     for search_path in decal_search_paths {
-        let dll_dir = drive_c.join(search_path);
-        let decal_path = dll_dir.join("Inject.dll");
-        if decal_path.exists() {
-            // Convert Unix path to Windows path
-            if let Ok(windows_path) = unix_to_windows_path(&decal_path) {
+        let path = Path::new(search_path);
+        if path.exists() {
+            if let Ok(dll_path) = unix_to_windows_path(&path) {
                 inject_configs.push(InjectConfig {
                     dll_type: DllType::Decal,
-                    dll_path: windows_path,
+                    dll_path: dll_path,
                     startup_function: Some("DecalStartup".to_string()),
                 });
             }
@@ -95,10 +68,6 @@ fn find_dlls_in_prefix(wine_prefix_path: &Path) -> Vec<InjectConfig> {
 
     inject_configs
 }
-
-// ============================================================================
-// WINE SCANNER
-// ============================================================================
 
 pub struct WineScanner {
     wine_executable_path: PathBuf,
