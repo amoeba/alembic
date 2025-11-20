@@ -311,7 +311,7 @@ impl Widget for &mut SettingsGameClientPathEdit {
                                     // Type column
                                     row.col(|ui| {
                                         let client_type =
-                                            if client.is_wine() { "wine" } else { "Windows" };
+                                            if client.is_wine() { "Wine" } else { "Windows" };
                                         ui.label(client_type);
                                     });
 

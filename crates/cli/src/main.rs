@@ -773,7 +773,7 @@ fn client_list() -> anyhow::Result<()> {
     for (idx, config) in clients.iter().enumerate() {
         let is_selected = Some(idx) == selected_client;
         let marker = if is_selected { " * " } else { "   " };
-        let client_type = if config.is_wine() { "wine" } else { "Windows" };
+        let client_type = if config.is_wine() { "Wine" } else { "Windows" };
         println!(
             "{}{}: {} ({})",
             marker,

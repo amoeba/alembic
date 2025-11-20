@@ -1,8 +1,8 @@
-mod wine;
 mod windows;
+mod wine;
 
-pub use wine::WineClientConfig;
 pub use windows::WindowsClientConfig;
+pub use wine::WineClientConfig;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
