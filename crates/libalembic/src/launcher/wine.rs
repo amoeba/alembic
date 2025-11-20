@@ -1,13 +1,12 @@
 #![cfg(not(all(target_os = "windows", target_env = "msvc", feature = "alembic")))]
 
 use std::{
-    error::Error,
     num::NonZero,
     process::{Child, Command, Stdio},
 };
 
 use crate::{
-    client_config::{ClientConfig, DllType, InjectConfig, WineClientConfig},
+    client_config::{ClientConfig, InjectConfig, WineClientConfig},
     launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
@@ -138,13 +137,7 @@ impl ClientLauncher for WineLauncherImpl {
             cmd.arg("--dll")
                 .arg(inject_config.dll_path().display().to_string());
 
-            // Determine if we need to call a function after injection
-            let dll_function = match inject_config.dll_type() {
-                DllType::Decal => Some("DecalStartup"),
-                DllType::Alembic => None,
-            };
-
-            if let Some(func) = dll_function {
+            if let Some(func) = inject_config.startup_function() {
                 println!("  Function: {}", func);
                 cmd.arg("--function").arg(func);
             }

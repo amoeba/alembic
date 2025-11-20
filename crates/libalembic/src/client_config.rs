@@ -17,6 +17,8 @@ pub struct WindowsInjectConfig {
     pub dll_path: PathBuf,
     /// Type of DLL (Alembic or Decal)
     pub dll_type: DllType,
+    /// Optional startup function to call after injection (e.g., "DecalStartup")
+    pub startup_function: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,6 +29,8 @@ pub struct WineInjectConfig {
     pub wine_prefix: PathBuf,
     /// DLL path in Windows format (e.g., C:\Program Files (x86)\Decal 3.0\Inject.dll)
     pub dll_path: PathBuf,
+    /// Optional startup function to call after injection (e.g., "DecalStartup")
+    pub startup_function: Option<String>,
 }
 
 impl InjectConfig {
@@ -41,6 +45,13 @@ impl InjectConfig {
         match self {
             InjectConfig::Windows(config) => &config.dll_path,
             InjectConfig::Wine(config) => &config.dll_path,
+        }
+    }
+
+    pub fn startup_function(&self) -> Option<&str> {
+        match self {
+            InjectConfig::Windows(config) => config.startup_function.as_deref(),
+            InjectConfig::Wine(config) => config.startup_function.as_deref(),
         }
     }
 

@@ -36,6 +36,7 @@ impl Widget for &mut SettingsDllsTab {
                                 dll_path: std::path::PathBuf::from(
                                     "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
                                 ),
+                                startup_function: Some("DecalStartup".to_string()),
                             });
 
                             settings.discovered_dlls.push(new_dll);
@@ -47,6 +48,7 @@ impl Widget for &mut SettingsDllsTab {
                                 dll_type: DllType::Alembic,
                                 wine_prefix: std::path::PathBuf::from("/path/to/prefix"),
                                 dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
+                                startup_function: None,
                             });
 
                             settings.discovered_dlls.push(new_dll);
@@ -60,6 +62,7 @@ impl Widget for &mut SettingsDllsTab {
                                     "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
                                 ),
                                 dll_type: DllType::Decal,
+                                startup_function: Some("DecalStartup".to_string()),
                             });
 
                             settings.discovered_dlls.push(new_dll);
@@ -71,6 +74,7 @@ impl Widget for &mut SettingsDllsTab {
                             let new_dll = InjectConfig::Windows(WindowsInjectConfig {
                                 dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
                                 dll_type: DllType::Alembic,
+                                startup_function: None,
                             });
 
                             settings.discovered_dlls.push(new_dll);

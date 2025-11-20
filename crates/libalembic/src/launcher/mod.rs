@@ -1,4 +1,4 @@
-mod traits;
+pub mod traits;
 
 #[cfg(all(target_os = "windows", target_env = "msvc", feature = "alembic"))]
 pub mod windows;

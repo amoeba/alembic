@@ -6,7 +6,7 @@ pub fn try_launch(
     inject_config: &Option<libalembic::client_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use anyhow::bail;
-    use libalembic::launcher::{ClientLauncher, Launcher};
+    use libalembic::launcher::{traits::ClientLauncher, Launcher};
 
     // Validate arguments
     let client_config = match client_config {
@@ -44,7 +44,7 @@ pub fn try_launch(
     inject_config: &Option<libalembic::client_config::InjectConfig>,
 ) -> anyhow::Result<std::num::NonZero<u32>> {
     use anyhow::bail;
-    use libalembic::launcher::{ClientLauncher, Launcher};
+    use libalembic::launcher::{traits::ClientLauncher, Launcher};
 
     // Validate arguments
     let client_config = match client_config {

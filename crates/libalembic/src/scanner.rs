@@ -63,6 +63,7 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
                     dll_type: DllType::Alembic,
                     wine_prefix: prefix_path.to_path_buf(),
                     dll_path: windows_path,
+                    startup_function: None,
                 }));
             }
         }
@@ -88,6 +89,7 @@ fn find_dlls_in_prefix(prefix_path: &Path) -> Vec<InjectConfig> {
                     dll_type: DllType::Decal,
                     wine_prefix: prefix_path.to_path_buf(),
                     dll_path: windows_path,
+                    startup_function: Some("DecalStartup".to_string()),
                 }));
             }
         }
@@ -513,6 +515,7 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
             inject_configs.push(InjectConfig::Windows(WindowsInjectConfig {
                 dll_path: alembic_path,
                 dll_type: DllType::Alembic,
+                startup_function: None,
             }));
         }
     }
@@ -533,6 +536,7 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
             inject_configs.push(InjectConfig::Windows(WindowsInjectConfig {
                 dll_path: decal_path,
                 dll_type: DllType::Decal,
+                startup_function: Some("DecalStartup".to_string()),
             }));
         }
     }

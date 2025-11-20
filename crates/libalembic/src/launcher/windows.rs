@@ -24,7 +24,7 @@ use windows::{
 };
 
 use crate::{
-    client_config::{ClientConfig, DllType, InjectConfig, WindowsClientConfig},
+    client_config::{ClientConfig, InjectConfig, WindowsClientConfig},
     launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
@@ -181,20 +181,14 @@ impl ClientLauncher for WindowsLauncherImpl {
                 .as_ref()
                 .expect("No client process to inject into");
 
-            // Determine if we need to call a function after injection
-            let dll_function = match inject_config.dll_type() {
-                DllType::Decal => Some("DecalStartup"),
-                DllType::Alembic => None,
-            };
-
             // Use the injector module to inject and optionally call the startup function
             let handle = HANDLE(client.as_handle().as_raw_handle() as *mut std::ffi::c_void);
-            crate::injector::inject_into_process(handle, dll_path.to_str().unwrap(), dll_function)?;
+            crate::injector::inject_into_process(handle, dll_path.to_str().unwrap(), inject_config.startup_function())?;
 
             println!(
                 "Successfully injected {} DLL{}",
                 inject_config.dll_type(),
-                if dll_function.is_some() {
+                if inject_config.startup_function().is_some() {
                     " and called startup function"
                 } else {
                     ""

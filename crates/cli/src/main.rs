@@ -2,7 +2,7 @@ use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use libalembic::{
     client_config::ClientConfig,
-    launcher::{ClientLauncher, Launcher},
+    launcher::{traits::ClientLauncher, Launcher},
     scanner,
     settings::{Account, ServerInfo, SettingsManager},
 };
@@ -1430,11 +1430,18 @@ fn dll_add(
         }
     };
 
+    // Determine startup function based on DLL type
+    let startup_function = match dll_type {
+        DllType::Decal => Some("DecalStartup".to_string()),
+        DllType::Alembic => None,
+    };
+
     // Create the appropriate InjectConfig variant
     let inject_config = match platform.to_lowercase().as_str() {
         "windows" => InjectConfig::Windows(WindowsInjectConfig {
             dll_type,
             dll_path: PathBuf::from(dll_path),
+            startup_function: startup_function.clone(),
         }),
         "wine" => {
             let wine_prefix = wine_prefix
@@ -1444,6 +1451,7 @@ fn dll_add(
                 dll_type,
                 wine_prefix: PathBuf::from(wine_prefix),
                 dll_path: PathBuf::from(dll_path),
+                startup_function,
             })
         }
         _ => {
