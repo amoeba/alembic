@@ -1,3 +1,5 @@
+#![cfg(all(target_os = "windows", target_env = "msvc", feature = "alembic"))]
+
 use std::{
     error::Error,
     ffi::OsString,
@@ -23,25 +25,16 @@ use windows::{
 
 use crate::{
     client_config::{ClientConfig, DllType, InjectConfig, WindowsClientConfig},
+    launcher::traits::ClientLauncher,
     settings::{Account, ServerInfo},
 };
 
-use super::ClientLauncher;
-
-/// Windows-specific launcher implementation
 pub struct WindowsLauncherImpl {
     config: WindowsClientConfig,
     inject_config: Option<InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
     client: Option<OwnedProcess>,
-}
-
-impl WindowsLauncherImpl {
-    pub fn attach_or_launch_injected(&mut self) -> Result<(), Box<dyn Error>> {
-        self.find_or_launch()?;
-        Ok(())
-    }
 }
 
 impl ClientLauncher for WindowsLauncherImpl {
@@ -68,8 +61,6 @@ impl ClientLauncher for WindowsLauncherImpl {
     }
 
     fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        println!("Launching new client process...");
-
         let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
         let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
