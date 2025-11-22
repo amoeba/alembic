@@ -11,6 +11,7 @@ pub mod rpc;
 pub mod scanner;
 pub mod settings;
 pub mod util;
+pub mod validation;
 pub mod win;
 
 /// Defines how the game client should be launched

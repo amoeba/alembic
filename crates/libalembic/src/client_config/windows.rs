@@ -1,4 +1,6 @@
 use super::traits::ClientConfig;
+use crate::inject_config::InjectConfig;
+use crate::validation::{validate_native_path, ValidationResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -26,6 +28,16 @@ impl ClientConfig for WindowsClientConfig {
 
     fn env(&self) -> &HashMap<String, String> {
         &self.env
+    }
+
+    fn validate(&self, inject_config: Option<&InjectConfig>) -> ValidationResult {
+        let mut result = validate_native_path(&self.client_path, "Client executable");
+
+        if let Some(dll) = inject_config {
+            result.merge(validate_native_path(&dll.dll_path, "DLL"));
+        }
+
+        result
     }
 }
 

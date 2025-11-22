@@ -109,13 +109,21 @@ impl ClientLauncher for WineLauncherImpl {
             cmd.env(key, value);
         }
 
-        println!("Launching client via Wine using cork");
+        println!("Launching...");
+        println!("  Wrapper: {}", wine_exe.display());
+        println!("  Launcher: {}", cork_path.display());
         println!("  Client: {}", client_exe);
         println!(
             "  Server: {}:{}",
             self.server_info.hostname, self.server_info.port
         );
         println!("  Account: {}", self.account_info.username);
+        if !self.config.env().is_empty() {
+            println!("  Environment:");
+            for (key, value) in self.config.env() {
+                println!("    {}={}", key, value);
+            }
+        }
 
         // Build cork command
         cmd.arg(cork_path.to_str().ok_or_else(|| {

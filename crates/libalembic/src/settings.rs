@@ -9,8 +9,9 @@ use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::client_config::{WindowsClientConfig, WineClientConfig};
+use crate::client_config::{ClientConfig, WindowsClientConfig, WineClientConfig};
 use crate::inject_config::InjectConfig;
+use crate::validation::ValidationResult;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -41,10 +42,8 @@ impl ClientConfigType {
         }
     }
 
-    pub fn install_path(&self) -> &std::path::Path {
-        self.client_path()
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new(""))
+    pub fn install_path(&self) -> std::path::PathBuf {
+        crate::client_config::windows_path_parent(self.client_path())
     }
 
     pub fn is_wine(&self) -> bool {
@@ -53,6 +52,13 @@ impl ClientConfigType {
 
     pub fn is_windows(&self) -> bool {
         matches!(self, ClientConfigType::Windows(_))
+    }
+
+    pub fn validate(&self, inject_config: Option<&InjectConfig>) -> ValidationResult {
+        match self {
+            ClientConfigType::Windows(c) => c.validate(inject_config),
+            ClientConfigType::Wine(c) => c.validate(inject_config),
+        }
     }
 }
 

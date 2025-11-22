@@ -55,12 +55,12 @@ fn find_dlls_in_prefix(prefix: &Path) -> Vec<InjectConfig> {
 
     let decal_search_paths = ["Program Files (x86)/Decal 3.0"];
     for search_path in decal_search_paths {
-        let path = drive_c.join(search_path);
-        if path.exists() {
-            if let Ok(dll_path) = unix_to_windows_path(&path) {
+        let inject_dll_path = drive_c.join(search_path).join("Inject.dll");
+        if inject_dll_path.exists() {
+            if let Ok(dll_path) = unix_to_windows_path(&inject_dll_path) {
                 inject_configs.push(InjectConfig {
                     dll_type: DllType::Decal,
-                    dll_path: dll_path,
+                    dll_path,
                     startup_function: Some("DecalStartup".to_string()),
                 });
             }
@@ -493,7 +493,6 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
                 dll_path: alembic_path,
                 dll_type: DllType::Alembic,
                 startup_function: None,
-                wine_prefix: None,
             });
         }
     }
@@ -515,7 +514,6 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
                 dll_path: decal_path,
                 dll_type: DllType::Decal,
                 startup_function: Some("DecalStartup".to_string()),
-                wine_prefix: None,
             });
         }
     }

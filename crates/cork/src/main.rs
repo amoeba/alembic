@@ -94,7 +94,6 @@ fn launch_client_with_injection(
             client_path
         );
     }
-    println!("✓ AC client executable found");
 
     // Verify that the DLL exists (if provided)
     if let Some(dll) = dll_path {
@@ -111,7 +110,6 @@ fn launch_client_with_injection(
                 dll
             );
         }
-        println!("✓ DLL file found");
     }
 
     // Build the command line arguments

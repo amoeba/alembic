@@ -1,7 +1,6 @@
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use libalembic::{
-    client_config::ClientConfig,
     launcher::{traits::ClientLauncher, Launcher},
     scanner,
     settings::{Account, ServerInfo, SettingsManager},
@@ -552,6 +551,24 @@ fn exec_launch(
     run_launcher(client_config, None, server_info, account_info)
 }
 
+/// Validate that client and DLL paths exist before launching.
+/// For Wine configs, Windows paths are validated by running a check under Wine.
+fn validate_launch_config(
+    client_config: &libalembic::settings::ClientConfigType,
+    inject_config: &Option<libalembic::inject_config::InjectConfig>,
+) -> anyhow::Result<()> {
+    let result = client_config.validate(inject_config.as_ref());
+
+    if result.is_valid {
+        Ok(())
+    } else {
+        bail!(
+            "Launch configuration validation failed:\n  - {}",
+            result.errors.join("\n  - ")
+        )
+    }
+}
+
 fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> anyhow::Result<()> {
     // Get selected client config
     let client_config =
@@ -590,6 +607,9 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
             .and_then(|idx| s.discovered_dlls.get(idx).cloned())
     });
 
+    // Validate the configuration before launching
+    validate_launch_config(&client_config, &inject_config)?;
+
     println!("Client: {}", client_config.name());
     println!(
         "Server: {} ({}:{})",
@@ -611,240 +631,20 @@ fn run_launcher(
     server_info: ServerInfo,
     account_info: Account,
 ) -> anyhow::Result<()> {
-    use crossterm::{
-        event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    };
-    use ratatui::{
-        backend::CrosstermBackend,
-        layout::{Constraint, Direction, Layout},
-        style::{Modifier, Style},
-        text::{Line, Span},
-        widgets::{Block, Borders, List, ListItem, Padding, Paragraph},
-        Terminal,
-    };
-    use std::io::{self, BufRead, BufReader};
-    use std::sync::mpsc::{channel, Receiver};
-    use std::thread;
-    use std::time::Duration;
-
-    // Launch or simulate
-    let (log_tx, log_rx): (std::sync::mpsc::Sender<String>, Receiver<String>) = channel();
-    let (status_tx, status_rx): (
-        std::sync::mpsc::Sender<ProcessStatus>,
-        std::sync::mpsc::Receiver<ProcessStatus>,
-    ) = channel();
-
-    #[derive(Clone, Debug)]
-    enum ProcessStatus {
-        Starting,
-        Running,
-        Exited(i32),
-        Error(String),
-    }
-
     let mut launcher = Launcher::new(
-        client_config.clone(),
+        client_config,
         inject_config,
-        server_info.clone(),
-        account_info.clone(),
+        server_info,
+        account_info,
     );
-    launcher.find_or_launch()?;
 
-    // Capture child process stdout/stderr on non-Windows platforms
-    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
-    // TODO: Re-implement child process capture after refactoring
-    if false {
-        let mut child: std::process::Child = unimplemented!();
-        // Spawn thread for stdout
-        if let Some(stdout) = child.stdout.take() {
-            let tx = log_tx.clone();
-            thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        let timestamp = get_timestamp();
-                        let _ = tx.send(format!("[{}] {}", timestamp, line));
-                    }
-                }
-            });
-        }
+    // Launch the client - stdout/stderr are inherited by the child process
+    launcher.launch()?;
 
-        // Spawn thread for stderr
-        if let Some(stderr) = child.stderr.take() {
-            let tx = log_tx.clone();
-            thread::spawn(move || {
-                let reader = BufReader::new(stderr);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        let timestamp = get_timestamp();
-                        let _ = tx.send(format!("[{}] {}", timestamp, line));
-                    }
-                }
-            });
-        }
-
-        // Spawn thread to monitor process exit
-        let status_tx_clone = status_tx.clone();
-        let log_tx_clone = log_tx.clone();
-        thread::spawn(move || {
-            // Process started successfully, update status to Running
-            let _ = status_tx_clone.send(ProcessStatus::Running);
-
-            match child.wait() {
-                Ok(exit_status) => {
-                    let code = exit_status.code().unwrap_or(-1);
-                    let timestamp = get_timestamp();
-                    let _ = log_tx_clone
-                        .send(format!("[{}] Process exited with code {}", timestamp, code));
-                    let _ = status_tx_clone.send(ProcessStatus::Exited(code));
-                }
-                Err(e) => {
-                    let timestamp = get_timestamp();
-                    let _ = log_tx_clone
-                        .send(format!("[{}] Error waiting for process: {}", timestamp, e));
-                    let _ = status_tx_clone.send(ProcessStatus::Error(e.to_string()));
-                }
-            }
-        });
-    }
-
-    // Setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let mut show_logs = false;
-    let mut running = true;
-    let mut logs: Vec<String> = vec![];
-    let mut process_status = ProcessStatus::Starting;
-
-    while running {
-        // Collect any new log messages from child process
-        while let Ok(log_line) = log_rx.try_recv() {
-            logs.push(log_line);
-        }
-
-        // Check for process status updates
-        if let Ok(status) = status_rx.try_recv() {
-            process_status = status;
-        }
-
-        // Render UI
-        terminal.draw(|f| {
-            let chunks = if show_logs {
-                Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([Constraint::Min(10), Constraint::Min(5)])
-                    .split(f.area())
-            } else {
-                Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([Constraint::Min(10)])
-                    .split(f.area())
-            };
-
-            // Status panel
-            let status_text = vec![
-                Line::from(vec![Span::raw("Client: "), Span::raw(client_config.name())]),
-                Line::from(vec![
-                    Span::raw("Server: "),
-                    Span::raw(format!(
-                        "{} ({}:{})",
-                        server_info.name, server_info.hostname, server_info.port
-                    )),
-                ]),
-                Line::from(vec![
-                    Span::raw("Account: "),
-                    Span::raw(&account_info.username),
-                ]),
-                Line::from(""),
-                Line::from(vec![
-                    Span::raw("Status: "),
-                    Span::styled(
-                        match &process_status {
-                            ProcessStatus::Starting => "● Starting...".to_string(),
-                            ProcessStatus::Running => "● Running".to_string(),
-                            ProcessStatus::Exited(code) => format!("● Exited (code {})", code),
-                            ProcessStatus::Error(e) => format!("● Error: {}", e),
-                        },
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                ]),
-                Line::from("Controls: Ctrl+C/q to quit"),
-                Line::from("          ? to show logs"),
-            ];
-
-            let status_block = Paragraph::new(status_text).block(
-                Block::default()
-                    .title("Alembic")
-                    .borders(Borders::ALL)
-                    .padding(Padding::uniform(1)),
-            );
-            f.render_widget(status_block, chunks[0]);
-
-            // Logs panel (if toggled)
-            if show_logs {
-                let log_items: Vec<ListItem> = logs
-                    .iter()
-                    .rev()
-                    .take(chunks[1].height as usize - 2)
-                    .rev()
-                    .map(|log| ListItem::new(log.clone()))
-                    .collect();
-
-                let logs_list = List::new(log_items).block(
-                    Block::default()
-                        .title("Logs (Press ? to hide)")
-                        .borders(Borders::ALL)
-                        .padding(Padding::uniform(1)),
-                );
-                f.render_widget(logs_list, chunks[1]);
-            }
-        })?;
-
-        // Poll for events with timeout
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key_event) = event::read()? {
-                match key_event {
-                    KeyEvent {
-                        code: KeyCode::Char('c'),
-                        modifiers: KeyModifiers::CONTROL,
-                        ..
-                    } => {
-                        logs.push(format!("[{}] Shutting down...", get_timestamp()));
-                        running = false;
-                    }
-                    KeyEvent {
-                        code: KeyCode::Char('?'),
-                        ..
-                    } => {
-                        show_logs = !show_logs;
-                    }
-                    KeyEvent {
-                        code: KeyCode::Char('q'),
-                        ..
-                    }
-                    | KeyEvent {
-                        code: KeyCode::Char('Q'),
-                        ..
-                    } => {
-                        logs.push(format!("[{}] Shutting down...", get_timestamp()));
-                        running = false;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    // Cleanup terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
+    // Wait for user to press Enter to exit (keeps the launcher running)
+    println!("\nPress Enter to eject and exit...");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
 
     // Cleanup launcher
     println!("Ejecting...");
@@ -854,18 +654,6 @@ fn run_launcher(
     Ok(())
 }
 
-fn get_timestamp() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-    let secs = now.as_secs();
-    let millis = now.subsec_millis();
-
-    let hours = (secs / 3600) % 24;
-    let minutes = (secs / 60) % 60;
-    let seconds = secs % 60;
-
-    format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, seconds, millis)
-}
 
 fn client_list() -> anyhow::Result<()> {
     let clients = SettingsManager::get(|s| s.clients.clone());
