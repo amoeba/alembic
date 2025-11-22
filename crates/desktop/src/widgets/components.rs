@@ -458,12 +458,7 @@ impl Widget for &mut SettingsDLLPathEdit {
 
                                     // Type column
                                     row.col(|ui| {
-                                        let dll_variant = if dll.wine_prefix.is_some() {
-                                            "Wine"
-                                        } else {
-                                            "Windows"
-                                        };
-                                        ui.label(dll_variant);
+                                        ui.label(dll.dll_type.to_string());
                                     });
 
                                     // Delete button column

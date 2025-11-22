@@ -5,7 +5,6 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::str::FromStr;
 
 /// Trait for client installation scanners
 pub trait ClientScanner {
@@ -33,14 +32,16 @@ fn unix_to_windows_path(unix_path: &Path) -> Result<PathBuf> {
 }
 
 /// Scan a Wine prefix for Alembic and Decal DLL installations
-fn find_dlls_in_prefix() -> Vec<InjectConfig> {
+fn find_dlls_in_prefix(prefix: &Path) -> Vec<InjectConfig> {
     // TODO: Factor all of this out into real Scanner impls, this code is not good
     let mut inject_configs = vec![];
 
+    let drive_c = prefix.join("drive_c");
+
     // TODO: Check for Alembic.dll in AC installation directories
-    let alembic_search_paths = ["./Alembic.dll"];
+    let alembic_search_paths = ["Alembic.dll"];
     for search_path in alembic_search_paths {
-        let path = Path::new(search_path);
+        let path = drive_c.join(search_path);
         if path.exists() {
             if let Ok(windows_path) = unix_to_windows_path(&path) {
                 inject_configs.push(InjectConfig {
@@ -52,9 +53,9 @@ fn find_dlls_in_prefix() -> Vec<InjectConfig> {
         }
     }
 
-    let decal_search_paths = [r"C:\Program Files (x86)\Decal 3.0"];
+    let decal_search_paths = ["Program Files (x86)/Decal 3.0"];
     for search_path in decal_search_paths {
-        let path = Path::new(search_path);
+        let path = drive_c.join(search_path);
         if path.exists() {
             if let Ok(dll_path) = unix_to_windows_path(&path) {
                 inject_configs.push(InjectConfig {

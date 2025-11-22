@@ -1332,18 +1332,12 @@ fn dll_list() -> anyhow::Result<()> {
         let is_selected = Some(idx) == selected_dll;
         let marker = if is_selected { " * " } else { "   " };
 
-        let dll_variant = if dll.wine_prefix.is_some() {
-            "Wine"
-        } else {
-            "Windows"
-        };
-
         println!(
             "{}{}: {} ({})",
             marker,
             idx,
             dll.dll_path.display(),
-            dll_variant
+            dll.dll_type
         );
     }
 
@@ -1405,10 +1399,10 @@ fn dll_remove(index: usize) -> anyhow::Result<()> {
 }
 
 fn dll_add(
-    platform: String,
+    _platform: String,
     dll_type: String,
     dll_path: String,
-    wine_prefix: Option<String>,
+    _wine_prefix: Option<String>,
 ) -> anyhow::Result<()> {
     use libalembic::inject_config::{DllType, InjectConfig};
     use std::path::PathBuf;
@@ -1431,28 +1425,11 @@ fn dll_add(
         DllType::Alembic => None,
     };
 
-    // Determine wine_prefix based on platform
-    let wine_prefix = match platform.to_lowercase().as_str() {
-        "windows" => None,
-        "wine" => {
-            let prefix = wine_prefix
-                .ok_or_else(|| anyhow::anyhow!("--wine-prefix is required for wine platform"))?;
-            Some(PathBuf::from(prefix))
-        }
-        _ => {
-            anyhow::bail!(
-                "Invalid platform: {}. Must be 'windows' or 'wine'",
-                platform
-            );
-        }
-    };
-
     // Create the InjectConfig
     let inject_config = InjectConfig {
         dll_type,
         dll_path: PathBuf::from(dll_path),
         startup_function,
-        wine_prefix,
     };
 
     println!("Adding DLL configuration:");

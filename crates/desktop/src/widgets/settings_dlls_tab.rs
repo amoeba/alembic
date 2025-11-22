@@ -33,7 +33,6 @@ impl Widget for &mut SettingsDllsTab {
                                     "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
                                 ),
                                 startup_function: Some("DecalStartup".to_string()),
-                                wine_prefix: Some(std::path::PathBuf::from("/path/to/prefix")),
                             };
 
                             settings.discovered_dlls.push(new_dll);
@@ -45,35 +44,6 @@ impl Widget for &mut SettingsDllsTab {
                                 dll_type: DllType::Alembic,
                                 dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
                                 startup_function: None,
-                                wine_prefix: Some(std::path::PathBuf::from("/path/to/prefix")),
-                            };
-
-                            settings.discovered_dlls.push(new_dll);
-                            let _ = settings.save();
-                        }
-
-                        #[cfg(target_os = "windows")]
-                        if ui.button("New Decal").clicked() {
-                            let new_dll = InjectConfig {
-                                dll_path: std::path::PathBuf::from(
-                                    "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
-                                ),
-                                dll_type: DllType::Decal,
-                                startup_function: Some("DecalStartup".to_string()),
-                                wine_prefix: None,
-                            };
-
-                            settings.discovered_dlls.push(new_dll);
-                            let _ = settings.save();
-                        }
-
-                        #[cfg(target_os = "windows")]
-                        if ui.button("New Alembic").clicked() {
-                            let new_dll = InjectConfig {
-                                dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
-                                dll_type: DllType::Alembic,
-                                startup_function: None,
-                                wine_prefix: None,
                             };
 
                             settings.discovered_dlls.push(new_dll);
@@ -118,15 +88,12 @@ impl Widget for &mut SettingsDllsTab {
                                 n_dlls += 1;
 
                                 body.row(text_height, |mut table_row| {
-                                    // Platform (non-editable)
+                                    // Platform (non-editable) - show based on OS
                                     table_row.col(|ui| {
-                                        let platform_str =
-                                            if settings.discovered_dlls[i].wine_prefix.is_some() {
-                                                "Wine"
-                                            } else {
-                                                "Windows"
-                                            };
-                                        ui.label(platform_str);
+                                        #[cfg(target_os = "windows")]
+                                        ui.label("Windows");
+                                        #[cfg(not(target_os = "windows"))]
+                                        ui.label("Wine");
                                     });
 
                                     // Type (non-editable)
