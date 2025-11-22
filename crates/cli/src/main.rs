@@ -155,6 +155,24 @@ enum AccountCommands {
         /// Index of the account to remove (from 'account list')
         index: usize,
     },
+
+    /// Edit an existing account (only specified fields are updated)
+    Edit {
+        /// Index of the account to edit (from 'account list')
+        index: usize,
+
+        /// Server index (from 'server list')
+        #[arg(long)]
+        server: Option<usize>,
+
+        /// Account username
+        #[arg(long)]
+        username: Option<String>,
+
+        /// Account password
+        #[arg(long)]
+        password: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -206,6 +224,32 @@ enum ClientCommands {
         index: usize,
     },
 
+    /// Edit an existing client configuration (only specified fields are updated)
+    Edit {
+        /// Index of the client to edit (from 'client list')
+        index: usize,
+
+        /// New name for the client
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Path to game client executable (e.g., "C:\\AC\\acclient.exe")
+        #[arg(long)]
+        client_path: Option<String>,
+
+        /// Wrapper program path (wine64 executable for Wine)
+        #[arg(long)]
+        wrapper_program: Option<String>,
+
+        /// Environment variables to set (format: KEY=VALUE, can be specified multiple times)
+        #[arg(long = "env", value_parser = parse_key_val)]
+        env_vars: Vec<(String, String)>,
+
+        /// Environment variables to remove (can be specified multiple times)
+        #[arg(long = "unset-env")]
+        unset_env_vars: Vec<String>,
+    },
+
     /// Scan for installed clients and wine prefixes
     Scan,
 }
@@ -243,6 +287,24 @@ enum ServerCommands {
     Remove {
         /// Index of the server to remove (from 'server list')
         index: usize,
+    },
+
+    /// Edit an existing server (only specified fields are updated)
+    Edit {
+        /// Index of the server to edit (from 'server list')
+        index: usize,
+
+        /// Server name
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Server hostname or IP address
+        #[arg(long)]
+        hostname: Option<String>,
+
+        /// Server port
+        #[arg(long)]
+        port: Option<String>,
     },
 }
 
@@ -288,6 +350,24 @@ enum DllCommands {
         index: usize,
     },
 
+    /// Edit an existing DLL configuration (only specified fields are updated)
+    Edit {
+        /// Index of the DLL to edit (from 'dll list')
+        index: usize,
+
+        /// DLL type (alembic or decal)
+        #[arg(long = "type")]
+        dll_type: Option<String>,
+
+        /// Path to the DLL
+        #[arg(long)]
+        path: Option<String>,
+
+        /// Startup function name (e.g., DecalStartup)
+        #[arg(long)]
+        startup_function: Option<String>,
+    },
+
     /// Scan for Decal installations
     Scan,
 }
@@ -314,6 +394,12 @@ fn main() -> anyhow::Result<()> {
                 AccountCommands::Select { index } => account_select(index),
                 AccountCommands::Reset => account_reset(),
                 AccountCommands::Remove { index } => account_remove(index),
+                AccountCommands::Edit {
+                    index,
+                    server,
+                    username,
+                    password,
+                } => account_edit(index, server, username, password),
             },
             ConfigCommands::Client { command } => match command {
                 ClientCommands::Add {
@@ -328,6 +414,14 @@ fn main() -> anyhow::Result<()> {
                 ClientCommands::Reset => client_reset(),
                 ClientCommands::Remove { index } => client_remove(index),
                 ClientCommands::Show { index } => client_show(index),
+                ClientCommands::Edit {
+                    index,
+                    name,
+                    client_path,
+                    wrapper_program,
+                    env_vars,
+                    unset_env_vars,
+                } => client_edit(index, name, client_path, wrapper_program, env_vars, unset_env_vars),
                 ClientCommands::Scan => client_scan(),
             },
             ConfigCommands::Server { command } => match command {
@@ -340,6 +434,12 @@ fn main() -> anyhow::Result<()> {
                 ServerCommands::Select { index } => server_select(index),
                 ServerCommands::Reset => server_reset(),
                 ServerCommands::Remove { index } => server_remove(index),
+                ServerCommands::Edit {
+                    index,
+                    name,
+                    hostname,
+                    port,
+                } => server_edit(index, name, hostname, port),
             },
             ConfigCommands::Dll { command } => match command {
                 DllCommands::Add {
@@ -353,6 +453,12 @@ fn main() -> anyhow::Result<()> {
                 DllCommands::Reset => dll_reset(),
                 DllCommands::Remove { index } => dll_remove(index),
                 DllCommands::Show { index } => dll_show(index),
+                DllCommands::Edit {
+                    index,
+                    dll_type,
+                    path,
+                    startup_function,
+                } => dll_edit(index, dll_type, path, startup_function),
                 DllCommands::Scan => dll_scan(),
             },
         },
@@ -797,6 +903,91 @@ fn client_show(index: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn client_edit(
+    index: usize,
+    name: Option<String>,
+    client_path: Option<String>,
+    wrapper_program: Option<String>,
+    env_vars: Vec<(String, String)>,
+    unset_env_vars: Vec<String>,
+) -> anyhow::Result<()> {
+    use libalembic::settings::ClientConfigType;
+    use std::path::PathBuf;
+
+    let client_exists = SettingsManager::get(|s| s.clients.get(index).is_some());
+    if !client_exists {
+        bail!(
+            "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+            index
+        );
+    }
+
+    if name.is_none()
+        && client_path.is_none()
+        && wrapper_program.is_none()
+        && env_vars.is_empty()
+        && unset_env_vars.is_empty()
+    {
+        println!("No changes specified. Use --name, --client-path, --wrapper-program, --env, or --unset-env to modify the client.");
+        return Ok(());
+    }
+
+    println!("Editing client at index {}...", index);
+
+    SettingsManager::modify(|settings| {
+        let client = &mut settings.clients[index];
+
+        match client {
+            ClientConfigType::Windows(c) => {
+                if let Some(n) = &name {
+                    println!("  Updated name to: {}", n);
+                    c.name = n.clone();
+                }
+                if let Some(p) = &client_path {
+                    println!("  Updated client path to: {}", p);
+                    c.client_path = PathBuf::from(p);
+                }
+                for key in &unset_env_vars {
+                    if c.env.remove(key).is_some() {
+                        println!("  Removed env var: {}", key);
+                    }
+                }
+                for (key, value) in &env_vars {
+                    println!("  Set env var: {}={}", key, value);
+                    c.env.insert(key.clone(), value.clone());
+                }
+            }
+            ClientConfigType::Wine(c) => {
+                if let Some(n) = &name {
+                    println!("  Updated name to: {}", n);
+                    c.name = n.clone();
+                }
+                if let Some(p) = &client_path {
+                    println!("  Updated client path to: {}", p);
+                    c.client_path = PathBuf::from(p);
+                }
+                if let Some(w) = &wrapper_program {
+                    println!("  Updated wrapper program to: {}", w);
+                    c.wrapper_program = Some(PathBuf::from(w));
+                }
+                for key in &unset_env_vars {
+                    if c.env.remove(key).is_some() {
+                        println!("  Removed env var: {}", key);
+                    }
+                }
+                for (key, value) in &env_vars {
+                    println!("  Set env var: {}={}", key, value);
+                    c.env.insert(key.clone(), value.clone());
+                }
+            }
+        }
+    })?;
+
+    println!("✓ Client updated!");
+
+    Ok(())
+}
+
 fn client_add(
     mode: String,
     client_path: String,
@@ -1032,6 +1223,50 @@ fn server_remove(index: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn server_edit(
+    index: usize,
+    name: Option<String>,
+    hostname: Option<String>,
+    port: Option<String>,
+) -> anyhow::Result<()> {
+    let servers = SettingsManager::get(|s| s.servers.clone());
+
+    if index >= servers.len() {
+        bail!(
+            "Invalid index {}. No server exists at that index. Run 'alembic server list' to see available servers.",
+            index
+        );
+    }
+
+    if name.is_none() && hostname.is_none() && port.is_none() {
+        println!("No changes specified. Use --name, --hostname, or --port to modify the server.");
+        return Ok(());
+    }
+
+    println!("Editing server at index {}...", index);
+
+    SettingsManager::modify(|settings| {
+        let server = &mut settings.servers[index];
+
+        if let Some(n) = name {
+            println!("  Updated name to: {}", n);
+            server.name = n;
+        }
+        if let Some(h) = hostname {
+            println!("  Updated hostname to: {}", h);
+            server.hostname = h;
+        }
+        if let Some(p) = port {
+            println!("  Updated port to: {}", p);
+            server.port = p;
+        }
+    })?;
+
+    println!("✓ Server updated!");
+
+    Ok(())
+}
+
 fn account_add(server: usize, username: String, password: String) -> anyhow::Result<()> {
     let servers = SettingsManager::get(|s| s.servers.clone());
 
@@ -1182,6 +1417,50 @@ fn account_remove(index: usize) -> anyhow::Result<()> {
     })?;
 
     println!("✓ Account removed!");
+
+    Ok(())
+}
+
+fn account_edit(
+    index: usize,
+    server: Option<usize>,
+    username: Option<String>,
+    password: Option<String>,
+) -> anyhow::Result<()> {
+    let accounts = SettingsManager::get(|s| s.accounts.clone());
+
+    if index >= accounts.len() {
+        bail!(
+            "Invalid index {}. No account exists at that index. Run 'alembic account list' to see available accounts.",
+            index
+        );
+    }
+
+    if server.is_none() && username.is_none() && password.is_none() {
+        println!("No changes specified. Use --server, --username, or --password to modify the account.");
+        return Ok(());
+    }
+
+    println!("Editing account at index {}...", index);
+
+    SettingsManager::modify(|settings| {
+        let account = &mut settings.accounts[index];
+
+        if let Some(s) = server {
+            account.server_index = s;
+            println!("  Updated server index to: {}", s);
+        }
+        if let Some(u) = username {
+            println!("  Updated username to: {}", u);
+            account.username = u;
+        }
+        if let Some(p) = password {
+            println!("  Updated password");
+            account.password = p;
+        }
+    })?;
+
+    println!("✓ Account updated!");
 
     Ok(())
 }
@@ -1494,6 +1773,68 @@ fn dll_show(index: usize) -> anyhow::Result<()> {
             println!("Use 'alembic dll list' to see available DLLs.");
         }
     }
+
+    Ok(())
+}
+
+fn dll_edit(
+    index: usize,
+    dll_type: Option<String>,
+    path: Option<String>,
+    startup_function: Option<String>,
+) -> anyhow::Result<()> {
+    use libalembic::inject_config::DllType;
+    use std::path::PathBuf;
+
+    let dll_exists = SettingsManager::get(|s| s.discovered_dlls.get(index).is_some());
+    if !dll_exists {
+        bail!(
+            "Invalid DLL index: {}. Use 'alembic dll list' to see available DLLs.",
+            index
+        );
+    }
+
+    if dll_type.is_none() && path.is_none() && startup_function.is_none() {
+        println!("No changes specified. Use --type, --path, or --startup-function to modify the DLL.");
+        return Ok(());
+    }
+
+    println!("Editing DLL at index {}...", index);
+
+    SettingsManager::modify(|settings| {
+        let dll = &mut settings.discovered_dlls[index];
+
+        if let Some(t) = &dll_type {
+            match t.to_lowercase().as_str() {
+                "alembic" => {
+                    println!("  Updated type to: Alembic");
+                    dll.dll_type = DllType::Alembic;
+                }
+                "decal" => {
+                    println!("  Updated type to: Decal");
+                    dll.dll_type = DllType::Decal;
+                }
+                _ => {
+                    println!("  Warning: Invalid DLL type '{}', ignoring. Use 'alembic' or 'decal'.", t);
+                }
+            }
+        }
+        if let Some(p) = &path {
+            println!("  Updated path to: {}", p);
+            dll.dll_path = PathBuf::from(p);
+        }
+        if let Some(f) = &startup_function {
+            if f.is_empty() || f == "none" {
+                println!("  Removed startup function");
+                dll.startup_function = None;
+            } else {
+                println!("  Updated startup function to: {}", f);
+                dll.startup_function = Some(f.clone());
+            }
+        }
+    })?;
+
+    println!("✓ DLL updated!");
 
     Ok(())
 }
