@@ -144,36 +144,52 @@ impl ClientScanner for WineScanner {
 
     fn scan(&self) -> Result<Vec<ClientConfigType>> {
         let mut all_configs = vec![];
+        let mut scanned_prefixes: Vec<PathBuf> = vec![];
 
-        // Check standard wine prefix locations
         let home = std::env::var("HOME")?;
-        let search_dirs = vec![
+
+        // Known wine prefix locations (these are prefixes themselves)
+        let known_prefixes = vec![
             PathBuf::from(&home).join(".wine"),
-            PathBuf::from(&home).join(".local/share/wineprefixes"),
         ];
 
-        for dir in search_dirs {
-            if !dir.exists() {
-                continue;
-            }
+        // Directories that may contain wine prefixes as subdirectories
+        let prefix_containers = vec![
+            PathBuf::from(&home).join(".local/share/wineprefixes"),
+            PathBuf::from(&home).join("Games"), // Lutris
+        ];
 
-            if dir.ends_with(".wine") {
-                // Single prefix
-                if let Ok(mut configs) = self.scan_prefix(&dir) {
+        // Scan known prefixes directly
+        for prefix in known_prefixes {
+            if prefix.exists() && prefix.join("drive_c").is_dir() {
+                scanned_prefixes.push(prefix.clone());
+                if let Ok(mut configs) = self.scan_prefix(&prefix) {
                     all_configs.append(&mut configs);
                 }
-            } else {
-                // Directory of prefixes
-                if let Ok(entries) = std::fs::read_dir(&dir) {
-                    for entry in entries.flatten() {
-                        if entry.path().is_dir() {
-                            if let Ok(mut configs) = self.scan_prefix(&entry.path()) {
-                                all_configs.append(&mut configs);
-                            }
+            }
+        }
+
+        // Scan containers for subdirectories that look like wine prefixes
+        for container in prefix_containers {
+            if !container.exists() {
+                continue;
+            }
+            if let Ok(entries) = std::fs::read_dir(&container) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() && path.join("drive_c").is_dir() {
+                        scanned_prefixes.push(path.clone());
+                        if let Ok(mut configs) = self.scan_prefix(&path) {
+                            all_configs.append(&mut configs);
                         }
                     }
                 }
             }
+        }
+
+        println!("  Scanned {} prefix(es):", scanned_prefixes.len());
+        for prefix in &scanned_prefixes {
+            println!("    - {}", prefix.display());
         }
 
         Ok(all_configs)
