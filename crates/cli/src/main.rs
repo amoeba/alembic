@@ -897,15 +897,26 @@ fn client_remove(index: usize) -> anyhow::Result<()> {
 fn server_add(name: String, hostname: String, port: String) -> anyhow::Result<()> {
     println!("Adding server...");
 
+    let had_no_servers = SettingsManager::get(|s| s.servers.is_empty());
+
     SettingsManager::modify(|settings| {
         settings.servers.push(ServerInfo {
             name: name.clone(),
             hostname: hostname.clone(),
             port: port.clone(),
         });
+
+        // Auto-select if this is the first server
+        if had_no_servers && settings.selected_server.is_none() {
+            settings.selected_server = Some(0);
+        }
     })?;
 
-    println!("✓ Server added!");
+    if had_no_servers {
+        println!("✓ Server added and selected!");
+    } else {
+        println!("✓ Server added!");
+    }
     println!();
     println!("  Name:     {}", name);
     println!("  Hostname: {}", hostname);
@@ -1067,15 +1078,26 @@ fn account_add(server: usize, username: String, password: String) -> anyhow::Res
 
     println!("Adding account...");
 
+    let had_no_accounts = SettingsManager::get(|s| s.accounts.is_empty());
+
     SettingsManager::modify(|settings| {
         settings.accounts.push(Account {
             server_index: server,
             username: username.clone(),
             password: password.clone(),
         });
+
+        // Auto-select if this is the first account
+        if had_no_accounts && settings.selected_account.is_none() {
+            settings.selected_account = Some(0);
+        }
     })?;
 
-    println!("✓ Account added!");
+    if had_no_accounts {
+        println!("✓ Account added and selected!");
+    } else {
+        println!("✓ Account added!");
+    }
     println!();
     println!("  Server:   {}", servers[server].name);
     println!("  Username: {}", username);
@@ -1257,26 +1279,20 @@ fn client_scan() -> anyhow::Result<()> {
     use std::io::{self, Write};
 
     println!("Scanning for AC client installations...");
-    println!();
+
+    // Get the prefixes that will be scanned (for reporting)
+    let scanned_prefixes = scanner::WineScanner::get_scannable_prefixes();
 
     let discovered = scanner::scan_all()?;
 
-    if discovered.is_empty() {
-        println!("No client installations found.");
-        println!("You can add a client manually with: alembic client add");
-        return Ok(());
-    }
-
-    println!("Found {} client installation(s):", discovered.len());
-    println!();
-
     let mut added_count = 0;
-    let mut skipped_count = 0;
+    let mut skipped_configs: Vec<String> = vec![];
+    let mut added_configs: Vec<String> = vec![];
 
     // Check if there are any existing clients before we start adding
     let had_no_clients = SettingsManager::get(|s| s.clients.is_empty());
 
-    for config in discovered {
+    for config in &discovered {
         // Check if already exists
         let already_exists = SettingsManager::get(|s| {
             s.clients
@@ -1285,23 +1301,16 @@ fn client_scan() -> anyhow::Result<()> {
         });
 
         if already_exists {
-            println!("Skipping (already configured): {}", config.name());
-            println!("Path: {}", config.install_path().display());
-            println!();
-            skipped_count += 1;
+            skipped_configs.push(format!("{} ({})", config.name(), config.install_path().display()));
             continue;
         }
 
-        // Show details
+        // Show details and prompt
+        println!();
         println!("Found: {}", config.name());
         println!("Path: {}", config.install_path().display());
-        if config.is_wine() {
-            println!("Type: Wine");
-        } else {
-            println!("Type: Windows");
-        }
+        println!("Type: {}", if config.is_wine() { "Wine" } else { "Windows" });
 
-        // Prompt user
         print!("Add this client? (y/n): ");
         io::stdout().flush()?;
 
@@ -1310,7 +1319,6 @@ fn client_scan() -> anyhow::Result<()> {
         let response = input.trim().to_lowercase();
 
         if response == "y" || response == "yes" {
-            // Auto-select if this is the first client being added
             let should_select = had_no_clients && added_count == 0;
 
             SettingsManager::modify(|settings| {
@@ -1318,69 +1326,150 @@ fn client_scan() -> anyhow::Result<()> {
                 settings.is_configured = true;
             })?;
 
-            if should_select {
-                println!("✓ Added and selected!");
-            } else {
-                println!("✓ Added!");
-            }
+            added_configs.push(format!("{} ({})", config.name(), config.install_path().display()));
             added_count += 1;
         } else {
-            println!("Skipped.");
-            skipped_count += 1;
+            skipped_configs.push(format!("{} ({})", config.name(), config.install_path().display()));
         }
-
-        println!();
     }
 
-    // Summary
-    println!("Scan complete:");
-    println!("Added: {}", added_count);
-    println!("Skipped: {}", skipped_count);
+    // Print summary report
+    println!();
+    println!("=== Scan Report ===");
+    println!();
+    println!("Scanned {} wine prefix(es):", scanned_prefixes.len());
+    for prefix in &scanned_prefixes {
+        println!("  - {}", prefix.display());
+    }
+    println!();
+    println!("Found {} client(s), added {}, skipped {}",
+        discovered.len(), added_configs.len(), skipped_configs.len());
 
-    if added_count > 0 {
+    if !added_configs.is_empty() {
         println!();
-        println!("Use 'alembic client list' to see all clients.");
-        println!("Use 'alembic client select <index>' to choose a client.");
+        println!("Added:");
+        for name in &added_configs {
+            println!("  + {}", name);
+        }
+    }
+
+    if !skipped_configs.is_empty() {
+        println!();
+        println!("Skipped:");
+        for name in &skipped_configs {
+            println!("  - {}", name);
+        }
+    }
+
+    if discovered.is_empty() {
+        println!();
+        println!("No client installations found.");
+        println!("You can add a client manually with: alembic config client add");
     }
 
     Ok(())
 }
 
 fn dll_scan() -> anyhow::Result<()> {
-    println!("Scanning for Decal installations...");
-    println!();
+    use std::io::{self, Write};
+
+    println!("Scanning for DLL installations...");
+
+    // Get prefixes that will be scanned (from configured clients)
+    #[cfg(not(target_os = "windows"))]
+    let scanned_prefixes = scanner::get_dll_scannable_prefixes();
 
     let discovered_dlls = scanner::scan_for_decal_dlls()?;
 
-    if discovered_dlls.is_empty() {
-        println!("No Decal installations found.");
-        println!("Make sure Decal's Inject.dll is installed.");
-        return Ok(());
-    }
+    let mut added_dlls: Vec<String> = vec![];
+    let mut skipped_dlls: Vec<String> = vec![];
 
-    println!("Found Decal installation:");
+    let had_no_dlls = SettingsManager::get(|s| s.discovered_dlls.is_empty());
+
     for dll in &discovered_dlls {
-        println!("  Path: {}", dll.dll_path.display());
+        // Check if already exists
+        let already_exists = SettingsManager::get(|s| {
+            s.discovered_dlls
+                .iter()
+                .any(|existing| existing.dll_path == dll.dll_path)
+        });
+
+        if already_exists {
+            skipped_dlls.push(format!("{} ({})", dll.dll_type, dll.dll_path.display()));
+            continue;
+        }
+
+        // Show details and prompt
+        println!();
+        println!("Found: {}", dll.dll_path.display());
+        println!("Type: {}", dll.dll_type);
+
+        print!("Add this DLL? (y/n): ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let response = input.trim().to_lowercase();
+
+        if response == "y" || response == "yes" {
+            let should_select = had_no_dlls && added_dlls.is_empty();
+
+            SettingsManager::modify(|settings| {
+                settings.add_or_update_dll(dll.clone());
+
+                if should_select && settings.selected_dll.is_none() {
+                    settings.selected_dll = Some(0);
+                }
+            })?;
+
+            added_dlls.push(format!("{} ({})", dll.dll_type, dll.dll_path.display()));
+        } else {
+            skipped_dlls.push(format!("{} ({})", dll.dll_type, dll.dll_path.display()));
+        }
     }
+
+    // Print summary report
     println!();
+    println!("=== Scan Report ===");
 
-    // Add/update each found DLL
-    SettingsManager::modify(|settings| {
-        let had_no_dlls = settings.discovered_dlls.is_empty();
-
-        for dll in discovered_dlls {
-            settings.add_or_update_dll(dll);
+    #[cfg(not(target_os = "windows"))]
+    {
+        println!();
+        if scanned_prefixes.is_empty() {
+            println!("No clients configured. Configure a client first with: alembic config client scan");
+        } else {
+            println!("Scanned {} prefix(es) from configured clients:", scanned_prefixes.len());
+            for prefix in &scanned_prefixes {
+                println!("  - {}", prefix.display());
+            }
         }
+    }
 
-        // Auto-select first DLL if there were no DLLs before
-        if had_no_dlls && !settings.discovered_dlls.is_empty() && settings.selected_dll.is_none() {
-            settings.selected_dll = Some(0);
-        }
-    })?;
-
-    println!("✓ Decal configuration saved!");
     println!();
-    println!("Use 'alembic dll status' to see the configuration.");
+    println!("Found {} DLL(s), added {}, skipped {}",
+        discovered_dlls.len(), added_dlls.len(), skipped_dlls.len());
+
+    if !added_dlls.is_empty() {
+        println!();
+        println!("Added:");
+        for name in &added_dlls {
+            println!("  + {}", name);
+        }
+    }
+
+    if !skipped_dlls.is_empty() {
+        println!();
+        println!("Skipped:");
+        for name in &skipped_dlls {
+            println!("  - {}", name);
+        }
+    }
+
+    if discovered_dlls.is_empty() {
+        println!();
+        println!("No DLL installations found.");
+        println!("Make sure Decal's Inject.dll is installed in your wine prefix.");
+    }
 
     Ok(())
 }

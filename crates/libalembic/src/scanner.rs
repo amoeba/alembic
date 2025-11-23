@@ -1,6 +1,6 @@
 use crate::client_config::{WindowsClientConfig, WineClientConfig};
 use crate::inject_config::{DllType, InjectConfig};
-use crate::settings::ClientConfigType;
+use crate::settings::{ClientConfigType, SettingsManager};
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -187,16 +187,54 @@ impl ClientScanner for WineScanner {
             }
         }
 
-        println!("  Scanned {} prefix(es):", scanned_prefixes.len());
-        for prefix in &scanned_prefixes {
-            println!("    - {}", prefix.display());
-        }
-
         Ok(all_configs)
     }
 
     fn is_available(&self) -> bool {
         cfg!(any(target_os = "macos", target_os = "linux"))
+    }
+}
+
+impl WineScanner {
+    /// Get the list of prefixes that would be scanned (for reporting)
+    pub fn get_scannable_prefixes() -> Vec<PathBuf> {
+        let mut prefixes = vec![];
+
+        let home = match std::env::var("HOME") {
+            Ok(h) => h,
+            Err(_) => return prefixes,
+        };
+
+        // Known wine prefix locations
+        let known_prefixes = vec![PathBuf::from(&home).join(".wine")];
+
+        // Directories that may contain wine prefixes
+        let prefix_containers = vec![
+            PathBuf::from(&home).join(".local/share/wineprefixes"),
+            PathBuf::from(&home).join("Games"),
+        ];
+
+        for prefix in known_prefixes {
+            if prefix.exists() && prefix.join("drive_c").is_dir() {
+                prefixes.push(prefix);
+            }
+        }
+
+        for container in prefix_containers {
+            if !container.exists() {
+                continue;
+            }
+            if let Ok(entries) = std::fs::read_dir(&container) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() && path.join("drive_c").is_dir() {
+                        prefixes.push(path);
+                    }
+                }
+            }
+        }
+
+        prefixes
     }
 }
 
@@ -472,15 +510,10 @@ pub fn scan_all() -> Result<Vec<ClientConfigType>> {
     for scanner in scanners {
         match scanner.scan() {
             Ok(mut configs) => {
-                println!(
-                    "Scanner '{}' found {} client(s)",
-                    scanner.name(),
-                    configs.len()
-                );
                 all_configs.append(&mut configs);
             }
-            Err(e) => {
-                eprintln!("Scanner '{}' failed: {}", scanner.name(), e);
+            Err(_e) => {
+                // Silently skip failed scanners
             }
         }
     }
@@ -546,33 +579,47 @@ pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
         all_dlls.append(&mut scan_windows_for_dlls());
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(not(target_os = "windows"))]
     {
-        let whisky_scanner = WhiskyScanner;
-        if whisky_scanner.is_available() {
-            if let Ok(mut dlls) = scan_whisky_for_decal_dlls(&whisky_scanner) {
-                all_dlls.append(&mut dlls);
+        // On non-Windows, scan wine prefixes from configured clients
+        let clients = SettingsManager::get(|s| s.clients.clone());
+
+        for client in clients {
+            if let ClientConfigType::Wine(wine_config) = client {
+                if let Some(prefix_str) = wine_config.env.get("WINEPREFIX") {
+                    let prefix = PathBuf::from(prefix_str);
+                    if prefix.exists() {
+                        let dll_configs = find_dlls_in_prefix(&prefix);
+                        for dll_config in dll_configs {
+                            all_dlls.push(dll_config);
+                        }
+                    }
+                }
             }
         }
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        // Try wine prefixes
-        if let Ok(wine_path) = find_wine_executable() {
-            let scanner = WineScanner::new(wine_path);
-            if let Ok(mut dlls) = scan_wine_for_decal_dlls(&scanner) {
-                all_dlls.append(&mut dlls);
-            }
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        // TODO: Implement Windows Decal scanning
     }
 
     Ok(all_dlls)
+}
+
+/// Get wine prefixes from configured clients (for DLL scanning reports)
+#[cfg(not(target_os = "windows"))]
+pub fn get_dll_scannable_prefixes() -> Vec<PathBuf> {
+    let clients = SettingsManager::get(|s| s.clients.clone());
+    let mut prefixes = vec![];
+
+    for client in clients {
+        if let ClientConfigType::Wine(wine_config) = client {
+            if let Some(prefix_str) = wine_config.env.get("WINEPREFIX") {
+                let prefix = PathBuf::from(prefix_str);
+                if prefix.exists() {
+                    prefixes.push(prefix);
+                }
+            }
+        }
+    }
+
+    prefixes
 }
 
 #[cfg(target_os = "macos")]
@@ -618,46 +665,6 @@ fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfi
             }
             Err(e) => {
                 eprintln!("Warning: Failed to get info for bottle '{}': {}", bottle, e);
-            }
-        }
-    }
-
-    Ok(all_dlls)
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-fn scan_wine_for_decal_dlls(_scanner: &WineScanner) -> Result<Vec<InjectConfig>> {
-    let mut all_dlls = vec![];
-
-    let home = std::env::var("HOME")?;
-    let search_dirs = vec![
-        PathBuf::from(&home).join(".wine"),
-        PathBuf::from(&home).join(".local/share/wineprefixes"),
-    ];
-
-    for dir in search_dirs {
-        if !dir.exists() {
-            continue;
-        }
-
-        let prefixes_to_scan = if dir.ends_with(".wine") {
-            vec![dir]
-        } else {
-            // Directory of prefixes
-            std::fs::read_dir(&dir)?
-                .filter_map(Result::ok)
-                .filter(|e| e.path().is_dir())
-                .map(|e| e.path())
-                .collect()
-        };
-
-        for prefix in prefixes_to_scan {
-            let dll_configs = find_dlls_in_prefix(&prefix);
-
-            for dll_config in dll_configs {
-                if dll_config.dll_type == DllType::Decal {
-                    all_dlls.push(dll_config);
-                }
             }
         }
     }
