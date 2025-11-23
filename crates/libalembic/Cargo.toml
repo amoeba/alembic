@@ -16,6 +16,7 @@ once_cell = { workspace = true }
 region = "3.0.2"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0"
+serde_yml = "0.0.12"
 tarpc = { workspace = true }
 tokio = { workspace = true }
 

@@ -24,3 +24,18 @@ args = ["build", "--target", "i686-pc-windows-msvc", "-p", "cork", "-p", "dll"]
 description = "Build native components (desktop, cli)"
 command = "cargo"
 args = ["build", "-p", "desktop", "-p", "cli"]
+
+[tasks.cork]
+description = "Build cork for 32-bit Windows (auto-selects toolchain)"
+
+[tasks.cork.windows]
+command = "cargo"
+args = ["build", "--target", "i686-pc-windows-msvc", "-p", "cork"]
+
+[tasks.cork.linux]
+command = "cargo"
+args = ["build", "--target", "i686-pc-windows-gnu", "-p", "cork"]
+
+[tasks.cork.mac]
+command = "cargo"
+args = ["build", "--target", "i686-pc-windows-gnu", "-p", "cork"]

@@ -1,16 +1,13 @@
-use super::traits::ClientConfig;
+use super::traits::{ClientConfig, LaunchCommand};
 use crate::inject_config::InjectConfig;
 use crate::validation::{validate_native_path, ValidationResult};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowsClientConfig {
     pub name: String,
     pub client_path: PathBuf,
-    #[serde(default)]
-    pub env: HashMap<String, String>,
 }
 
 impl ClientConfig for WindowsClientConfig {
@@ -22,12 +19,9 @@ impl ClientConfig for WindowsClientConfig {
         &self.client_path
     }
 
-    fn wrapper_program(&self) -> Option<&Path> {
+    fn launch_command(&self) -> Option<&LaunchCommand> {
+        // Windows launches directly, no wrapper needed
         None
-    }
-
-    fn env(&self) -> &HashMap<String, String> {
-        &self.env
     }
 
     fn validate(&self, inject_config: Option<&InjectConfig>) -> ValidationResult {

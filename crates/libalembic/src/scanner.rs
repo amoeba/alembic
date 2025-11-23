@@ -1,8 +1,8 @@
-use crate::client_config::{WindowsClientConfig, WineClientConfig};
+use crate::client_config::{LaunchCommand, WindowsClientConfig, WineClientConfig};
 use crate::inject_config::{DllType, InjectConfig};
 use crate::settings::{ClientConfigType, SettingsManager};
 use anyhow::Result;
-use std::collections::HashMap;
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -102,19 +102,15 @@ impl WineScanner {
 
             if exe_path.exists() {
                 // Convert Unix path to Windows path for acclient.exe
-                let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
+                let windows_exe_path = unix_to_windows_path(&exe_path)?;
 
-                let mut env = HashMap::new();
-                env.insert(
-                    "WINEPREFIX".to_string(),
-                    wine_prefix_path.display().to_string(),
-                );
+                let launch_command = LaunchCommand::new(&self.wine_executable_path)
+                    .env("WINEPREFIX", wine_prefix_path.display().to_string());
 
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Wine: {}", wine_prefix_path.display()),
                     client_path: windows_exe_path,
-                    wrapper_program: Some(self.wine_executable_path.clone()),
-                    env,
+                    launch_command,
                 }));
 
                 break; // Only add once per prefix
@@ -122,18 +118,6 @@ impl WineScanner {
         }
 
         Ok(configs)
-    }
-
-    fn unix_to_windows_path(&self, unix_path: &Path) -> Result<PathBuf> {
-        let path_str = unix_path.display().to_string();
-
-        if let Some(idx) = path_str.find("/drive_c/") {
-            let relative = &path_str[idx + 9..]; // Skip "/drive_c/"
-            let windows = format!("C:\\{}", relative.replace("/", "\\"));
-            Ok(PathBuf::from(windows))
-        } else {
-            anyhow::bail!("Path does not contain /drive_c/: {}", path_str)
-        }
     }
 }
 
@@ -149,15 +133,10 @@ impl ClientScanner for WineScanner {
         let home = std::env::var("HOME")?;
 
         // Known wine prefix locations (these are prefixes themselves)
-        let known_prefixes = vec![
-            PathBuf::from(&home).join(".wine"),
-        ];
+        let known_prefixes = vec![PathBuf::from(&home).join(".wine")];
 
         // Directories that may contain wine prefixes as subdirectories
-        let prefix_containers = vec![
-            PathBuf::from(&home).join(".local/share/wineprefixes"),
-            PathBuf::from(&home).join("Games"), // Lutris
-        ];
+        let prefix_containers = vec![PathBuf::from(&home).join(".local/share/wineprefixes")];
 
         // Scan known prefixes directly
         for prefix in known_prefixes {
@@ -209,10 +188,7 @@ impl WineScanner {
         let known_prefixes = vec![PathBuf::from(&home).join(".wine")];
 
         // Directories that may contain wine prefixes
-        let prefix_containers = vec![
-            PathBuf::from(&home).join(".local/share/wineprefixes"),
-            PathBuf::from(&home).join("Games"),
-        ];
+        let prefix_containers = vec![PathBuf::from(&home).join(".local/share/wineprefixes")];
 
         for prefix in known_prefixes {
             if prefix.exists() && prefix.join("drive_c").is_dir() {
@@ -280,9 +256,9 @@ impl WhiskyScanner {
                     .unwrap_or("");
 
                 // Expand ~ if present
-                let expanded = if prefix_value.starts_with("~/") {
+                let expanded = if let Some(suffix) = prefix_value.strip_prefix("~/") {
                     if let Ok(home) = std::env::var("HOME") {
-                        PathBuf::from(home).join(&prefix_value[2..])
+                        PathBuf::from(home).join(suffix)
                     } else {
                         PathBuf::from(prefix_value)
                     }
@@ -325,19 +301,15 @@ impl WhiskyScanner {
             let exe_path = ac_path.join("acclient.exe");
 
             if exe_path.exists() {
-                let windows_exe_path = self.unix_to_windows_path(&exe_path)?;
+                let windows_exe_path = unix_to_windows_path(&exe_path)?;
 
-                let mut env = HashMap::new();
-                env.insert(
-                    "WINEPREFIX".to_string(),
-                    wine_prefix_path.display().to_string(),
-                );
+                let launch_command = LaunchCommand::new(wine_exe)
+                    .env("WINEPREFIX", wine_prefix_path.display().to_string());
 
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Whisky: {}", bottle_name),
                     client_path: windows_exe_path,
-                    wrapper_program: Some(wine_exe.to_path_buf()),
-                    env,
+                    launch_command,
                 }));
 
                 break;
@@ -345,18 +317,6 @@ impl WhiskyScanner {
         }
 
         Ok(configs)
-    }
-
-    fn unix_to_windows_path(&self, unix_path: &Path) -> Result<PathBuf> {
-        let path_str = unix_path.display().to_string();
-
-        if let Some(idx) = path_str.find("/drive_c/") {
-            let relative = &path_str[idx + 9..];
-            let windows = format!("C:\\{}", relative.replace("/", "\\"));
-            Ok(PathBuf::from(windows))
-        } else {
-            anyhow::bail!("Path does not contain /drive_c/: {}", path_str)
-        }
     }
 }
 
@@ -419,6 +379,169 @@ impl ClientScanner for WhiskyScanner {
 }
 
 // ============================================================================
+// LUTRIS SCANNER
+// ============================================================================
+
+/// Represents a parsed Lutris game configuration
+#[derive(Debug, Deserialize)]
+struct LutrisGameConfig {
+    game: Option<LutrisGameSection>,
+    script: Option<LutrisScriptSection>,
+    name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LutrisGameSection {
+    prefix: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LutrisScriptSection {
+    installer: Option<Vec<LutrisInstallerStep>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LutrisInstallerStep {
+    task: Option<LutrisTask>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LutrisTask {
+    wine_path: Option<String>,
+}
+
+pub struct LutrisFlatpakScanner;
+
+impl LutrisFlatpakScanner {
+    /// Returns the Lutris Flatpak game config directory
+    fn get_games_dir() -> Option<PathBuf> {
+        std::env::var("HOME")
+            .ok()
+            .map(|home| PathBuf::from(home).join(".var/app/net.lutris.Lutris/data/lutris/games"))
+    }
+
+    fn parse_game_config(path: &Path) -> Result<(PathBuf, PathBuf, String)> {
+        let content = std::fs::read_to_string(path)?;
+        let config: LutrisGameConfig = serde_yml::from_str(&content)?;
+
+        // Get the game name
+        let name = config
+            .name
+            .unwrap_or_else(|| "Unknown Lutris Game".to_string());
+
+        // Get prefix from game section
+        let prefix = config
+            .game
+            .as_ref()
+            .and_then(|g| g.prefix.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("No prefix found in Lutris config"))?;
+
+        // Get wine_path from script.installer[].task.wine_path
+        let wine_path = config
+            .script
+            .as_ref()
+            .and_then(|s| s.installer.as_ref())
+            .and_then(|installers| {
+                installers
+                    .iter()
+                    .find_map(|step| step.task.as_ref().and_then(|t| t.wine_path.clone()))
+            })
+            .ok_or_else(|| anyhow::anyhow!("No wine_path found in Lutris config"))?;
+
+        Ok((PathBuf::from(prefix), PathBuf::from(wine_path), name))
+    }
+
+    fn scan_prefix(
+        &self,
+        wine_prefix_path: &Path,
+        game_name: &str,
+    ) -> Result<Vec<ClientConfigType>> {
+        let mut configs = vec![];
+
+        let drive_c = wine_prefix_path.join("drive_c");
+        if !drive_c.exists() || !drive_c.is_dir() {
+            return Ok(configs);
+        }
+
+        // Check common AC installation paths
+        let search_paths = [
+            "Turbine/Asheron's Call",
+            "Program Files/Turbine/Asheron's Call",
+            "Program Files (x86)/Turbine/Asheron's Call",
+        ];
+
+        for search_path in search_paths {
+            let ac_path = drive_c.join(search_path);
+            let exe_path = ac_path.join("acclient.exe");
+
+            if exe_path.exists() {
+                let windows_exe_path = unix_to_windows_path(&exe_path)?;
+
+                // For Flatpak Lutris, use flatpak run with --command=wine
+                // Env vars must be passed via --env= args, not process env
+                let launch_command = LaunchCommand::new("flatpak")
+                    .arg("run")
+                    .arg(format!("--env=WINEPREFIX={}", wine_prefix_path.display()))
+                    .arg("--command=wine")
+                    .arg("net.lutris.Lutris");
+
+                configs.push(ClientConfigType::Wine(WineClientConfig {
+                    name: format!("Lutris: {}", game_name),
+                    client_path: windows_exe_path,
+                    launch_command,
+                }));
+
+                break; // Only add once per prefix
+            }
+        }
+
+        Ok(configs)
+    }
+}
+
+impl ClientScanner for LutrisFlatpakScanner {
+    fn name(&self) -> &str {
+        "Lutris (Flatpak)"
+    }
+
+    fn scan(&self) -> Result<Vec<ClientConfigType>> {
+        let mut all_configs = vec![];
+
+        let games_dir = match Self::get_games_dir() {
+            Some(dir) if dir.exists() => dir,
+            _ => return Ok(all_configs),
+        };
+
+        let entries = match std::fs::read_dir(&games_dir) {
+            Ok(e) => e,
+            Err(_) => return Ok(all_configs),
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == "yml") {
+                match Self::parse_game_config(&path) {
+                    Ok((prefix, _wine_path, name)) => {
+                        if let Ok(mut configs) = self.scan_prefix(&prefix, &name) {
+                            all_configs.append(&mut configs);
+                        }
+                    }
+                    Err(_) => {
+                        // Skip configs we can't parse
+                    }
+                }
+            }
+        }
+
+        Ok(all_configs)
+    }
+
+    fn is_available(&self) -> bool {
+        cfg!(target_os = "linux")
+    }
+}
+
+// ============================================================================
 // WINDOWS SCANNER
 // ============================================================================
 
@@ -457,7 +580,6 @@ impl ClientScanner for WindowsScanner {
                 configs.push(ClientConfigType::Windows(WindowsClientConfig {
                     name,
                     client_path: client_exe,
-                    env: HashMap::new(),
                 }));
             }
         }
@@ -496,6 +618,14 @@ pub fn get_available_scanners() -> Vec<Box<dyn ClientScanner>> {
         let whisky_scanner = WhiskyScanner;
         if whisky_scanner.is_available() {
             scanners.push(Box::new(whisky_scanner));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let lutris_scanner = LutrisFlatpakScanner;
+        if lutris_scanner.is_available() {
+            scanners.push(Box::new(lutris_scanner));
         }
     }
 
@@ -586,7 +716,7 @@ pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
 
         for client in clients {
             if let ClientConfigType::Wine(wine_config) = client {
-                if let Some(prefix_str) = wine_config.env.get("WINEPREFIX") {
+                if let Some(prefix_str) = wine_config.launch_command.env.get("WINEPREFIX") {
                     let prefix = PathBuf::from(prefix_str);
                     if prefix.exists() {
                         let dll_configs = find_dlls_in_prefix(&prefix);
@@ -610,7 +740,7 @@ pub fn get_dll_scannable_prefixes() -> Vec<PathBuf> {
 
     for client in clients {
         if let ClientConfigType::Wine(wine_config) = client {
-            if let Some(prefix_str) = wine_config.env.get("WINEPREFIX") {
+            if let Some(prefix_str) = wine_config.launch_command.env.get("WINEPREFIX") {
                 let prefix = PathBuf::from(prefix_str);
                 if prefix.exists() {
                     prefixes.push(prefix);

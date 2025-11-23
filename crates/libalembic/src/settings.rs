@@ -9,7 +9,7 @@ use directories::BaseDirs;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::client_config::{ClientConfig, WindowsClientConfig, WineClientConfig};
+use crate::client_config::{ClientConfig, LaunchCommand, WindowsClientConfig, WineClientConfig};
 use crate::inject_config::InjectConfig;
 use crate::validation::ValidationResult;
 
@@ -35,10 +35,10 @@ impl ClientConfigType {
         }
     }
 
-    pub fn wrapper_program(&self) -> Option<&std::path::Path> {
+    pub fn launch_command(&self) -> Option<&LaunchCommand> {
         match self {
             ClientConfigType::Windows(_) => None,
-            ClientConfigType::Wine(c) => c.wrapper_program.as_deref(),
+            ClientConfigType::Wine(c) => Some(&c.launch_command),
         }
     }
 

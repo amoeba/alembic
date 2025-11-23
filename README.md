@@ -111,6 +111,16 @@ On Windows, you need the 32-bit MSVC target installed:
 rustup target add i686-pc-windows-msvc
 ```
 
+On Linux, you need the MinGW toolchain for cross-compiling Windows binaries (cork, dll):
+
+```sh
+# Debian/Ubuntu
+sudo apt-get install gcc-mingw-w64-i686
+
+# Add the Rust target
+rustup target add i686-pc-windows-gnu
+```
+
 Install cargo-make for the build system:
 
 ```sh

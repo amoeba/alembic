@@ -61,14 +61,14 @@ impl ClientLauncher for WineLauncherImpl {
                 }
 
                 // Strategy 2: Development mode - look in cargo target directory
-                // e.g., if exe is at target/debug/desktop, look for target/x86_64-pc-windows-gnu/debug/cork.exe
+                // e.g., if exe is at target/debug/desktop, look for target/i686-pc-windows-gnu/debug/cork.exe
                 // Try matching build type first (debug/release), then try the other
                 if let Some(target_dir) = parent.parent() {
                     let build_type = parent.file_name()?; // "debug" or "release"
 
                     // Try same build type first
                     let same_type_path = target_dir
-                        .join("x86_64-pc-windows-gnu")
+                        .join("i686-pc-windows-gnu")
                         .join(build_type)
                         .join("cork.exe");
                     if same_type_path.exists() {
@@ -78,7 +78,7 @@ impl ClientLauncher for WineLauncherImpl {
                     // Fall back to opposite build type
                     let other_type = if build_type == "debug" { "release" } else { "debug" };
                     let other_type_path = target_dir
-                        .join("x86_64-pc-windows-gnu")
+                        .join("i686-pc-windows-gnu")
                         .join(other_type)
                         .join("cork.exe");
                     if other_type_path.exists() {
@@ -91,73 +91,130 @@ impl ClientLauncher for WineLauncherImpl {
             .ok_or_else(|| {
                 std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    "cork.exe not found. Expected in same directory as executable or target/x86_64-pc-windows-gnu/[debug|release]/",
+                    "cork.exe not found. Expected in same directory as executable or target/i686-pc-windows-gnu/[debug|release]/",
                 )
             })?;
 
         let client_exe = self.config.client_path().display().to_string();
+        let launch_cmd = &self.config.launch_command;
 
-        let wine_exe = self
-            .config
-            .wrapper_program()
-            .expect("Wine config must have wrapper_program set");
+        // Build command: program + pre-args + cork + cork-args
+        let mut cmd = Command::new(&launch_cmd.program);
 
-        let mut cmd = Command::new(wine_exe);
+        // Add pre-args (e.g., "run", "--command=wine", "net.lutris.Lutris" for flatpak)
+        for arg in &launch_cmd.args {
+            cmd.arg(arg);
+        }
 
-        // Set Wine environment variables (including WINEPREFIX)
-        for (key, value) in self.config.env() {
+        // Set environment variables on the process
+        for (key, value) in &launch_cmd.env {
             cmd.env(key, value);
         }
 
+        // Add cork.exe path
+        cmd.arg(cork_path.to_str().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid cork path")
+        })?);
+
+        // Add cork subcommand and arguments
+        cmd.arg("launch")
+            .arg("--client")
+            .arg(&client_exe)
+            .arg("--hostname")
+            .arg(&self.server_info.hostname)
+            .arg("--port")
+            .arg(&self.server_info.port)
+            .arg("--account")
+            .arg(&self.account_info.username)
+            .arg("--password")
+            .arg(&self.account_info.password);
+
+        // Add DLL injection parameters if configured
+        if let Some(inject_config) = &self.inject_config {
+            cmd.arg("--dll")
+                .arg(inject_config.dll_path.display().to_string());
+
+            if let Some(func) = &inject_config.startup_function {
+                cmd.arg("--function").arg(func);
+            }
+        }
+
+        // For debugging: inherit stdout/stderr so we can see cork's output
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+
+        // Print launch info
         println!("Launching...");
-        println!("  Wrapper: {}", wine_exe.display());
-        println!("  Launcher: {}", cork_path.display());
+        println!("  Program: {}", launch_cmd.program.display());
+        if !launch_cmd.args.is_empty() {
+            println!("  Args: {}", launch_cmd.args.join(" "));
+        }
+        println!("  Cork: {}", cork_path.display());
         println!("  Client: {}", client_exe);
         println!(
             "  Server: {}:{}",
             self.server_info.hostname, self.server_info.port
         );
         println!("  Account: {}", self.account_info.username);
-        if !self.config.env().is_empty() {
+        if !launch_cmd.env.is_empty() {
             println!("  Environment:");
-            for (key, value) in self.config.env() {
+            for (key, value) in &launch_cmd.env {
                 println!("    {}={}", key, value);
             }
         }
-
-        // Build cork command
-        cmd.arg(cork_path.to_str().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid cork path")
-        })?)
-        .arg("launch")
-        .arg("--client")
-        .arg(&client_exe)
-        .arg("--hostname")
-        .arg(&self.server_info.hostname)
-        .arg("--port")
-        .arg(&self.server_info.port)
-        .arg("--account")
-        .arg(&self.account_info.username)
-        .arg("--password")
-        .arg(&self.account_info.password);
-
-        // Add DLL injection parameters if configured
         if let Some(inject_config) = &self.inject_config {
             println!("  DLL: {}", inject_config.dll_path.display());
-
-            cmd.arg("--dll")
-                .arg(inject_config.dll_path.display().to_string());
-
             if let Some(func) = &inject_config.startup_function {
                 println!("  Function: {}", func);
-                cmd.arg("--function").arg(func);
             }
         }
 
-        // For debugging: inherit stdout/stderr so we can see cork's output
-        // Later we can pipe and capture in threads like the CLI does
-        cmd.stdout(Stdio::inherit());
-        cmd.stderr(Stdio::inherit());
+        // Print full debug command for troubleshooting
+        println!();
+        println!("=== Debug: Full Command ===");
+
+        // Print environment variables
+        if !launch_cmd.env.is_empty() {
+            print!("env ");
+            for (key, value) in &launch_cmd.env {
+                if value.contains(' ') || value.contains('$') {
+                    print!("{}=\"{}\" ", key, value);
+                } else {
+                    print!("{}={} ", key, value);
+                }
+            }
+        }
+
+        // Print program
+        print!("\"{}\" ", launch_cmd.program.display());
+
+        // Print pre-args
+        for arg in &launch_cmd.args {
+            if arg.contains(' ') {
+                print!("\"{}\" ", arg);
+            } else {
+                print!("{} ", arg);
+            }
+        }
+
+        // Print cork.exe path and arguments
+        print!("\"{}\" ", cork_path.display());
+        print!("launch ");
+        print!("--client \"{}\" ", client_exe);
+        print!("--hostname {} ", self.server_info.hostname);
+        print!("--port {} ", self.server_info.port);
+        print!("--account {} ", self.account_info.username);
+        print!("--password <hidden> ");
+
+        if let Some(inject_config) = &self.inject_config {
+            print!("--dll \"{}\" ", inject_config.dll_path.display());
+            if let Some(func) = &inject_config.startup_function {
+                print!("--function {} ", func);
+            }
+        }
+        println!();
+        println!("===========================");
+        println!();
 
         let child = cmd.spawn()?;
         let unix_pid = child.id();

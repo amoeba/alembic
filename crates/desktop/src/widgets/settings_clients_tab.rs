@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use libalembic::{
-    client_config::{WindowsClientConfig, WineClientConfig},
+    client_config::{LaunchCommand, WineClientConfig},
     settings::{AlembicSettings, ClientConfigType},
 };
 
@@ -35,10 +35,11 @@ impl Widget for &mut SettingsClientsTab {
                                 client_path: std::path::PathBuf::from(
                                     "C:\\Turbine\\Asheron's Call\\acclient.exe",
                                 ),
-                                wrapper_program: Some(std::path::PathBuf::from(
-                                    "/usr/local/bin/wine64",
-                                )),
-                                env,
+                                launch_command: LaunchCommand {
+                                    program: std::path::PathBuf::from("/usr/local/bin/wine64"),
+                                    args: Vec::new(),
+                                    env,
+                                },
                             });
 
                             settings.clients.push(new_client);
