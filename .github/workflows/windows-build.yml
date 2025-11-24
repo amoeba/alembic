@@ -36,7 +36,7 @@ jobs:
         key: ${{ runner.os }}-msvc-target-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build all crates (MSVC)
-      run: cargo build --workspace --all-targets
+      run: cargo build --workspace
 
     - name: Run tests (MSVC)
       run: cargo test --workspace
@@ -82,7 +82,7 @@ jobs:
         key: ${{ runner.os }}-gnu-target-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build all crates (MinGW)
-      run: cargo build --workspace --all-targets --target x86_64-pc-windows-gnu
+      run: cargo build --workspace --target x86_64-pc-windows-gnu
 
     - name: Run tests (MinGW)
       run: cargo test --workspace --target x86_64-pc-windows-gnu
