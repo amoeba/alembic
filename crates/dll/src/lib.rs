@@ -6,6 +6,7 @@
     non_camel_case_types
 )]
 
+#[macro_use]
 mod hooks;
 mod logging;
 
@@ -27,6 +28,13 @@ mod channel;
 mod client;
 mod runtime;
 
+// Register all hooks - generates attach_hooks() and detach_hooks()
+register_hooks!(
+    hooks::net::Hook_Network_RecvFrom,
+    hooks::net::Hook_Network_SendTo,
+    hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr,
+);
+
 fn on_attach() -> Result<(), anyhow::Error> {
     attach_hooks()?;
 
@@ -44,22 +52,6 @@ fn on_detach() -> anyhow::Result<()> {
     // Give tasks time to cleanup
     thread::sleep(Duration::from_millis(100));
     shutdown_runtime()?;
-
-    Ok(())
-}
-
-fn attach_hooks() -> anyhow::Result<()> {
-    unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable()? }
-    unsafe { crate::hooks::net::Hook_Network_SendTo.enable()? }
-    unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.enable()? }
-
-    Ok(())
-}
-
-fn detach_hooks() -> anyhow::Result<()> {
-    unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable()? }
-    unsafe { crate::hooks::net::Hook_Network_SendTo.disable()? }
-    unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.disable()? }
 
     Ok(())
 }

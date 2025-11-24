@@ -1203,6 +1203,7 @@ dependencies = [
  "dll-syringe",
  "libalembic",
  "once_cell",
+ "paste",
  "retour",
  "tarpc",
  "tokio",
