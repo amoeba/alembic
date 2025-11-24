@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path};
 
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
+#[cfg(target_os = "windows")]
 fn main() {
     use winresource::WindowsResource;
 
@@ -29,5 +29,5 @@ fn main() {
         .expect("Failed to copy logo.png to build directory");
 }
 
-#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+#[cfg(not(target_os = "windows"))]
 fn main() {}

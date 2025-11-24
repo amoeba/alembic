@@ -1,4 +1,4 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
+#![cfg(target_os = "windows")]
 
 use dll_syringe::{
     error::EjectError,
