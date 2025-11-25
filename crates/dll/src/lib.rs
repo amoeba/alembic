@@ -1,4 +1,4 @@
-#![cfg(target_os = "windows")]
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
 #![allow(
     dead_code,
     non_upper_case_globals,

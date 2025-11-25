@@ -1,4 +1,4 @@
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() -> anyhow::Result<()> {
     use libalembic::{launcher::{launcher::Launcher, windows::WindowsLauncher}, settings::AlembicSettings};
 
@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 fn main() -> anyhow::Result<()> {
     use anyhow::bail;
     use libalembic::settings::SettingsManager;

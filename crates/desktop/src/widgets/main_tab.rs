@@ -7,7 +7,7 @@ use libalembic::{
     settings::AlembicSettings,
 };
 
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 use libalembic::launcher::windows::WindowsLauncher;
 
 use super::{
@@ -85,7 +85,7 @@ impl Widget for &mut MainTab {
                         println!("No launcher. Must launch first.")
                     } else {
                         match self.launcher.as_mut().unwrap() {
-                            #[cfg(target_os = "windows")]
+                            #[cfg(all(target_os = "windows", target_env = "msvc"))]
                             LauncherImpl::WindowsLauncher(windows_launcher) => {
                                 match windows_launcher.eject() {
                                     Ok(_) => println!("Eject success"),
@@ -105,7 +105,7 @@ impl Widget for &mut MainTab {
                         println!("Must launch first.")
                     } else {
                         match self.launcher.as_mut().unwrap() {
-                            #[cfg(target_os = "windows")]
+                            #[cfg(all(target_os = "windows", target_env = "msvc"))]
                             libalembic::launcher::launcher::LauncherImpl::WindowsLauncher(
                                 windows_launcher,
                             ) => match windows_launcher.inject() {
@@ -174,7 +174,7 @@ impl Widget for &mut MainTab {
                     };
 
                     // Create our launcher
-                    #[cfg(target_os = "windows")]
+                    #[cfg(all(target_os = "windows", target_env = "msvc"))]
                     {
                         self.launcher = Some(LauncherImpl::WindowsLauncher(WindowsLauncher::new(
                             client_info.clone().unwrap(),
@@ -183,7 +183,7 @@ impl Widget for &mut MainTab {
                             dll_info.unwrap().clone(),
                         )));
                     }
-                    #[cfg(not(target_os = "windows"))]
+                    #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
                     {
                         println!("Launching not supported on this platform");
                     }
@@ -191,7 +191,7 @@ impl Widget for &mut MainTab {
                     println!("FindOrLaunch clicked with launcher {:?}", self.launcher);
                     match &mut self.launcher {
                         Some(launcher) => match launcher {
-                            #[cfg(target_os = "windows")]
+                            #[cfg(all(target_os = "windows", target_env = "msvc"))]
                             LauncherImpl::WindowsLauncher(windows_launcher) => {
                                 match windows_launcher.find_or_launch() {
                                     Ok(info) => println!(

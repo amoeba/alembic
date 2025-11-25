@@ -29,7 +29,6 @@ tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread"] }
 
 [workspace.dependencies.retour]
 version = "0.3"
-features = ["thiscall-abi"]
 
 [workspace.dependencies.windows]
 version = "0.58.0"

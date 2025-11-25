@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub fn try_launch(
     client_info: &Option<libalembic::settings::ClientInfo>,
     server_info: &Option<libalembic::settings::ServerInfo>,
@@ -59,7 +59,7 @@ pub fn try_launch(
     Ok(pid)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub fn try_launch(
     client_info: &Option<libalembic::settings::ClientInfo>,
     server: &Option<libalembic::settings::ServerInfo>,

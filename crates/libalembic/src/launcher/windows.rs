@@ -1,4 +1,4 @@
-#![cfg(target_os = "windows")]
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
 
 use std::{error::Error, ffi::OsString, fs, num::NonZero, os::windows::ffi::OsStrExt};
 
@@ -103,7 +103,7 @@ impl<'a> Launcher for WindowsLauncher {
 
 // Non-trait implementations. As needed, move whatever of these into the trait
 // once I decide on implementing them in a cross-platform way.
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 impl<'a> WindowsLauncher {
     pub fn find(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(target) = OwnedProcess::find_first_by_name("acclient") {

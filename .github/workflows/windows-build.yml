@@ -94,7 +94,7 @@ jobs:
         rustup show
 
     - name: Build all crates (MinGW)
-      run: cargo build --workspace --target x86_64-pc-windows-gnu --verbose
+      run: cargo build --workspace --exclude dll --target x86_64-pc-windows-gnu --verbose
 
     - name: Run tests (MinGW)
       run: cargo test --workspace --target x86_64-pc-windows-gnu

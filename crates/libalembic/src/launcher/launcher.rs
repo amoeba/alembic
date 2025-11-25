@@ -2,19 +2,19 @@ use std::error::Error;
 
 use crate::settings::{AccountInfo, ClientInfo, DllInfo, ServerInfo};
 
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 use super::windows::WindowsLauncher;
 use super::{noop::NoopLauncher, wine::WineLauncher};
 
 // Define a container for the return value of launch so this can be
 // cross-platform
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", target_env = "msvc"))]
 pub enum LaunchResult {
     ProcessInformation(windows::Win32::System::Threading::PROCESS_INFORMATION),
 }
 
 // Fallback implementation for other platforms
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(all(target_os = "windows", target_env = "msvc")))]
 pub enum LaunchResult {
     ProcessId(u32),
 }
@@ -22,7 +22,7 @@ pub enum LaunchResult {
 // Define an enum of Launcher impls so we can refer to any at once
 #[derive(Debug)]
 pub enum LauncherImpl {
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", target_env = "msvc"))]
     WindowsLauncher(WindowsLauncher),
     WineLauncher(WineLauncher),
     NoopLauncher(NoopLauncher),
