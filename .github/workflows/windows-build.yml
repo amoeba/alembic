@@ -1,0 +1,103 @@
+name: Windows Build (MSVC & MinGW)
+
+on:
+  push:
+    branches: [ main, hook-macros ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-windows-msvc:
+    name: Build on Windows (MSVC)
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust (MSVC toolchain)
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-msvc-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-msvc-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache target directory
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-msvc-target-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Show Rust toolchain info
+      run: |
+        rustc --version
+        cargo --version
+        rustup show
+
+    - name: Build all crates (MSVC)
+      run: cargo build --workspace --verbose
+
+    - name: Run tests (MSVC)
+      run: cargo test --workspace
+
+  build-windows-mingw:
+    name: Build on Windows (MinGW)
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install MinGW
+      run: |
+        choco install mingw -y
+        echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Verify MinGW installation
+      run: |
+        gcc --version
+        g++ --version
+
+    - name: Install Rust (GNU toolchain)
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable-x86_64-pc-windows-gnu
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-gnu-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-gnu-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache target directory
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-gnu-target-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Show Rust toolchain info
+      run: |
+        rustc --version
+        cargo --version
+        rustup show
+
+    - name: Build all crates (MinGW)
+      run: cargo build --workspace --exclude dll --target x86_64-pc-windows-gnu --verbose
+
+    - name: Run tests (MinGW)
+      run: cargo test --workspace --target x86_64-pc-windows-gnu
+
+  # TODO: Add Linux and macOS cross-compilation jobs
+  # These would use mingw-w64 to cross-compile Windows binaries from Linux/macOS

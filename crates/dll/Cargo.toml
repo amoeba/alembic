@@ -17,10 +17,11 @@ crate-type = ["cdylib"]
 anyhow = { workspace = true }
 libalembic = { path = "../libalembic" }
 once_cell = { workspace = true }
+paste = "1.0"
 tarpc = { workspace = true }
 tokio = { workspace = true }
 
-[target.'cfg(windows)'.dependencies]
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
 dll-syringe = { version = "0.15.2", features = ["payload-utils"] }
-retour = { workspace = true }
+retour = { workspace = true, features = ["thiscall-abi"] }
 windows = { workspace = true }
