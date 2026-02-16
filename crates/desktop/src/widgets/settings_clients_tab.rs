@@ -4,6 +4,7 @@ use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use libalembic::{
     client_config::{LaunchCommand, WineClientConfig},
+    scanner,
     settings::{AlembicSettings, ClientConfigType},
 };
 
@@ -44,6 +45,40 @@ impl Widget for &mut SettingsClientsTab {
 
                             settings.clients.push(new_client);
                             let _ = settings.save();
+                        }
+
+                        if ui.button("Discover Clients").clicked() {
+                            match scanner::scan_all() {
+                                Ok(discovered) => {
+                                    let had_no_clients = settings.clients.is_empty();
+                                    let mut added_count = 0;
+
+                                    for config in discovered {
+                                        let already_exists =
+                                            settings.clients.iter().any(|existing| {
+                                                existing.install_path() == config.install_path()
+                                            });
+
+                                        if !already_exists {
+                                            let should_select =
+                                                had_no_clients && added_count == 0;
+                                            settings.add_client(config, should_select);
+                                            settings.is_configured = true;
+                                            added_count += 1;
+                                        }
+                                    }
+
+                                    if added_count > 0 {
+                                        let _ = settings.save();
+                                        println!("Added {} new client(s)", added_count);
+                                    } else {
+                                        println!("No new clients found");
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error scanning for clients: {}", e);
+                                }
+                            }
                         }
 
                         #[cfg(target_os = "windows")]
@@ -163,7 +198,7 @@ impl Widget for &mut SettingsClientsTab {
                         });
 
                     if n_clients == 0 {
-                        ui.label("No clients. Click \"New Wine Client\" to add your first one.");
+                        ui.label("No clients. Click \"Discover Clients\" to scan for installations, or \"New Wine Client\" to add one manually.");
                     }
 
                     // Save but only if we need to

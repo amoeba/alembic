@@ -9,6 +9,7 @@ use crate::{
     client_config::{ClientConfig, WineClientConfig},
     inject_config::InjectConfig,
     launcher::traits::ClientLauncher,
+    scanner::windows_to_unix_path,
     settings::{Account, ClientConfigType, ServerInfo},
 };
 
@@ -97,6 +98,37 @@ impl ClientLauncher for WineLauncherImpl {
 
         let client_exe = self.config.client_path().display().to_string();
         let launch_cmd = &self.config.launch_command;
+
+        // Verify paths exist on the host filesystem before launching
+        if let Some(prefix_str) = launch_cmd.env.get("WINEPREFIX") {
+            let prefix = std::path::Path::new(prefix_str);
+
+            if let Ok(unix_client) = windows_to_unix_path(prefix, self.config.client_path()) {
+                if !unix_client.exists() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!(
+                            "Client executable not found in wine prefix: {}",
+                            unix_client.display()
+                        ),
+                    ));
+                }
+            }
+
+            if let Some(inject_config) = &self.inject_config {
+                if let Ok(unix_dll) = windows_to_unix_path(prefix, &inject_config.dll_path) {
+                    if !unix_dll.exists() {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            format!(
+                                "DLL not found in wine prefix: {}",
+                                unix_dll.display()
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
 
         // Build command: program + pre-args + cork + cork-args
         let mut cmd = Command::new(&launch_cmd.program);

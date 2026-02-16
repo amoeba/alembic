@@ -4,6 +4,7 @@ use eframe::egui::{self, Response, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use libalembic::{
     inject_config::{DllType, InjectConfig},
+    scanner,
     settings::AlembicSettings,
 };
 
@@ -49,6 +50,35 @@ impl Widget for &mut SettingsDllsTab {
                             settings.discovered_dlls.push(new_dll);
                             let _ = settings.save();
                         }
+                        if ui.button("Discover DLLs").clicked() {
+                            match scanner::scan_for_decal_dlls() {
+                                Ok(discovered_dlls) => {
+                                    if discovered_dlls.is_empty() {
+                                        println!("No Decal installations found");
+                                    } else {
+                                        let had_no_dlls =
+                                            settings.discovered_dlls.is_empty();
+
+                                        for dll in discovered_dlls {
+                                            settings.add_or_update_dll(dll);
+                                        }
+
+                                        if had_no_dlls
+                                            && !settings.discovered_dlls.is_empty()
+                                            && settings.selected_dll.is_none()
+                                        {
+                                            settings.selected_dll = Some(0);
+                                        }
+
+                                        let _ = settings.save();
+                                        println!("DLL scan complete");
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error scanning for DLLs: {}", e);
+                                }
+                            }
+                        }
                     });
 
                     ui.add_space(8.0);
@@ -82,9 +112,9 @@ impl Widget for &mut SettingsDllsTab {
                             });
                         })
                         .body(|mut body| {
-                            let indices: Vec<usize> = (0..settings.discovered_dlls.len()).collect();
+                            let mut delete_index = None;
 
-                            for i in indices {
+                            for i in 0..settings.discovered_dlls.len() {
                                 n_dlls += 1;
 
                                 body.row(text_height, |mut table_row| {
@@ -120,16 +150,20 @@ impl Widget for &mut SettingsDllsTab {
                                     // Delete button
                                     table_row.col(|ui| {
                                         if ui.button("Delete").clicked() {
-                                            settings.discovered_dlls.remove(i);
-                                            did_update = true;
+                                            delete_index = Some(i);
                                         }
                                     });
                                 });
                             }
+
+                            if let Some(i) = delete_index {
+                                settings.discovered_dlls.remove(i);
+                                did_update = true;
+                            }
                         });
 
                     if n_dlls == 0 {
-                        ui.label("No DLLs configured. Click a button above to add your first one.");
+                        ui.label("No DLLs configured. Click \"Discover DLLs\" to scan for installations, or add one manually.");
                     }
 
                     // Save but only if we need to

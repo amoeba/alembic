@@ -6,6 +6,22 @@ use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Extract WINEPREFIX from a WineClientConfig's launch command.
+/// Checks the env HashMap first, then falls back to parsing --env=WINEPREFIX=... args
+/// (used by Flatpak Lutris where env vars are passed as flatpak arguments).
+fn get_wineprefix(wine_config: &WineClientConfig) -> Option<String> {
+    if let Some(prefix) = wine_config.launch_command.env.get("WINEPREFIX") {
+        return Some(prefix.clone());
+    }
+    // Check for --env=WINEPREFIX=... in args (Flatpak style)
+    for arg in &wine_config.launch_command.args {
+        if let Some(rest) = arg.strip_prefix("--env=WINEPREFIX=") {
+            return Some(rest.to_string());
+        }
+    }
+    None
+}
+
 /// Trait for client installation scanners
 pub trait ClientScanner {
     /// Returns the name of this scanner (e.g., "Wine", "Whisky", "Windows Registry")
@@ -31,14 +47,53 @@ fn unix_to_windows_path(unix_path: &Path) -> Result<PathBuf> {
     }
 }
 
-/// Scan a Wine prefix for Alembic and Decal DLL installations
+/// Convert a Windows-style path back to a Unix path within a Wine prefix
+pub fn windows_to_unix_path(prefix: &Path, windows_path: &Path) -> Result<PathBuf> {
+    let path_str = windows_path.to_string_lossy();
+
+    // Strip the drive letter (e.g., "C:\") and convert backslashes
+    if let Some(rest) = path_str
+        .strip_prefix("C:\\")
+        .or_else(|| path_str.strip_prefix("c:\\"))
+    {
+        let unix_relative = rest.replace('\\', "/");
+        Ok(prefix.join("drive_c").join(unix_relative))
+    } else {
+        anyhow::bail!(
+            "Path does not start with a drive letter: {}",
+            windows_path.display()
+        )
+    }
+}
+
+/// Check if acclient.exe exists anywhere in a Wine prefix
+fn prefix_has_acclient(prefix: &Path) -> bool {
+    let drive_c = prefix.join("drive_c");
+    let search_paths = [
+        "Turbine/Asheron's Call",
+        "Program Files/Turbine/Asheron's Call",
+        "Program Files (x86)/Turbine/Asheron's Call",
+    ];
+
+    search_paths
+        .iter()
+        .any(|search_path| drive_c.join(search_path).join("acclient.exe").exists())
+}
+
+/// Scan a Wine prefix for Alembic and Decal DLL installations.
+/// Only returns results if acclient.exe also exists in the prefix,
+/// since DLLs are useless without a client to inject into.
 fn find_dlls_in_prefix(prefix: &Path) -> Vec<InjectConfig> {
-    // TODO: Factor all of this out into real Scanner impls, this code is not good
     let mut inject_configs = vec![];
 
     let drive_c = prefix.join("drive_c");
 
-    // TODO: Check for Alembic.dll in AC installation directories
+    // Don't report any DLLs if there's no AC client in this prefix
+    if !prefix_has_acclient(prefix) {
+        return inject_configs;
+    }
+
+    // Check for Alembic.dll in AC installation directories
     let alembic_search_paths = ["Alembic.dll"];
     for search_path in alembic_search_paths {
         let path = drive_c.join(search_path);
@@ -53,7 +108,10 @@ fn find_dlls_in_prefix(prefix: &Path) -> Vec<InjectConfig> {
         }
     }
 
-    let decal_search_paths = ["Program Files (x86)/Decal 3.0"];
+    let decal_search_paths = [
+        "Program Files/Decal 3.0",
+        "Program Files (x86)/Decal 3.0",
+    ];
     for search_path in decal_search_paths {
         let inject_dll_path = drive_c.join(search_path).join("Inject.dll");
         if inject_dll_path.exists() {
@@ -716,7 +774,7 @@ pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
 
         for client in clients {
             if let ClientConfigType::Wine(wine_config) = client {
-                if let Some(prefix_str) = wine_config.launch_command.env.get("WINEPREFIX") {
+                if let Some(prefix_str) = get_wineprefix(&wine_config) {
                     let prefix = PathBuf::from(prefix_str);
                     if prefix.exists() {
                         let dll_configs = find_dlls_in_prefix(&prefix);
@@ -740,7 +798,7 @@ pub fn get_dll_scannable_prefixes() -> Vec<PathBuf> {
 
     for client in clients {
         if let ClientConfigType::Wine(wine_config) = client {
-            if let Some(prefix_str) = wine_config.launch_command.env.get("WINEPREFIX") {
+            if let Some(prefix_str) = get_wineprefix(&wine_config) {
                 let prefix = PathBuf::from(prefix_str);
                 if prefix.exists() {
                     prefixes.push(prefix);
