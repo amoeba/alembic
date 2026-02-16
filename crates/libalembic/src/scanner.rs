@@ -7,19 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Extract WINEPREFIX from a WineClientConfig's launch command.
-/// Checks the env HashMap first, then falls back to parsing --env=WINEPREFIX=... args
-/// (used by Flatpak Lutris where env vars are passed as flatpak arguments).
 fn get_wineprefix(wine_config: &WineClientConfig) -> Option<String> {
-    if let Some(prefix) = wine_config.launch_command.env.get("WINEPREFIX") {
-        return Some(prefix.clone());
-    }
-    // Check for --env=WINEPREFIX=... in args (Flatpak style)
-    for arg in &wine_config.launch_command.args {
-        if let Some(rest) = arg.strip_prefix("--env=WINEPREFIX=") {
-            return Some(rest.to_string());
-        }
-    }
-    None
+    wine_config.launch_command.env.get("WINEPREFIX").cloned()
 }
 
 /// Trait for client installation scanners
@@ -80,10 +69,10 @@ fn prefix_has_acclient(prefix: &Path) -> bool {
         .any(|search_path| drive_c.join(search_path).join("acclient.exe").exists())
 }
 
-/// Scan a Wine prefix for Alembic and Decal DLL installations.
+/// Discover DLL installations in a Wine prefix.
 /// Only returns results if acclient.exe also exists in the prefix,
 /// since DLLs are useless without a client to inject into.
-fn find_dlls_in_prefix(prefix: &Path) -> Vec<InjectConfig> {
+pub fn discover_dlls_in_wine_prefix(prefix: &Path) -> Vec<InjectConfig> {
     let mut inject_configs = vec![];
 
     let drive_c = prefix.join("drive_c");
@@ -108,10 +97,7 @@ fn find_dlls_in_prefix(prefix: &Path) -> Vec<InjectConfig> {
         }
     }
 
-    let decal_search_paths = [
-        "Program Files/Decal 3.0",
-        "Program Files (x86)/Decal 3.0",
-    ];
+    let decal_search_paths = ["Program Files/Decal 3.0", "Program Files (x86)/Decal 3.0"];
     for search_path in decal_search_paths {
         let inject_dll_path = drive_c.join(search_path).join("Inject.dll");
         if inject_dll_path.exists() {
@@ -165,10 +151,15 @@ impl WineScanner {
                 let launch_command = LaunchCommand::new(&self.wine_executable_path)
                     .env("WINEPREFIX", wine_prefix_path.display().to_string());
 
+                // Discover DLLs in this wine prefix
+                let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
+
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Wine: {}", wine_prefix_path.display()),
                     client_path: windows_exe_path,
                     launch_command,
+                    dlls: dlls.clone(),
+                    selected_dll: if !dlls.is_empty() { Some(0) } else { None },
                 }));
 
                 break; // Only add once per prefix
@@ -364,10 +355,15 @@ impl WhiskyScanner {
                 let launch_command = LaunchCommand::new(wine_exe)
                     .env("WINEPREFIX", wine_prefix_path.display().to_string());
 
+                // Discover DLLs in this whisky bottle
+                let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
+
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Whisky: {}", bottle_name),
                     client_path: windows_exe_path,
                     launch_command,
+                    dlls: dlls.clone(),
+                    selected_dll: if !dlls.is_empty() { Some(0) } else { None },
                 }));
 
                 break;
@@ -535,18 +531,21 @@ impl LutrisFlatpakScanner {
             if exe_path.exists() {
                 let windows_exe_path = unix_to_windows_path(&exe_path)?;
 
-                // For Flatpak Lutris, use flatpak run with --command=wine
-                // Env vars must be passed via --env= args, not process env
                 let launch_command = LaunchCommand::new("flatpak")
                     .arg("run")
-                    .arg(format!("--env=WINEPREFIX={}", wine_prefix_path.display()))
                     .arg("--command=wine")
-                    .arg("net.lutris.Lutris");
+                    .arg("net.lutris.Lutris")
+                    .env("WINEPREFIX", wine_prefix_path.display().to_string());
+
+                // Discover DLLs in this lutris game's wine prefix
+                let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
 
                 configs.push(ClientConfigType::Wine(WineClientConfig {
                     name: format!("Lutris: {}", game_name),
                     client_path: windows_exe_path,
                     launch_command,
+                    dlls: dlls.clone(),
+                    selected_dll: if !dlls.is_empty() { Some(0) } else { None },
                 }));
 
                 break; // Only add once per prefix
@@ -605,6 +604,12 @@ impl ClientScanner for LutrisFlatpakScanner {
 
 pub struct WindowsScanner;
 
+impl Default for WindowsScanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WindowsScanner {
     #[allow(dead_code)]
     pub fn new() -> Self {
@@ -638,6 +643,8 @@ impl ClientScanner for WindowsScanner {
                 configs.push(ClientConfigType::Windows(WindowsClientConfig {
                     name,
                     client_path: client_exe,
+                    dlls: vec![],
+                    selected_dll: None,
                 }));
             }
         }
@@ -709,9 +716,9 @@ pub fn scan_all() -> Result<Vec<ClientConfigType>> {
     Ok(all_configs)
 }
 
-/// Scan for DLLs on Windows
+/// Discover DLL installations on Windows
 #[cfg(target_os = "windows")]
-fn scan_windows_for_dlls() -> Vec<InjectConfig> {
+pub fn discover_dlls_on_windows() -> Vec<InjectConfig> {
     let mut inject_configs = vec![];
 
     // Search for Alembic.dll in AC installation directories
@@ -758,13 +765,19 @@ fn scan_windows_for_dlls() -> Vec<InjectConfig> {
     inject_configs
 }
 
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn discover_dlls_on_windows() -> Vec<InjectConfig> {
+    vec![]
+}
+
 /// Scan specifically for Decal DLL installations
 pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
     let mut all_dlls = vec![];
 
     #[cfg(target_os = "windows")]
     {
-        all_dlls.append(&mut scan_windows_for_dlls());
+        all_dlls.append(&mut discover_dlls_on_windows());
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -777,7 +790,7 @@ pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
                 if let Some(prefix_str) = get_wineprefix(&wine_config) {
                     let prefix = PathBuf::from(prefix_str);
                     if prefix.exists() {
-                        let dll_configs = find_dlls_in_prefix(&prefix);
+                        let dll_configs = discover_dlls_in_wine_prefix(&prefix);
                         for dll_config in dll_configs {
                             all_dlls.push(dll_config);
                         }
@@ -843,7 +856,7 @@ fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfi
         match scanner.get_bottle_info(&bottle) {
             Ok((_wine_exe, prefix)) => {
                 // Find all DLLs in this prefix
-                let dll_configs = find_dlls_in_prefix(&prefix);
+                let dll_configs = discover_dlls_in_wine_prefix(&prefix);
 
                 for dll_config in dll_configs {
                     if dll_config.dll_type == DllType::Decal {

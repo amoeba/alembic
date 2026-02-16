@@ -120,10 +120,7 @@ impl ClientLauncher for WineLauncherImpl {
                     if !unix_dll.exists() {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::NotFound,
-                            format!(
-                                "DLL not found in wine prefix: {}",
-                                unix_dll.display()
-                            ),
+                            format!("DLL not found in wine prefix: {}", unix_dll.display()),
                         ));
                     }
                 }

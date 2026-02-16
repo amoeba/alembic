@@ -1,7 +1,7 @@
 fn main() {
     // Get git hash
     let output = std::process::Command::new("git")
-        .args(&["rev-parse", "--short", "HEAD"])
+        .args(["rev-parse", "--short", "HEAD"])
         .output()
         .unwrap();
     let git_hash = String::from_utf8(output.stdout).unwrap().trim().to_string();

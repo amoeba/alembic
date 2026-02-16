@@ -2,7 +2,8 @@
 
 ![Alembic Logo](./crates/desktop/assets/logo.png)
 
-Alembic is a cross-platform GUI and CLI Asheron's Call launcher supporting both [Decal](https://decaldev.com) and my own minimal Decal reimplementation [Alembic](#alembic).
+Alembic is a cross-platform GUI and CLI Asheron's Call launcher supporting both [Decal](https://decaldev.com) and my own minimal Decal-lite reimplementation, [Alembic](#alembic).
+This is the first Asheron's Call client launcher that runs natively on Linux and macOS that can inject Decal into a game client running under Wine.
 
 ## Status
 
@@ -38,7 +39,7 @@ It's not feature complete so here's what works today:
     <tr>
       <th>Linux</th>
       <td>✅</td>
-      <td>❌</td>
+      <td>✅</td>
       <td>❌</td>
       <td>✅</td>
       <td>❌</td>
@@ -47,7 +48,7 @@ It's not feature complete so here's what works today:
     <tr>
       <th>macOS</th>
       <td>✅</td>
-      <td>❌</td>
+      <td>✅</td>
       <td>❌</td>
       <td>✅</td>
       <td>❌</td>
@@ -87,6 +88,7 @@ See the [Alembic Walkthrough](https://www.youtube.com/watch?v=Q9_YcRT3qpg) to se
 The project is managed as a single Cargo Workspace with four subcrates:
 
 - **cli:** CLI for launching game clients and injecting
+- **cork:** Shim program to launch and inject game clients under Wine
 - **desktop:** Cross-platform egui desktop application for launching game clients and injecting
 - **dll:**: Source for for the injected DLL. Windows-only.
 - **libalembic:** Common and/shared functionality. Lots of code in here.

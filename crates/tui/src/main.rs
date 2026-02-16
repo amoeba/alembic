@@ -29,7 +29,7 @@ fn main() -> io::Result<()> {
     // Channel: Painting
     let (server_gui_tx, server_gui_rx) = channel::<ServerGuiMessage>(32);
     let server_gui_tx_ref = Arc::new(Mutex::new(server_gui_tx));
-    let server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
+    let _server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
 
     // tarpc
     let runtime = tokio::runtime::Runtime::new().unwrap();

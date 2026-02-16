@@ -97,7 +97,7 @@ impl Widget for &mut AccountsCommunityServersTab {
                             ui.label("Retrying...");
                         }
                         FetchWrapper::Success(servers) => {
-                            if servers.servers.len() <= 0 {
+                            if servers.servers.is_empty() {
                                 ui.label("No servers to show");
                             } else {
                                 let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
@@ -183,8 +183,6 @@ impl Widget for &mut AccountsCommunityServersTab {
                                                             }
 
                                                             let _ = settings.save();
-                                                        } else {
-
                                                         }
                                                     }
                                                 });
@@ -223,7 +221,7 @@ impl Widget for &mut AccountsCommunityServersTab {
 
                                                 table_row.col(|ui| {
                                                     ui.hyperlink(
-                                                        &server
+                                                        server
                                                             .website_url
                                                             .clone()
                                                             .unwrap_or_else(|| "None".to_string()),
@@ -232,7 +230,7 @@ impl Widget for &mut AccountsCommunityServersTab {
 
                                                 table_row.col(|ui| {
                                                     ui.hyperlink(
-                                                        &server
+                                                        server
                                                             .discord_url
                                                             .clone()
                                                             .unwrap_or_else(|| "None".to_string()),

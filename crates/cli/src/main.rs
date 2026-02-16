@@ -108,12 +108,6 @@ enum ConfigCommands {
         #[command(subcommand)]
         command: ServerCommands,
     },
-
-    /// Manage DLL configurations
-    Dll {
-        #[command(subcommand)]
-        command: DllCommands,
-    },
 }
 
 #[derive(Subcommand)]
@@ -259,6 +253,76 @@ enum ClientCommands {
 
     /// Scan for installed clients and wine prefixes
     Scan,
+
+    /// Manage DLL configurations for a client
+    Dll {
+        /// Index of the client (from 'client list')
+        #[arg(long)]
+        client: usize,
+
+        #[command(subcommand)]
+        command: ClientDllCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ClientDllCommands {
+    /// Add a DLL configuration to a client
+    Add {
+        /// DLL type (alembic or decal)
+        #[arg(long = "type")]
+        dll_type: String,
+
+        /// Path to the DLL
+        #[arg(long)]
+        path: String,
+
+        /// Startup function name (e.g., DecalStartup)
+        #[arg(long)]
+        startup_function: Option<String>,
+    },
+
+    /// List DLLs for a client
+    List,
+
+    /// Select a DLL for a client by index
+    Select {
+        /// Index of the DLL to select
+        index: usize,
+    },
+
+    /// Clear the selected DLL for a client
+    Reset,
+
+    /// Remove a DLL from a client by index
+    Remove {
+        /// Index of the DLL to remove
+        index: usize,
+    },
+
+    /// Show detailed DLL configuration for a client
+    Show {
+        /// Index of the DLL to show
+        index: usize,
+    },
+
+    /// Edit an existing DLL configuration for a client
+    Edit {
+        /// Index of the DLL to edit
+        index: usize,
+
+        /// DLL type (alembic or decal)
+        #[arg(long = "type")]
+        dll_type: Option<String>,
+
+        /// Path to the DLL
+        #[arg(long)]
+        path: Option<String>,
+
+        /// Startup function name (e.g., DecalStartup)
+        #[arg(long)]
+        startup_function: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -313,70 +377,6 @@ enum ServerCommands {
         #[arg(long)]
         port: Option<String>,
     },
-}
-
-#[derive(Subcommand)]
-enum DllCommands {
-    /// Manually add a DLL configuration
-    Add {
-        /// Platform (windows or wine)
-        #[arg(long)]
-        platform: String,
-        /// DLL type (alembic or decal)
-        #[arg(long = "type")]
-        dll_type: String,
-        /// Path to the DLL
-        #[arg(long)]
-        path: String,
-        /// Wine prefix path (required for wine platform)
-        #[arg(long)]
-        wine_prefix: Option<String>,
-    },
-
-    /// List all discovered DLLs (brief)
-    List,
-
-    /// Select a DLL by index
-    Select {
-        /// Index of the DLL to select
-        index: usize,
-    },
-
-    /// Clear the selected DLL
-    Reset,
-
-    /// Remove a DLL configuration by index
-    Remove {
-        /// Index of the DLL to remove
-        index: usize,
-    },
-
-    /// Show detailed DLL configuration
-    Show {
-        /// Index of the DLL to show
-        index: usize,
-    },
-
-    /// Edit an existing DLL configuration (only specified fields are updated)
-    Edit {
-        /// Index of the DLL to edit (from 'dll list')
-        index: usize,
-
-        /// DLL type (alembic or decal)
-        #[arg(long = "type")]
-        dll_type: Option<String>,
-
-        /// Path to the DLL
-        #[arg(long)]
-        path: Option<String>,
-
-        /// Startup function name (e.g., DecalStartup)
-        #[arg(long)]
-        startup_function: Option<String>,
-    },
-
-    /// Scan for Decal installations
-    Scan,
 }
 
 fn parse_key_val(s: &str) -> Result<(String, String), String> {
@@ -441,6 +441,24 @@ fn main() -> anyhow::Result<()> {
                     unset_env_vars,
                 ),
                 ClientCommands::Scan => client_scan(),
+                ClientCommands::Dll { client, command } => match command {
+                    ClientDllCommands::Add {
+                        dll_type,
+                        path,
+                        startup_function,
+                    } => client_dll_add(client, dll_type, path, startup_function),
+                    ClientDllCommands::List => client_dll_list(client),
+                    ClientDllCommands::Select { index } => client_dll_select(client, index),
+                    ClientDllCommands::Reset => client_dll_reset(client),
+                    ClientDllCommands::Remove { index } => client_dll_remove(client, index),
+                    ClientDllCommands::Show { index } => client_dll_show(client, index),
+                    ClientDllCommands::Edit {
+                        index,
+                        dll_type,
+                        path,
+                        startup_function,
+                    } => client_dll_edit(client, index, dll_type, path, startup_function),
+                },
             },
             ConfigCommands::Server { command } => match command {
                 ServerCommands::Add {
@@ -458,26 +476,6 @@ fn main() -> anyhow::Result<()> {
                     hostname,
                     port,
                 } => server_edit(index, name, hostname, port),
-            },
-            ConfigCommands::Dll { command } => match command {
-                DllCommands::Add {
-                    platform,
-                    dll_type,
-                    path,
-                    wine_prefix,
-                } => dll_add(platform, dll_type, path, wine_prefix),
-                DllCommands::List => dll_list(),
-                DllCommands::Select { index } => dll_select(index),
-                DllCommands::Reset => dll_reset(),
-                DllCommands::Remove { index } => dll_remove(index),
-                DllCommands::Show { index } => dll_show(index),
-                DllCommands::Edit {
-                    index,
-                    dll_type,
-                    path,
-                    startup_function,
-                } => dll_edit(index, dll_type, path, startup_function),
-                DllCommands::Scan => dll_scan(),
             },
         },
         Commands::Exec {
@@ -506,6 +504,7 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn exec_launch(
     mode: String,
     client_path: String,
@@ -525,6 +524,8 @@ fn exec_launch(
         "windows" => ClientConfigType::Windows(WindowsClientConfig {
             name: "CLI-specified Windows client".to_string(),
             client_path: PathBuf::from(&client_path),
+            dlls: vec![],
+            selected_dll: None,
         }),
         "wine" => {
             let prefix =
@@ -540,6 +541,8 @@ fn exec_launch(
                 name: "CLI-specified Wine client".to_string(),
                 client_path: PathBuf::from(&client_path),
                 launch_command,
+                dlls: vec![],
+                selected_dll: None,
             })
         }
         _ => bail!(
@@ -570,6 +573,7 @@ fn exec_launch(
 
 /// Validate that client and DLL paths exist before launching.
 /// For Wine configs, Windows paths are validated by running a check under Wine.
+#[allow(dead_code)]
 fn validate_launch_config(
     client_config: &libalembic::settings::ClientConfigType,
     inject_config: &Option<libalembic::inject_config::InjectConfig>,
@@ -618,11 +622,14 @@ fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> a
         })?
     };
 
-    // Get selected DLL (optional - if none selected, no injection will occur)
-    let inject_config = SettingsManager::get(|s| {
-        s.selected_dll
-            .and_then(|idx| s.discovered_dlls.get(idx).cloned())
-    });
+    // Get selected client index to access its DLLs
+    let client_idx = SettingsManager::get(|s| s.selected_client);
+
+    // Get selected DLL for the selected client (optional - if none selected, no injection will occur)
+    let inject_config = match client_idx {
+        Some(idx) => SettingsManager::get(|s| s.get_client_selected_dll(idx).cloned()),
+        None => None,
+    };
 
     // TODO: Validation doesn't support flatpak yet, skip for now
     // validate_launch_config(&client_config, &inject_config)?;
@@ -702,6 +709,7 @@ fn client_show(index: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn client_edit(
     index: usize,
     name: Option<String>,
@@ -807,6 +815,8 @@ fn client_add(
         "windows" => ClientConfigType::Windows(WindowsClientConfig {
             name: "Manual Windows client".to_string(),
             client_path: PathBuf::from(&client_path),
+            dlls: vec![],
+            selected_dll: None,
         }),
         "wine" => {
             let prefix =
@@ -822,6 +832,8 @@ fn client_add(
                 name: "Manual Wine client".to_string(),
                 client_path: PathBuf::from(&client_path),
                 launch_command,
+                dlls: vec![],
+                selected_dll: None,
             })
         }
         _ => bail!(
@@ -1403,6 +1415,318 @@ fn client_scan() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn client_dll_list(client_idx: usize) -> anyhow::Result<()> {
+    let dlls = SettingsManager::get(|s| s.get_client_dlls(client_idx).cloned());
+    let selected_dll = SettingsManager::get(|s| {
+        s.clients.get(client_idx).and_then(|c| match c {
+            libalembic::settings::ClientConfigType::Windows(w) => w.selected_dll,
+            libalembic::settings::ClientConfigType::Wine(w) => w.selected_dll,
+        })
+    });
+
+    match dlls {
+        Some(dlls) => {
+            if dlls.is_empty() {
+                println!("No DLLs configured for this client.");
+                println!(
+                    "Run 'alembic config client dll --client {} add --type <type> --path <path>'",
+                    client_idx
+                );
+                return Ok(());
+            }
+
+            for (idx, dll) in dlls.iter().enumerate() {
+                let is_selected = Some(idx) == selected_dll;
+                let marker = if is_selected { " * " } else { "   " };
+
+                println!(
+                    "{}{}: {} ({})",
+                    marker,
+                    idx,
+                    dll.dll_path.display(),
+                    dll.dll_type
+                );
+            }
+
+            Ok(())
+        }
+        None => {
+            bail!(
+                "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+                client_idx
+            )
+        }
+    }
+}
+
+fn client_dll_add(
+    client_idx: usize,
+    dll_type: String,
+    dll_path: String,
+    startup_function: Option<String>,
+) -> anyhow::Result<()> {
+    use libalembic::inject_config::{DllType, InjectConfig};
+    use std::path::PathBuf;
+
+    // Validate client exists
+    let _client =
+        SettingsManager::get(|s| s.clients.get(client_idx).cloned()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+                client_idx
+            )
+        })?;
+
+    // Parse DLL type
+    let dll_type_enum = match dll_type.to_lowercase().as_str() {
+        "alembic" => DllType::Alembic,
+        "decal" => DllType::Decal,
+        _ => {
+            anyhow::bail!(
+                "Invalid DLL type: {}. Must be 'alembic' or 'decal'",
+                dll_type
+            );
+        }
+    };
+
+    // Use provided startup function or default
+    let startup_fn = startup_function.or_else(|| match dll_type_enum {
+        DllType::Decal => Some("DecalStartup".to_string()),
+        DllType::Alembic => None,
+    });
+
+    // Create the InjectConfig
+    let inject_config = InjectConfig {
+        dll_type: dll_type_enum,
+        dll_path: PathBuf::from(&dll_path),
+        startup_function: startup_fn,
+    };
+
+    println!("Adding DLL configuration to client {}...", client_idx);
+    println!("  Type: {}", inject_config.dll_type);
+    println!("  Path: {}", inject_config.dll_path.display());
+
+    SettingsManager::modify(|settings| {
+        settings.add_dll_to_client(client_idx, inject_config);
+    })?;
+
+    println!();
+    println!("✓ DLL configuration added!");
+
+    Ok(())
+}
+
+fn client_dll_select(client_idx: usize, dll_idx: usize) -> anyhow::Result<()> {
+    let dlls = SettingsManager::get(|s| s.get_client_dlls(client_idx).cloned());
+
+    let dll_count = match dlls {
+        Some(dlls) => dlls.len(),
+        None => {
+            bail!(
+                "Invalid client index: {}. Use 'alembic client list' to see available clients.",
+                client_idx
+            )
+        }
+    };
+
+    if dll_idx >= dll_count {
+        println!("Invalid DLL index: {}", dll_idx);
+        println!(
+            "Use 'alembic config client dll --client {} list' to see available DLLs.",
+            client_idx
+        );
+        return Ok(());
+    }
+
+    SettingsManager::modify(|settings| {
+        settings.select_dll_for_client(client_idx, Some(dll_idx));
+    })?;
+
+    println!(
+        "✓ Selected DLL at index {} for client {}",
+        dll_idx, client_idx
+    );
+
+    Ok(())
+}
+
+fn client_dll_reset(client_idx: usize) -> anyhow::Result<()> {
+    let was_selected = SettingsManager::get(|s| {
+        s.clients.get(client_idx).and_then(|c| match c {
+            libalembic::settings::ClientConfigType::Windows(w) => w.selected_dll,
+            libalembic::settings::ClientConfigType::Wine(w) => w.selected_dll,
+        })
+    });
+
+    SettingsManager::modify(|settings| {
+        settings.select_dll_for_client(client_idx, None);
+    })?;
+
+    if was_selected.is_some() {
+        println!("✓ DLL selection cleared for client {}", client_idx);
+    } else {
+        println!("No DLL was selected for client {}", client_idx);
+    }
+
+    Ok(())
+}
+
+fn client_dll_remove(client_idx: usize, dll_idx: usize) -> anyhow::Result<()> {
+    use std::io::{self, Write};
+
+    let dll_info = SettingsManager::get(|s| {
+        s.get_client_dlls(client_idx).and_then(|dlls| {
+            dlls.get(dll_idx)
+                .map(|dll| (dll.dll_type.to_string(), dll.dll_path.display().to_string()))
+        })
+    });
+
+    let (dll_type, dll_path) = match dll_info {
+        Some(info) => info,
+        None => {
+            println!("Invalid DLL index: {}", dll_idx);
+            println!(
+                "Use 'alembic config client dll --client {} list' to see available DLLs.",
+                client_idx
+            );
+            return Ok(());
+        }
+    };
+
+    println!("This will remove the following DLL configuration:");
+    println!("  [{}] {} - {}", dll_idx, dll_type, dll_path);
+    println!();
+    print!("Continue? (y/n): ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let response = input.trim().to_lowercase();
+
+    if response != "y" && response != "yes" {
+        println!("Cancelled.");
+        return Ok(());
+    }
+
+    SettingsManager::modify(|settings| {
+        settings.remove_dll_from_client(client_idx, dll_idx);
+    })?;
+
+    println!();
+    println!(
+        "✓ DLL configuration has been removed from client {}.",
+        client_idx
+    );
+
+    Ok(())
+}
+
+fn client_dll_show(client_idx: usize, dll_idx: usize) -> anyhow::Result<()> {
+    let dll = SettingsManager::get(|s| {
+        s.get_client_dlls(client_idx)
+            .and_then(|dlls| dlls.get(dll_idx).cloned())
+    });
+
+    match dll {
+        Some(dll) => {
+            println!(
+                "DLL configuration (client {}, index {}):",
+                client_idx, dll_idx
+            );
+            println!();
+            println!("{}", dll);
+        }
+        None => {
+            println!("Invalid client or DLL index.");
+            println!(
+                "Use 'alembic config client dll --client {} list' to see available DLLs.",
+                client_idx
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn client_dll_edit(
+    client_idx: usize,
+    dll_idx: usize,
+    dll_type: Option<String>,
+    path: Option<String>,
+    startup_function: Option<String>,
+) -> anyhow::Result<()> {
+    use libalembic::inject_config::DllType;
+    use std::path::PathBuf;
+
+    let dll_exists = SettingsManager::get(|s| {
+        s.get_client_dlls(client_idx)
+            .map(|dlls| dll_idx < dlls.len())
+            .unwrap_or(false)
+    });
+
+    if !dll_exists {
+        bail!(
+            "Invalid client or DLL index. Use 'alembic config client dll --client {} list' to see available DLLs.",
+            client_idx
+        );
+    }
+
+    if dll_type.is_none() && path.is_none() && startup_function.is_none() {
+        println!(
+            "No changes specified. Use --type, --path, or --startup-function to modify the DLL."
+        );
+        return Ok(());
+    }
+
+    println!(
+        "Editing DLL at index {} for client {}...",
+        dll_idx, client_idx
+    );
+
+    SettingsManager::modify(|settings| {
+        if let Some(dlls) = settings.get_client_dlls_mut(client_idx) {
+            if let Some(dll) = dlls.get_mut(dll_idx) {
+                if let Some(t) = &dll_type {
+                    match t.to_lowercase().as_str() {
+                        "alembic" => {
+                            println!("  Updated type to: Alembic");
+                            dll.dll_type = DllType::Alembic;
+                        }
+                        "decal" => {
+                            println!("  Updated type to: Decal");
+                            dll.dll_type = DllType::Decal;
+                        }
+                        _ => {
+                            println!(
+                                "  Warning: Invalid DLL type '{}', ignoring. Use 'alembic' or 'decal'.",
+                                t
+                            );
+                        }
+                    }
+                }
+                if let Some(p) = &path {
+                    println!("  Updated path to: {}", p);
+                    dll.dll_path = PathBuf::from(p);
+                }
+                if let Some(f) = &startup_function {
+                    if f.is_empty() || f == "none" {
+                        println!("  Removed startup function");
+                        dll.startup_function = None;
+                    } else {
+                        println!("  Updated startup function to: {}", f);
+                        dll.startup_function = Some(f.clone());
+                    }
+                }
+            }
+        }
+    })?;
+
+    println!("✓ DLL updated!");
+
+    Ok(())
+}
+
+#[allow(dead_code)]
 fn dll_scan() -> anyhow::Result<()> {
     use std::io::{self, Write};
 
@@ -1417,14 +1741,25 @@ fn dll_scan() -> anyhow::Result<()> {
     let mut added_dlls: Vec<String> = vec![];
     let mut skipped_dlls: Vec<String> = vec![];
 
-    let had_no_dlls = SettingsManager::get(|s| s.discovered_dlls.is_empty());
+    // Get the selected client index
+    let selected_client_idx = SettingsManager::get(|s| s.selected_client);
+
+    if selected_client_idx.is_none() {
+        println!("No client selected. Select a client first with: alembic client select <index>");
+        return Ok(());
+    }
+
+    let selected_client_idx = selected_client_idx.unwrap();
 
     for dll in &discovered_dlls {
-        // Check if already exists
+        // Check if already exists in this client's DLL list
         let already_exists = SettingsManager::get(|s| {
-            s.discovered_dlls
-                .iter()
-                .any(|existing| existing.dll_path == dll.dll_path)
+            s.get_client_dlls(selected_client_idx)
+                .map(|dlls| {
+                    dlls.iter()
+                        .any(|existing| existing.dll_path == dll.dll_path)
+                })
+                .unwrap_or(false)
         });
 
         if already_exists {
@@ -1437,7 +1772,7 @@ fn dll_scan() -> anyhow::Result<()> {
         println!("Found: {}", dll.dll_path.display());
         println!("Type: {}", dll.dll_type);
 
-        print!("Add this DLL? (y/n): ");
+        print!("Add this DLL to selected client? (y/n): ");
         io::stdout().flush()?;
 
         let mut input = String::new();
@@ -1445,13 +1780,21 @@ fn dll_scan() -> anyhow::Result<()> {
         let response = input.trim().to_lowercase();
 
         if response == "y" || response == "yes" {
-            let should_select = had_no_dlls && added_dlls.is_empty();
-
             SettingsManager::modify(|settings| {
-                settings.add_or_update_dll(dll.clone());
+                settings.add_dll_to_client(selected_client_idx, dll.clone());
 
-                if should_select && settings.selected_dll.is_none() {
-                    settings.selected_dll = Some(0);
+                // Auto-select first DLL if none selected
+                let current_selected =
+                    settings
+                        .clients
+                        .get(selected_client_idx)
+                        .and_then(|c| match c {
+                            libalembic::settings::ClientConfigType::Windows(w) => w.selected_dll,
+                            libalembic::settings::ClientConfigType::Wine(w) => w.selected_dll,
+                        });
+
+                if current_selected.is_none() && added_dlls.is_empty() {
+                    settings.select_dll_for_client(selected_client_idx, Some(0));
                 }
             })?;
 
@@ -1516,253 +1859,6 @@ fn dll_scan() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn dll_list() -> anyhow::Result<()> {
-    let (discovered_dlls, selected_dll) =
-        SettingsManager::get(|s| (s.discovered_dlls.clone(), s.selected_dll));
-
-    if discovered_dlls.is_empty() {
-        println!("No DLLs configured.");
-        println!("Run 'alembic dll scan' to discover DLLs.");
-        return Ok(());
-    }
-
-    for (idx, dll) in discovered_dlls.iter().enumerate() {
-        let is_selected = Some(idx) == selected_dll;
-        let marker = if is_selected { " * " } else { "   " };
-
-        println!(
-            "{}{}: {} ({})",
-            marker,
-            idx,
-            dll.dll_path.display(),
-            dll.dll_type
-        );
-    }
-
-    Ok(())
-}
-
-fn dll_remove(index: usize) -> anyhow::Result<()> {
-    use std::io::{self, Write};
-
-    let dll_info = SettingsManager::get(|s| {
-        s.discovered_dlls
-            .get(index)
-            .map(|dll| (dll.dll_type.to_string(), dll.dll_path.display().to_string()))
-    });
-
-    let (dll_type, dll_path) = match dll_info {
-        Some(info) => info,
-        None => {
-            println!("Invalid DLL index: {}", index);
-            println!("Use 'alembic dll list' to see available DLLs.");
-            return Ok(());
-        }
-    };
-
-    println!("This will remove the following DLL configuration:");
-    println!("  [{}] {} - {}", index, dll_type, dll_path);
-    println!();
-    print!("Continue? (y/n): ");
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    let response = input.trim().to_lowercase();
-
-    if response != "y" && response != "yes" {
-        println!("Cancelled.");
-        return Ok(());
-    }
-
-    SettingsManager::modify(|settings| {
-        if index < settings.discovered_dlls.len() {
-            settings.discovered_dlls.remove(index);
-
-            // Adjust selected_dll if needed
-            if let Some(selected) = settings.selected_dll {
-                if selected == index {
-                    settings.selected_dll = None;
-                } else if selected > index {
-                    settings.selected_dll = Some(selected - 1);
-                }
-            }
-        }
-    })?;
-
-    println!();
-    println!("✓ DLL configuration has been removed.");
-
-    Ok(())
-}
-
-fn dll_add(
-    _platform: String,
-    dll_type: String,
-    dll_path: String,
-    _wine_prefix: Option<String>,
-) -> anyhow::Result<()> {
-    use libalembic::inject_config::{DllType, InjectConfig};
-    use std::path::PathBuf;
-
-    // Parse DLL type
-    let dll_type = match dll_type.to_lowercase().as_str() {
-        "alembic" => DllType::Alembic,
-        "decal" => DllType::Decal,
-        _ => {
-            anyhow::bail!(
-                "Invalid DLL type: {}. Must be 'alembic' or 'decal'",
-                dll_type
-            );
-        }
-    };
-
-    // Determine startup function based on DLL type
-    let startup_function = match dll_type {
-        DllType::Decal => Some("DecalStartup".to_string()),
-        DllType::Alembic => None,
-    };
-
-    // Create the InjectConfig
-    let inject_config = InjectConfig {
-        dll_type,
-        dll_path: PathBuf::from(dll_path),
-        startup_function,
-    };
-
-    println!("Adding DLL configuration:");
-    println!("  Type: {}", inject_config.dll_type);
-    println!("  Path: {}", inject_config.dll_path.display());
-
-    SettingsManager::modify(|settings| {
-        settings.add_or_update_dll(inject_config);
-    })?;
-
-    println!();
-    println!("✓ DLL configuration added!");
-
-    Ok(())
-}
-
-fn dll_select(index: usize) -> anyhow::Result<()> {
-    let dll_count = SettingsManager::get(|s| s.discovered_dlls.len());
-
-    if index >= dll_count {
-        println!("Invalid DLL index: {}", index);
-        println!("Use 'alembic config dll list' to see available DLLs.");
-        return Ok(());
-    }
-
-    SettingsManager::modify(|settings| {
-        settings.selected_dll = Some(index);
-    })?;
-
-    println!("✓ Selected DLL at index {}", index);
-
-    Ok(())
-}
-
-fn dll_reset() -> anyhow::Result<()> {
-    let was_selected = SettingsManager::get(|s| s.selected_dll.is_some());
-
-    SettingsManager::modify(|settings| {
-        settings.selected_dll = None;
-    })?;
-
-    if was_selected {
-        println!("✓ DLL selection cleared");
-    } else {
-        println!("No DLL was selected");
-    }
-
-    Ok(())
-}
-
-fn dll_show(index: usize) -> anyhow::Result<()> {
-    let dll = SettingsManager::get(|s| s.discovered_dlls.get(index).cloned());
-
-    match dll {
-        Some(dll) => {
-            println!("DLL configuration (index {}):", index);
-            println!();
-            println!("{}", dll);
-        }
-        None => {
-            println!("Invalid DLL index: {}", index);
-            println!("Use 'alembic dll list' to see available DLLs.");
-        }
-    }
-
-    Ok(())
-}
-
-fn dll_edit(
-    index: usize,
-    dll_type: Option<String>,
-    path: Option<String>,
-    startup_function: Option<String>,
-) -> anyhow::Result<()> {
-    use libalembic::inject_config::DllType;
-    use std::path::PathBuf;
-
-    let dll_exists = SettingsManager::get(|s| s.discovered_dlls.get(index).is_some());
-    if !dll_exists {
-        bail!(
-            "Invalid DLL index: {}. Use 'alembic dll list' to see available DLLs.",
-            index
-        );
-    }
-
-    if dll_type.is_none() && path.is_none() && startup_function.is_none() {
-        println!(
-            "No changes specified. Use --type, --path, or --startup-function to modify the DLL."
-        );
-        return Ok(());
-    }
-
-    println!("Editing DLL at index {}...", index);
-
-    SettingsManager::modify(|settings| {
-        let dll = &mut settings.discovered_dlls[index];
-
-        if let Some(t) = &dll_type {
-            match t.to_lowercase().as_str() {
-                "alembic" => {
-                    println!("  Updated type to: Alembic");
-                    dll.dll_type = DllType::Alembic;
-                }
-                "decal" => {
-                    println!("  Updated type to: Decal");
-                    dll.dll_type = DllType::Decal;
-                }
-                _ => {
-                    println!(
-                        "  Warning: Invalid DLL type '{}', ignoring. Use 'alembic' or 'decal'.",
-                        t
-                    );
-                }
-            }
-        }
-        if let Some(p) = &path {
-            println!("  Updated path to: {}", p);
-            dll.dll_path = PathBuf::from(p);
-        }
-        if let Some(f) = &startup_function {
-            if f.is_empty() || f == "none" {
-                println!("  Removed startup function");
-                dll.startup_function = None;
-            } else {
-                println!("  Updated startup function to: {}", f);
-                dll.startup_function = Some(f.clone());
-            }
-        }
-    })?;
-
-    println!("✓ DLL updated!");
-
-    Ok(())
-}
-
 fn inject() -> anyhow::Result<()> {
     use libalembic::settings::ClientConfigType;
     use std::process::Command;
@@ -1770,8 +1866,10 @@ fn inject() -> anyhow::Result<()> {
     println!("Running cork to find and inject into acclient.exe...");
     println!();
 
-    // Get selected client config
-    let client_config = SettingsManager::get(|s| s.get_selected_client().cloned());
+    // Get selected client config and index
+    let (client_config, client_idx) =
+        SettingsManager::get(|s| (s.get_selected_client().cloned(), s.selected_client));
+
     let client_config = match client_config {
         Some(config) => config,
         None => {
@@ -1787,13 +1885,17 @@ fn inject() -> anyhow::Result<()> {
         }
     };
 
-    // Get selected DLL config
-    let dll_config = SettingsManager::get(|s| s.get_selected_dll().cloned());
+    // Get selected DLL config for the selected client
+    let dll_config = match client_idx {
+        Some(idx) => SettingsManager::get(|s| s.get_client_selected_dll(idx).cloned()),
+        None => None,
+    };
+
     let dll_path = match dll_config {
         Some(config) => config.dll_path.display().to_string(),
         None => {
             bail!(
-                "No DLL selected. Use 'alembic dll select <index>' to select a DLL for injection."
+                "No DLL selected. Use 'alembic client dll --client <index> select <dll_index>' to select a DLL for injection."
             );
         }
     };

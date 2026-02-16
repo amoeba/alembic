@@ -14,6 +14,11 @@ pub fn try_launch(
         None => bail!("No client selected."),
     };
 
+    // Check if client type is supported on this platform
+    if client_config.is_wine() {
+        bail!("Wine client configuration is not supported on Windows. Please use a Windows client configuration.");
+    }
+
     let server_info = match server_info {
         Some(info) => info.clone(),
         None => bail!("No server selected."),
@@ -51,6 +56,11 @@ pub fn try_launch(
         Some(config) => config.clone(),
         None => bail!("No client selected."),
     };
+
+    // Check if client type is supported on this platform
+    if !client_config.is_wine() {
+        bail!("Windows client configuration is not supported on this platform. Please use a Wine client configuration.");
+    }
 
     let server_info = match server_info {
         Some(info) => info.clone(),

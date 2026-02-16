@@ -8,6 +8,12 @@ use std::path::{Path, PathBuf};
 pub struct WindowsClientConfig {
     pub name: String,
     pub client_path: PathBuf,
+    /// DLL configurations for this client
+    #[serde(default)]
+    pub dlls: Vec<InjectConfig>,
+    /// Index of the currently selected DLL for this client
+    #[serde(default)]
+    pub selected_dll: Option<usize>,
 }
 
 impl ClientConfig for WindowsClientConfig {

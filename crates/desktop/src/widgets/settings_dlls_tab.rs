@@ -1,16 +1,16 @@
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, Response, Ui, Widget};
-use egui_extras::{Column, TableBuilder};
 use libalembic::{
     inject_config::{DllType, InjectConfig},
-    scanner,
-    settings::AlembicSettings,
+    scanner, settings::AlembicSettings,
 };
 
 use super::components::centered_text;
 
-pub struct SettingsDllsTab {}
+pub struct SettingsDllsTab {
+    pub selected_index: Option<usize>,
+}
 
 impl Widget for &mut SettingsDllsTab {
     fn ui(self, ui: &mut Ui) -> Response {
@@ -24,157 +24,208 @@ impl Widget for &mut SettingsDllsTab {
             }) {
                 let mut settings = s.lock().unwrap();
 
-                ui.vertical(|ui| {
-                    // Add buttons for different DLL types
-                    ui.horizontal(|ui| {
-                        if ui.button("New Decal").clicked() {
-                            let new_dll = InjectConfig {
-                                dll_type: DllType::Decal,
-                                dll_path: std::path::PathBuf::from(
-                                    "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
-                                ),
-                                startup_function: Some("DecalStartup".to_string()),
-                            };
+                // Get the selected client
+                let client_idx = settings.selected_client;
+                if client_idx.is_none() {
+                    return;
+                }
 
-                            settings.discovered_dlls.push(new_dll);
+                let client_idx = client_idx.unwrap();
+
+                // Add buttons for different DLL types
+                ui.horizontal(|ui| {
+                    if ui.button("New Decal").clicked() {
+                        let new_dll = InjectConfig {
+                            dll_type: DllType::Decal,
+                            dll_path: std::path::PathBuf::from(
+                                "C:\\Program Files (x86)\\Decal 3.0\\Inject.dll",
+                            ),
+                            startup_function: Some("DecalStartup".to_string()),
+                        };
+
+                        if settings.add_dll_to_client(client_idx, new_dll) {
+                            if let Some(dlls) = settings.get_client_dlls(client_idx) {
+                                self.selected_index = Some(dlls.len() - 1);
+                            }
                             let _ = settings.save();
                         }
+                    }
 
-                        if ui.button("New Alembic").clicked() {
-                            let new_dll = InjectConfig {
-                                dll_type: DllType::Alembic,
-                                dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
-                                startup_function: None,
-                            };
+                    if ui.button("New Alembic").clicked() {
+                        let new_dll = InjectConfig {
+                            dll_type: DllType::Alembic,
+                            dll_path: std::path::PathBuf::from("C:\\path\\to\\alembic.dll"),
+                            startup_function: None,
+                        };
 
-                            settings.discovered_dlls.push(new_dll);
+                        if settings.add_dll_to_client(client_idx, new_dll) {
+                            if let Some(dlls) = settings.get_client_dlls(client_idx) {
+                                self.selected_index = Some(dlls.len() - 1);
+                            }
                             let _ = settings.save();
                         }
-                        if ui.button("Discover DLLs").clicked() {
-                            match scanner::scan_for_decal_dlls() {
-                                Ok(discovered_dlls) => {
-                                    if discovered_dlls.is_empty() {
-                                        println!("No Decal installations found");
-                                    } else {
-                                        let had_no_dlls =
-                                            settings.discovered_dlls.is_empty();
+                    }
 
-                                        for dll in discovered_dlls {
-                                            settings.add_or_update_dll(dll);
-                                        }
+                    if ui.button("Discover DLLs").clicked() {
+                        match scanner::scan_for_decal_dlls() {
+                            Ok(discovered_dlls) => {
+                                if discovered_dlls.is_empty() {
+                                    println!("No Decal installations found");
+                                } else {
+                                    let had_no_dlls = settings
+                                        .get_client_dlls(client_idx)
+                                        .map(|dlls| dlls.is_empty())
+                                        .unwrap_or(true);
 
-                                        if had_no_dlls
-                                            && !settings.discovered_dlls.is_empty()
-                                            && settings.selected_dll.is_none()
-                                        {
-                                            settings.selected_dll = Some(0);
-                                        }
-
-                                        let _ = settings.save();
-                                        println!("DLL scan complete");
+                                    for dll in discovered_dlls {
+                                        settings.add_dll_to_client(client_idx, dll);
                                     }
+
+                                    if had_no_dlls {
+                                        settings.select_dll_for_client(client_idx, Some(0));
+                                    }
+
+                                    let _ = settings.save();
+                                    println!("DLL scan complete");
                                 }
-                                Err(e) => {
-                                    eprintln!("Error scanning for DLLs: {}", e);
-                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Error scanning for DLLs: {}", e);
                             }
                         }
-                    });
+                    }
+                });
 
-                    ui.add_space(8.0);
+                ui.add_space(8.0);
 
-                    // DLLs listing
-                    let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-                    let mut did_update = false; // Dirty checking for saving settings
+                let dlls_for_client = settings.get_client_dlls(client_idx).map(|d| d.len()).unwrap_or(0);
+                if dlls_for_client == 0 {
+                    ui.label("No DLLs configured for this client. Click \"Discover DLLs\" to scan for installations, or add one manually.");
+                    return;
+                }
 
-                    let mut n_dlls = 0;
+                // Clamp selected_index
+                if let Some(idx) = self.selected_index {
+                    if idx >= dlls_for_client {
+                        self.selected_index = Some(dlls_for_client - 1);
+                    }
+                }
 
-                    TableBuilder::new(ui)
-                        .striped(true)
-                        .resizable(true)
-                        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                        .column(Column::auto()) // Platform
-                        .column(Column::auto()) // Type
-                        .column(Column::remainder()) // DLL Path
-                        .column(Column::auto()) // Delete
-                        .header(text_height, |mut header| {
-                            header.col(|ui| {
-                                ui.strong("Platform");
-                            });
-                            header.col(|ui| {
-                                ui.strong("Type");
-                            });
-                            header.col(|ui| {
-                                ui.strong("DLL Path");
-                            });
-                            header.col(|ui| {
-                                ui.strong("Delete");
-                            });
-                        })
-                        .body(|mut body| {
-                            let mut delete_index = None;
+                let mut did_update = false;
+                let mut delete_dll = false;
 
-                            for i in 0..settings.discovered_dlls.len() {
-                                n_dlls += 1;
+                // Two-pane layout
+                egui::SidePanel::left("dlls_list")
+                    .resizable(true)
+                    .default_width(180.0)
+                    .show_inside(ui, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            let dll_count = settings.get_client_dlls(client_idx).map(|d| d.len()).unwrap_or(0);
+                            for i in 0..dll_count {
+                                let dll_type_str = settings.get_client_dlls(client_idx)
+                                    .and_then(|dlls| dlls.get(i))
+                                    .map(|dll| format!("{}", dll.dll_type))
+                                    .unwrap_or_else(|| "Unknown".to_string());
 
-                                body.row(text_height, |mut table_row| {
-                                    // Platform (non-editable) - show based on OS
-                                    table_row.col(|ui| {
-                                        #[cfg(target_os = "windows")]
-                                        ui.label("Windows");
-                                        #[cfg(not(target_os = "windows"))]
-                                        ui.label("Wine");
-                                    });
-
-                                    // Type (non-editable)
-                                    table_row.col(|ui| {
-                                        let type_str =
-                                            settings.discovered_dlls[i].dll_type.to_string();
-                                        ui.label(type_str);
-                                    });
-
-                                    // DLL Path (editable)
-                                    table_row.col(|ui| {
-                                        let mut path_string = settings.discovered_dlls[i]
-                                            .dll_path
-                                            .display()
-                                            .to_string();
-
-                                        if ui.text_edit_singleline(&mut path_string).changed() {
-                                            let new_path = std::path::PathBuf::from(&path_string);
-                                            settings.discovered_dlls[i].dll_path = new_path;
-                                            did_update = true;
-                                        }
-                                    });
-
-                                    // Delete button
-                                    table_row.col(|ui| {
-                                        if ui.button("Delete").clicked() {
-                                            delete_index = Some(i);
-                                        }
-                                    });
-                                });
-                            }
-
-                            if let Some(i) = delete_index {
-                                settings.discovered_dlls.remove(i);
-                                did_update = true;
+                                let selected = self.selected_index == Some(i);
+                                let response = ui.selectable_label(selected, &dll_type_str);
+                                if response.clicked() {
+                                    self.selected_index = Some(i);
+                                }
                             }
                         });
+                    });
 
-                    if n_dlls == 0 {
-                        ui.label("No DLLs configured. Click \"Discover DLLs\" to scan for installations, or add one manually.");
+                // Right pane: detail editor
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    let Some(idx) = self.selected_index else {
+                        ui.centered_and_justified(|ui| {
+                            ui.label("Select a DLL from the list");
+                        });
+                        return;
+                    };
+                    let dll_count = settings.get_client_dlls(client_idx).map(|d| d.len()).unwrap_or(0);
+                    if idx >= dll_count {
+                        return;
                     }
 
-                    // Save but only if we need to
-                    if did_update {
-                        let _ = settings.save();
+                    // Read current values (clone to avoid borrow conflicts with closure)
+                    let (dll_type, dll_path, startup_function) = settings
+                        .get_client_dlls(client_idx)
+                        .and_then(|dlls| dlls.get(idx).map(|d| (d.dll_type.clone(), d.dll_path.clone(), d.startup_function.clone())))
+                        .unwrap_or((DllType::Alembic, std::path::PathBuf::new(), None));
+
+                    egui::ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| {
+                        // Delete button at top
+                        if ui.button("Delete DLL").clicked() {
+                            delete_dll = true;
+                        }
+
+                        ui.add_space(12.0);
+                        ui.separator();
+                        ui.add_space(8.0);
+
+                        // Type (read-only)
+                        ui.label("Type");
+                        ui.label(egui::RichText::new(dll_type.to_string()).strong());
+
+                        ui.add_space(8.0);
+
+                        // DLL Path
+                        ui.label("DLL Path");
+                        let mut path_string = dll_path.display().to_string();
+                        if ui.text_edit_singleline(&mut path_string).changed() {
+                            if let Some(dlls) = settings.get_client_dlls_mut(client_idx) {
+                                if let Some(dll) = dlls.get_mut(idx) {
+                                    dll.dll_path = std::path::PathBuf::from(&path_string);
+                                }
+                            }
+                            did_update = true;
+                        }
+
+                        ui.add_space(8.0);
+
+                        // Startup Function (only editable for non-Decal DLLs)
+                        if dll_type != DllType::Decal {
+                            ui.label("Startup Function");
+                            let mut startup_str = startup_function.unwrap_or_default();
+                            if ui.text_edit_singleline(&mut startup_str).changed() {
+                                if let Some(dlls) = settings.get_client_dlls_mut(client_idx) {
+                                    if let Some(dll) = dlls.get_mut(idx) {
+                                        dll.startup_function = if startup_str.is_empty() {
+                                            None
+                                        } else {
+                                            Some(startup_str)
+                                        };
+                                    }
+                                }
+                                did_update = true;
+                            }
+                        }
+                     });
+                 });
+
+                // Handle deletion outside the borrow
+                if delete_dll {
+                    if let Some(idx) = self.selected_index {
+                        let dlls_len = settings.get_client_dlls(client_idx).map(|d| d.len()).unwrap_or(0);
+                        if idx < dlls_len {
+                            settings.remove_dll_from_client(client_idx, idx);
+                            self.selected_index = if dlls_len <= 1 {
+                                None
+                            } else {
+                                Some(idx.min(dlls_len - 2))
+                            };
+                            did_update = true;
+                        }
                     }
-                })
-                .response
+                }
+
+                if did_update {
+                    let _ = settings.save();
+                }
             } else {
-                ui.group(|ui| centered_text(ui, "Failed to reach application backend."))
-                    .response
+                ui.group(|ui| centered_text(ui, "Failed to reach application backend."));
             }
         })
         .response

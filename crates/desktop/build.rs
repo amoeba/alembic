@@ -1,7 +1,6 @@
-use std::{env, fs, path::Path};
-
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() {
+    use std::{env, fs, path::Path};
     use winresource::WindowsResource;
 
     let mut res = WindowsResource::new();

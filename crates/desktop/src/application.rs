@@ -9,7 +9,7 @@ use crate::{
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 
-use eframe::egui::{self, vec2, Align, Align2, Layout, Vec2};
+use eframe::egui::{self, vec2, Align, Align2, Layout};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use ringbuffer::RingBuffer;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
@@ -35,6 +35,7 @@ pub struct Application {
     about: About,
     settings: Settings,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
+    #[allow(dead_code)]
     background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
     background_update_receiver: std::sync::mpsc::Receiver<BackgroundFetchUpdateMessage>,
 }
@@ -122,7 +123,7 @@ impl Application {
             wizard: Wizard::new(),
             about: About::new(),
             settings: Settings::new(),
-            client_server_rx: client_server_rx,
+            client_server_rx,
             background_fetch_sender,
             background_update_receiver,
         }
@@ -140,7 +141,7 @@ impl Application {
         match current_app_page {
             AppPage::Main => {
                 egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-                    egui::menu::bar(ui, |ui| {
+                    egui::MenuBar::new().ui(ui, |ui| {
                         ui.menu_button("File", |ui| {
                             if ui.add(egui::Button::new("Settings")).clicked() {
                                 ui.memory_mut(|mem| {
@@ -149,17 +150,17 @@ impl Application {
                                         AppPage::Settings,
                                     )
                                 });
-                                ui.close_menu();
+                                ui.close();
                             }
                             if ui.add(egui::Button::new("Exit")).clicked() {
-                                ui.close_menu();
+                                ui.close();
                                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                             }
                         });
 
                         ui.menu_button("Help", |ui: &mut egui::Ui| {
                             if ui.add(egui::Button::new("About")).clicked() {
-                                ui.close_menu();
+                                ui.close();
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::About)
@@ -220,9 +221,7 @@ impl Application {
             None
         };
 
-        if current_modal.is_some() {
-            let modal = current_modal.unwrap();
-
+        if let Some(modal) = current_modal {
             egui::Window::new(modal.title)
                 .enabled(true)
                 .collapsible(false)

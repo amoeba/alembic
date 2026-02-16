@@ -12,6 +12,12 @@ pub struct WineClientConfig {
     pub client_path: PathBuf,
     /// The launch command specifying program, args, and env vars
     pub launch_command: LaunchCommand,
+    /// DLL configurations for this client
+    #[serde(default)]
+    pub dlls: Vec<InjectConfig>,
+    /// Index of the currently selected DLL for this client
+    #[serde(default)]
+    pub selected_dll: Option<usize>,
 }
 
 impl ClientConfig for WineClientConfig {

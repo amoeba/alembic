@@ -21,6 +21,8 @@ impl<T> PStringBase<T> {
 }
 
 impl PStringBase<i8> {
+    /// # Safety
+    /// The caller must ensure the pointer is valid and points to a null-terminated C string.
     pub unsafe fn to_string(&self) -> Result<String, &'static str> {
         let char_ptr = self.ptr as *const i8;
         CStr::from_ptr(char_ptr)
@@ -31,6 +33,8 @@ impl PStringBase<i8> {
 }
 
 impl PStringBase<*const i8> {
+    /// # Safety
+    /// The caller must ensure the pointer is valid and points to a valid pointer to a null-terminated C string.
     pub unsafe fn to_string(&self) -> Result<String, &'static str> {
         let char_ptr_ptr = self.ptr as *const *const i8;
         let char_ptr = *char_ptr_ptr;
@@ -46,6 +50,8 @@ impl PStringBase<*const i8> {
 }
 
 impl PStringBase<*const u16> {
+    /// # Safety
+    /// The caller must ensure the pointer is valid and points to a valid pointer to a null-terminated UTF-16 string.
     pub unsafe fn to_string(&self) -> Result<String, &'static str> {
         let ushort_ptr_ptr = self.ptr as *const *const u16;
         let ushort_ptr = *ushort_ptr_ptr;

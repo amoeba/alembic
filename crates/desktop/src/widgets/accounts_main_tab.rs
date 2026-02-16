@@ -21,7 +21,7 @@ impl Widget for &mut AccountsMainTab {
             }) {
                 let mut settings = s.lock().unwrap();
 
-                if settings.servers.len() == 0 {
+                if settings.servers.is_empty() {
                     ui.vertical(|ui| {
                         ui.label("No servers. Switch to the Servers tab to add your first one.");
                     })

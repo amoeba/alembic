@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use super::components::centered_text;
 use crate::backend::Backend;
 use chrono::{DateTime, Local, TimeZone};
-use eframe::egui::{self, Button, Rect, Response, ScrollArea, TextEdit, TextStyle, Ui, Widget};
+use eframe::egui::{self, Button, Response, ScrollArea, TextEdit, TextStyle, Ui, Widget};
 use ringbuffer::RingBuffer;
 
 pub struct GameChatTab {
@@ -29,7 +29,7 @@ impl Widget for &mut GameChatTab {
                 ui.vertical(|ui| {
                     let backend_lock: std::sync::MutexGuard<'_, Backend> = backend.lock().unwrap();
 
-                    let total_rows = backend_lock.chat_messages.len() as usize;
+                    let total_rows = backend_lock.chat_messages.len();
                     let text_style = TextStyle::Body;
                     let row_height = ui.text_style_height(&text_style);
                     let num_rows_to_show = 10;

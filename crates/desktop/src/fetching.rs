@@ -13,6 +13,7 @@ pub const COMMUNITY_SERVERS_LIST_URL: &str =
 pub enum FetchWrapper<T> {
     NotStarted,
     Started,
+    #[allow(dead_code)]
     Retrying(u32),
     Success(T),
     Failed(Box<dyn Error + Send + Sync>),

@@ -40,7 +40,7 @@ impl Widget for &mut MainTab {
             });
             ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
                 ui.set_max_width(self.sidebar_width);
-                let have_client = if let Some(s) = ui.data_mut(|data| {
+                let _have_client = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
                     let backend = s.lock().unwrap();
@@ -49,7 +49,7 @@ impl Widget for &mut MainTab {
                 } else {
                     false
                 };
-                let is_injected = if let Some(s) = ui.data_mut(|data| {
+                let _is_injected = if let Some(s) = ui.data_mut(|data| {
                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                 }) {
                     let backend = s.lock().unwrap();
@@ -64,10 +64,7 @@ impl Widget for &mut MainTab {
                 }) {
                     let settings = s.lock().unwrap();
 
-                    match settings.selected_account {
-                        Some(_) => true,
-                        None => false,
-                    }
+                    settings.selected_account.is_some()
                 } else {
                     false
                 };
@@ -101,10 +98,7 @@ impl Widget for &mut MainTab {
                         }) {
                             let settings = s.lock().unwrap();
 
-                            match settings.selected_server {
-                                Some(index) => Some(settings.servers[index].clone()),
-                                None => None,
-                            }
+                            settings.selected_server.map(|index| settings.servers[index].clone())
                         } else {
                             None
                         };
@@ -117,29 +111,26 @@ impl Widget for &mut MainTab {
                         }) {
                             let settings = s.lock().unwrap();
 
-                            match settings.selected_account {
-                                Some(index) => Some(settings.accounts[index].clone()),
-                                None => None,
-                            }
+                            settings.selected_account.map(|index| settings.accounts[index].clone())
                         } else {
                             None
                         };
 
                         // Alembic DLL Path
-                        let dll_config = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
-                                "settings",
-                            ))
-                        }) {
-                            let settings = s.lock().unwrap();
+                         let dll_config = if let Some(s) = ui.data_mut(|data| {
+                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                                 "settings",
+                             ))
+                         }) {
+                             let settings = s.lock().unwrap();
 
-                            match settings.selected_dll {
-                                Some(index) => settings.discovered_dlls.get(index).cloned(),
-                                None => None,
-                            }
-                        } else {
-                            None
-                        };
+                             match settings.selected_client {
+                                 Some(client_idx) => settings.get_client_selected_dll(client_idx).cloned(),
+                                 None => None,
+                             }
+                         } else {
+                             None
+                         };
 
                         // Print comprehensive launch configuration
                         println!("LAUNCH: Client=[{}|{}] DLL=[{}|{}] Server=[{}:{}] Account=[{}]",
@@ -179,7 +170,7 @@ impl Widget for &mut MainTab {
 
                                     backend.current_modal = Some(AppModal {
                                         title: "Error Launching".to_string(),
-                                        text: format!("The following error was encountered when trying to launch:\n\n{}\n\nPlease check your settings and try again.", error.to_string()),
+                                        text: format!("The following error was encountered when trying to launch:\n\n{}\n\nPlease check your settings and try again.", error),
                                     });
                                 }
                             }
@@ -198,7 +189,7 @@ impl Widget for &mut MainTab {
                 };
 
                 ui.add(&mut AccountPicker {
-                    selected_server: selected_server,
+                    selected_server,
                 });
                 ui.add(&mut ServerPicker {});
                 ui.add(&mut DllPicker {});

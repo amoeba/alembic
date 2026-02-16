@@ -8,7 +8,7 @@ pub fn print_dbg_address(addr: isize, friendly_name: &str) {
     }
 }
 
-pub fn print_vec(v: &Vec<u8>) {
+pub fn print_vec(v: &[u8]) {
     for (i, byte) in v.iter().enumerate() {
         print!("{byte:02X} ");
 

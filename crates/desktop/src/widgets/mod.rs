@@ -18,7 +18,5 @@ pub mod main_tab;
 pub mod news;
 pub mod settings;
 pub mod settings_clients_tab;
-pub mod settings_dlls_tab;
-pub mod settings_tab;
 pub mod tabs;
 pub mod wizard;

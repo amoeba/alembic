@@ -20,11 +20,31 @@ pub enum ClientConfigType {
     Wine(WineClientConfig),
 }
 
+/// DLL configuration associated with a client
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ClientDllConfig {
+    /// The DLL injection configuration
+    pub inject_config: InjectConfig,
+}
+
+impl ClientDllConfig {
+    pub fn new(inject_config: InjectConfig) -> Self {
+        Self { inject_config }
+    }
+}
+
 impl ClientConfigType {
     pub fn name(&self) -> &str {
         match self {
             ClientConfigType::Windows(c) => &c.name,
             ClientConfigType::Wine(c) => &c.name,
+        }
+    }
+
+    pub fn name_mut(&mut self) -> &mut String {
+        match self {
+            ClientConfigType::Windows(c) => &mut c.name,
+            ClientConfigType::Wine(c) => &mut c.name,
         }
     }
 
@@ -35,10 +55,24 @@ impl ClientConfigType {
         }
     }
 
+    pub fn client_path_mut(&mut self) -> &mut std::path::PathBuf {
+        match self {
+            ClientConfigType::Windows(c) => &mut c.client_path,
+            ClientConfigType::Wine(c) => &mut c.client_path,
+        }
+    }
+
     pub fn launch_command(&self) -> Option<&LaunchCommand> {
         match self {
             ClientConfigType::Windows(_) => None,
             ClientConfigType::Wine(c) => Some(&c.launch_command),
+        }
+    }
+
+    pub fn launch_command_mut(&mut self) -> Option<&mut LaunchCommand> {
+        match self {
+            ClientConfigType::Windows(_) => None,
+            ClientConfigType::Wine(c) => Some(&mut c.launch_command),
         }
     }
 
@@ -154,18 +188,16 @@ pub struct AlembicSettings {
     #[serde(default)]
     pub selected_client: Option<usize>,
 
-    /// All discovered DLL injection configurations
-    #[serde(default)]
-    pub discovered_dlls: Vec<InjectConfig>,
-
-    /// Index of the currently selected DLL for injection
-    #[serde(default)]
-    pub selected_dll: Option<usize>,
-
     pub selected_server: Option<usize>,
     pub selected_account: Option<usize>,
     pub accounts: Vec<Account>,
     pub servers: Vec<ServerInfo>,
+}
+
+impl Default for AlembicSettings {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AlembicSettings {
@@ -175,8 +207,6 @@ impl AlembicSettings {
             is_configured: false,
             clients: vec![],
             selected_client: None,
-            discovered_dlls: vec![],
-            selected_dll: None,
             selected_account: None,
             selected_server: None,
             accounts: vec![],
@@ -239,42 +269,118 @@ impl AlembicSettings {
         self.selected_account.and_then(|idx| self.accounts.get(idx))
     }
 
-    /// Get the selected DLL
+    /// Get the selected DLL for the selected client
     pub fn get_selected_dll(&self) -> Option<&InjectConfig> {
-        self.selected_dll
-            .and_then(|idx| self.discovered_dlls.get(idx))
+        self.get_selected_client().and_then(|client| {
+            let selected_dll = match client {
+                ClientConfigType::Windows(c) => c.selected_dll,
+                ClientConfigType::Wine(c) => c.selected_dll,
+            };
+            selected_dll.and_then(|idx| {
+                let dlls = match client {
+                    ClientConfigType::Windows(c) => &c.dlls,
+                    ClientConfigType::Wine(c) => &c.dlls,
+                };
+                dlls.get(idx)
+            })
+        })
     }
 
-    /// Add or update a DLL configuration
-    pub fn add_or_update_dll(&mut self, inject_config: InjectConfig) {
-        // Check if we already have this DLL type
-        if let Some(existing) = self
-            .discovered_dlls
-            .iter_mut()
-            .find(|dll| dll.dll_type == inject_config.dll_type)
-        {
-            // Update existing
-            *existing = inject_config;
+    /// Get mutable reference to DLLs for a specific client
+    pub fn get_client_dlls_mut(&mut self, client_idx: usize) -> Option<&mut Vec<InjectConfig>> {
+        self.clients.get_mut(client_idx).map(|client| match client {
+            ClientConfigType::Windows(c) => &mut c.dlls,
+            ClientConfigType::Wine(c) => &mut c.dlls,
+        })
+    }
+
+    /// Get immutable reference to DLLs for a specific client
+    pub fn get_client_dlls(&self, client_idx: usize) -> Option<&Vec<InjectConfig>> {
+        self.clients.get(client_idx).map(|client| match client {
+            ClientConfigType::Windows(c) => &c.dlls,
+            ClientConfigType::Wine(c) => &c.dlls,
+        })
+    }
+
+    /// Get selected DLL for a specific client
+    pub fn get_client_selected_dll(&self, client_idx: usize) -> Option<&InjectConfig> {
+        self.clients.get(client_idx).and_then(|client| {
+            let selected_dll = match client {
+                ClientConfigType::Windows(c) => c.selected_dll,
+                ClientConfigType::Wine(c) => c.selected_dll,
+            };
+            selected_dll.and_then(|idx| {
+                let dlls = match client {
+                    ClientConfigType::Windows(c) => &c.dlls,
+                    ClientConfigType::Wine(c) => &c.dlls,
+                };
+                dlls.get(idx)
+            })
+        })
+    }
+
+    /// Add a DLL to a specific client
+    pub fn add_dll_to_client(&mut self, client_idx: usize, inject_config: InjectConfig) -> bool {
+        if let Some(client) = self.clients.get_mut(client_idx) {
+            let dlls = match client {
+                ClientConfigType::Windows(c) => &mut c.dlls,
+                ClientConfigType::Wine(c) => &mut c.dlls,
+            };
+            dlls.push(inject_config);
+            true
         } else {
-            // Add new
-            self.discovered_dlls.push(inject_config);
+            false
         }
     }
 
-    /// Remove a DLL by type
-    pub fn remove_dll_by_type(&mut self, dll_type: crate::inject_config::DllType) {
-        self.discovered_dlls.retain(|dll| dll.dll_type != dll_type);
-        // If we removed the selected DLL, clear the selection
-        if let Some(selected_idx) = self.selected_dll {
-            if selected_idx >= self.discovered_dlls.len() {
-                self.selected_dll = None;
-            } else if self
-                .discovered_dlls
-                .get(selected_idx)
-                .map(|dll| dll.dll_type)
-                == Some(dll_type)
-            {
-                self.selected_dll = None;
+    /// Remove a DLL from a specific client by index
+    pub fn remove_dll_from_client(&mut self, client_idx: usize, dll_idx: usize) -> bool {
+        if let Some(client) = self.clients.get_mut(client_idx) {
+            match client {
+                ClientConfigType::Windows(c) => {
+                    if dll_idx < c.dlls.len() {
+                        c.dlls.remove(dll_idx);
+                        // Adjust selected_dll if needed
+                        if let Some(selected) = c.selected_dll {
+                            if selected == dll_idx {
+                                c.selected_dll = None;
+                            } else if selected > dll_idx {
+                                c.selected_dll = Some(selected - 1);
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                ClientConfigType::Wine(c) => {
+                    if dll_idx < c.dlls.len() {
+                        c.dlls.remove(dll_idx);
+                        // Adjust selected_dll if needed
+                        if let Some(selected) = c.selected_dll {
+                            if selected == dll_idx {
+                                c.selected_dll = None;
+                            } else if selected > dll_idx {
+                                c.selected_dll = Some(selected - 1);
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Set the selected DLL for a specific client
+    pub fn select_dll_for_client(&mut self, client_idx: usize, dll_idx: Option<usize>) {
+        if let Some(client) = self.clients.get_mut(client_idx) {
+            match client {
+                ClientConfigType::Windows(c) => c.selected_dll = dll_idx,
+                ClientConfigType::Wine(c) => c.selected_dll = dll_idx,
             }
         }
     }
@@ -305,10 +411,6 @@ impl AlembicSettings {
         // Clients
         self.clients = new_settings.clients;
         self.selected_client = new_settings.selected_client;
-
-        // DLLs
-        self.discovered_dlls = new_settings.discovered_dlls;
-        self.selected_dll = new_settings.selected_dll;
 
         // Servers
         self.selected_server = new_settings.selected_server;

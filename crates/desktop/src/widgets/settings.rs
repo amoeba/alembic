@@ -2,25 +2,23 @@ use eframe::egui::{self, Align, Layout, Response, Ui, Widget};
 
 use crate::application::AppPage;
 
-use super::{
-    settings_clients_tab::SettingsClientsTab,
-    settings_dlls_tab::SettingsDllsTab,
-    settings_tab::{SettingsTab, SettingsTabContent},
-};
+use super::settings_clients_tab::SettingsClientsTab;
 
 pub struct Settings {
-    settings_tab: SettingsTab,
+    clients_tab: SettingsClientsTab,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Settings {
     pub fn new() -> Self {
         Self {
-            settings_tab: SettingsTab {
-                tabs: vec![
-                    SettingsTabContent::Clients(SettingsClientsTab {}),
-                    SettingsTabContent::Dlls(SettingsDllsTab {}),
-                ],
-                selected_tab: 0,
+            clients_tab: SettingsClientsTab {
+                selected_index: None,
             },
         }
     }
@@ -47,7 +45,7 @@ impl Widget for &mut Settings {
                 ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
                     ui.heading("Settings");
                     ui.add_space(16.0);
-                    ui.add(&mut self.settings_tab);
+                    ui.add(&mut self.clients_tab);
                 });
             });
         })

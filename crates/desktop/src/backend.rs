@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::{fmt::Display, num::NonZero};
 
 use ringbuffer::AllocRingBuffer;
@@ -33,6 +32,7 @@ pub struct PacketInfo {
     pub data: Vec<u8>,
 }
 
+#[allow(dead_code)]
 impl PacketInfo {
     fn default() -> PacketInfo {
         Self {
@@ -68,6 +68,7 @@ pub struct News {
 // Community Servers list structures
 #[derive(Debug, Deserialize)]
 pub struct CommunityServersServerItem {
+    #[allow(dead_code)]
     pub id: String,
     pub name: String,
     pub description: String,
@@ -88,6 +89,7 @@ pub struct CommunityServers {
 
 #[derive(Clone)]
 pub struct Client {
+    #[allow(dead_code)]
     pub pid: NonZero<u32>,
 }
 
