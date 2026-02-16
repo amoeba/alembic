@@ -127,9 +127,9 @@ impl Widget for &mut SettingsClientsTab {
                             });
                         })
                         .body(|mut body| {
-                            let indices: Vec<usize> = (0..settings.clients.len()).collect();
+                            let mut delete_index = None;
 
-                            for i in indices {
+                            for i in 0..settings.clients.len() {
                                 n_clients += 1;
 
                                 body.row(text_height, |mut table_row| {
@@ -189,11 +189,15 @@ impl Widget for &mut SettingsClientsTab {
                                     // Delete button
                                     table_row.col(|ui| {
                                         if ui.button("Delete").clicked() {
-                                            settings.clients.remove(i);
-                                            did_update = true;
+                                            delete_index = Some(i);
                                         }
                                     });
                                 });
+                            }
+
+                            if let Some(i) = delete_index {
+                                settings.clients.remove(i);
+                                did_update = true;
                             }
                         });
 
