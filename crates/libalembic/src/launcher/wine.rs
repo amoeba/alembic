@@ -114,8 +114,7 @@ impl ClientLauncher for WineLauncherImpl {
             }
 
             if let Some(inject_config) = &self.inject_config
-                && let Ok(unix_dll) =
-                    windows_to_unix_path(prefix, &inject_config.dll_path)
+                && let Ok(unix_dll) = windows_to_unix_path(prefix, &inject_config.dll_path)
                 && !unix_dll.exists()
             {
                 return Err(std::io::Error::new(
