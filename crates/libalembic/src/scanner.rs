@@ -328,8 +328,8 @@ impl WhiskyScanner {
         wine_exe: &Path,
         bottle_name: &str,
     ) -> Result<Vec<ClientConfigType>> {
-        let launch_command = LaunchCommand::new(wine_exe)
-            .env("WINEPREFIX", wine_prefix_path.display().to_string());
+        let launch_command =
+            LaunchCommand::new(wine_exe).env("WINEPREFIX", wine_prefix_path.display().to_string());
         let name = format!("Whisky: {}", bottle_name);
         scan_prefix_for_ac(wine_prefix_path, &name, launch_command)
     }

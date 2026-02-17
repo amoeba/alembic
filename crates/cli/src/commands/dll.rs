@@ -3,9 +3,8 @@ use libalembic::{scanner, settings::SettingsManager};
 
 pub fn client_dll_list(client_idx: usize) -> anyhow::Result<()> {
     let dlls = SettingsManager::get(|s| s.get_client_dlls(client_idx).cloned());
-    let selected_dll = SettingsManager::get(|s| {
-        s.clients.get(client_idx).and_then(|c| c.selected_dll())
-    });
+    let selected_dll =
+        SettingsManager::get(|s| s.clients.get(client_idx).and_then(|c| c.selected_dll()));
 
     match dlls {
         Some(dlls) => {
@@ -134,9 +133,8 @@ pub fn client_dll_select(client_idx: usize, dll_idx: usize) -> anyhow::Result<()
 }
 
 pub fn client_dll_reset(client_idx: usize) -> anyhow::Result<()> {
-    let was_selected = SettingsManager::get(|s| {
-        s.clients.get(client_idx).and_then(|c| c.selected_dll())
-    });
+    let was_selected =
+        SettingsManager::get(|s| s.clients.get(client_idx).and_then(|c| c.selected_dll()));
 
     SettingsManager::modify(|settings| {
         settings.select_dll_for_client(client_idx, None);
@@ -344,7 +342,10 @@ pub fn client_dll_scan(client_idx: usize) -> anyhow::Result<()> {
         });
 
         if already_exists {
-            skipped_dlls.push((format!("{} ({})", dll.dll_type, dll.dll_path.display()), "already configured"));
+            skipped_dlls.push((
+                format!("{} ({})", dll.dll_type, dll.dll_path.display()),
+                "already configured",
+            ));
             continue;
         }
 
@@ -363,8 +364,10 @@ pub fn client_dll_scan(client_idx: usize) -> anyhow::Result<()> {
             SettingsManager::modify(|settings| {
                 settings.add_dll_to_client(client_idx, dll.clone());
 
-                let current_selected =
-                    settings.clients.get(client_idx).and_then(|c| c.selected_dll());
+                let current_selected = settings
+                    .clients
+                    .get(client_idx)
+                    .and_then(|c| c.selected_dll());
 
                 if current_selected.is_none() && added_dlls.is_empty() {
                     settings.select_dll_for_client(client_idx, Some(0));
@@ -373,7 +376,10 @@ pub fn client_dll_scan(client_idx: usize) -> anyhow::Result<()> {
 
             added_dlls.push(format!("{} ({})", dll.dll_type, dll.dll_path.display()));
         } else {
-            skipped_dlls.push((format!("{} ({})", dll.dll_type, dll.dll_path.display()), "user declined"));
+            skipped_dlls.push((
+                format!("{} ({})", dll.dll_type, dll.dll_path.display()),
+                "user declined",
+            ));
         }
     }
 

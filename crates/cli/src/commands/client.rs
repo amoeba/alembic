@@ -43,7 +43,13 @@ pub fn client_show(index: usize) -> anyhow::Result<()> {
         println!("DLLs:");
         for (i, dll) in dlls.iter().enumerate() {
             let marker = if selected_dll == Some(i) { " *" } else { "  " };
-            println!("{}  [{}] {} ({})", marker, i, dll.dll_path.display(), dll.dll_type);
+            println!(
+                "{}  [{}] {} ({})",
+                marker,
+                i,
+                dll.dll_path.display(),
+                dll.dll_type
+            );
         }
     }
 

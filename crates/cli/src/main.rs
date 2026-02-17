@@ -414,7 +414,13 @@ fn main() -> anyhow::Result<()> {
                     launcher_path,
                     wine_prefix,
                     env_vars,
-                } => commands::client::client_add(mode, client_path, launcher_path, wine_prefix, env_vars),
+                } => commands::client::client_add(
+                    mode,
+                    client_path,
+                    launcher_path,
+                    wine_prefix,
+                    env_vars,
+                ),
                 ClientCommands::List => commands::client::client_list(),
                 ClientCommands::Select { index } => commands::client::client_select(index),
                 ClientCommands::Reset => commands::client::client_reset(),
@@ -447,16 +453,28 @@ fn main() -> anyhow::Result<()> {
                         startup_function,
                     } => commands::dll::client_dll_add(client, dll_type, path, startup_function),
                     ClientDllCommands::List => commands::dll::client_dll_list(client),
-                    ClientDllCommands::Select { index } => commands::dll::client_dll_select(client, index),
+                    ClientDllCommands::Select { index } => {
+                        commands::dll::client_dll_select(client, index)
+                    }
                     ClientDllCommands::Reset => commands::dll::client_dll_reset(client),
-                    ClientDllCommands::Remove { index } => commands::dll::client_dll_remove(client, index),
-                    ClientDllCommands::Show { index } => commands::dll::client_dll_show(client, index),
+                    ClientDllCommands::Remove { index } => {
+                        commands::dll::client_dll_remove(client, index)
+                    }
+                    ClientDllCommands::Show { index } => {
+                        commands::dll::client_dll_show(client, index)
+                    }
                     ClientDllCommands::Edit {
                         index,
                         dll_type,
                         path,
                         startup_function,
-                    } => commands::dll::client_dll_edit(client, index, dll_type, path, startup_function),
+                    } => commands::dll::client_dll_edit(
+                        client,
+                        index,
+                        dll_type,
+                        path,
+                        startup_function,
+                    ),
                     ClientDllCommands::Scan => commands::dll::client_dll_scan(client),
                 },
             },

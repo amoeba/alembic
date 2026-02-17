@@ -90,7 +90,10 @@ pub fn validate_launch_config(
     }
 }
 
-pub fn preset_launch(server_name: Option<String>, account_name: Option<String>) -> anyhow::Result<()> {
+pub fn preset_launch(
+    server_name: Option<String>,
+    account_name: Option<String>,
+) -> anyhow::Result<()> {
     // Get selected client config
     let client_config =
         SettingsManager::get(|s| s.get_selected_client().cloned()).ok_or_else(|| {
