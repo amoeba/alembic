@@ -301,7 +301,7 @@ impl Widget for &mut SettingsClientsTab {
                         // Scan button
                         ui.horizontal(|ui| {
                             if ui.button("Discover DLLs").clicked() {
-                                match libalembic::scanner::scan_for_decal_dlls() {
+                                match libalembic::scanner::scan_for_decal_dlls(&settings.clients) {
                                     Ok(discovered_dlls) => {
                                         if !discovered_dlls.is_empty() {
                                             let had_no_dlls = settings

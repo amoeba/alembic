@@ -67,7 +67,7 @@ impl Widget for &mut SettingsDllsTab {
                     }
 
                     if ui.button("Discover DLLs").clicked() {
-                        match scanner::scan_for_decal_dlls() {
+                        match scanner::scan_for_decal_dlls(&settings.clients) {
                             Ok(discovered_dlls) => {
                                 if discovered_dlls.is_empty() {
                                     println!("No Decal installations found");

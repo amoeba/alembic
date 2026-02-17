@@ -21,6 +21,11 @@ impl InjectionKit {
 
     pub fn inject(&mut self, dll_path: &str) -> Result<(), anyhow::Error> {
         let payload = self.syringe.inject(dll_path)?;
+        // SAFETY: The BorrowedProcessModule's lifetime is tied to the Syringe, which lives
+        // in the same struct. Rust drops fields in declaration order (syringe before payload),
+        // but we always take() the payload in eject() before the struct is dropped. The
+        // transmute to 'static is safe as long as the module is not used after the syringe
+        // is dropped.
         self.payload = Some(unsafe { std::mem::transmute(payload) });
 
         Ok(())

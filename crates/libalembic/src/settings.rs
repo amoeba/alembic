@@ -20,19 +20,6 @@ pub enum ClientConfigType {
     Wine(WineClientConfig),
 }
 
-/// DLL configuration associated with a client
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ClientDllConfig {
-    /// The DLL injection configuration
-    pub inject_config: InjectConfig,
-}
-
-impl ClientDllConfig {
-    pub fn new(inject_config: InjectConfig) -> Self {
-        Self { inject_config }
-    }
-}
-
 impl ClientConfigType {
     pub fn name(&self) -> &str {
         match self {
@@ -88,6 +75,34 @@ impl ClientConfigType {
         matches!(self, ClientConfigType::Windows(_))
     }
 
+    pub fn dlls(&self) -> &Vec<InjectConfig> {
+        match self {
+            ClientConfigType::Windows(c) => &c.dlls,
+            ClientConfigType::Wine(c) => &c.dlls,
+        }
+    }
+
+    pub fn dlls_mut(&mut self) -> &mut Vec<InjectConfig> {
+        match self {
+            ClientConfigType::Windows(c) => &mut c.dlls,
+            ClientConfigType::Wine(c) => &mut c.dlls,
+        }
+    }
+
+    pub fn selected_dll(&self) -> Option<usize> {
+        match self {
+            ClientConfigType::Windows(c) => c.selected_dll,
+            ClientConfigType::Wine(c) => c.selected_dll,
+        }
+    }
+
+    pub fn selected_dll_mut(&mut self) -> &mut Option<usize> {
+        match self {
+            ClientConfigType::Windows(c) => &mut c.selected_dll,
+            ClientConfigType::Wine(c) => &mut c.selected_dll,
+        }
+    }
+
     pub fn validate(&self, inject_config: Option<&InjectConfig>) -> ValidationResult {
         match self {
             ClientConfigType::Windows(c) => c.validate(inject_config),
@@ -128,10 +143,6 @@ impl SettingsManager {
         Ok(Self {
             settings: Arc::new(RwLock::new(loaded_settings)),
         })
-    }
-
-    pub fn update_selected_account() {
-        println!("supposedly updating...");
     }
 
     pub fn save() -> anyhow::Result<()> {
@@ -271,62 +282,31 @@ impl AlembicSettings {
 
     /// Get the selected DLL for the selected client
     pub fn get_selected_dll(&self) -> Option<&InjectConfig> {
-        self.get_selected_client().and_then(|client| {
-            let selected_dll = match client {
-                ClientConfigType::Windows(c) => c.selected_dll,
-                ClientConfigType::Wine(c) => c.selected_dll,
-            };
-            selected_dll.and_then(|idx| {
-                let dlls = match client {
-                    ClientConfigType::Windows(c) => &c.dlls,
-                    ClientConfigType::Wine(c) => &c.dlls,
-                };
-                dlls.get(idx)
-            })
-        })
+        self.get_selected_client()
+            .and_then(|client| client.selected_dll().and_then(|idx| client.dlls().get(idx)))
     }
 
     /// Get mutable reference to DLLs for a specific client
     pub fn get_client_dlls_mut(&mut self, client_idx: usize) -> Option<&mut Vec<InjectConfig>> {
-        self.clients.get_mut(client_idx).map(|client| match client {
-            ClientConfigType::Windows(c) => &mut c.dlls,
-            ClientConfigType::Wine(c) => &mut c.dlls,
-        })
+        self.clients.get_mut(client_idx).map(|c| c.dlls_mut())
     }
 
     /// Get immutable reference to DLLs for a specific client
     pub fn get_client_dlls(&self, client_idx: usize) -> Option<&Vec<InjectConfig>> {
-        self.clients.get(client_idx).map(|client| match client {
-            ClientConfigType::Windows(c) => &c.dlls,
-            ClientConfigType::Wine(c) => &c.dlls,
-        })
+        self.clients.get(client_idx).map(|c| c.dlls())
     }
 
     /// Get selected DLL for a specific client
     pub fn get_client_selected_dll(&self, client_idx: usize) -> Option<&InjectConfig> {
-        self.clients.get(client_idx).and_then(|client| {
-            let selected_dll = match client {
-                ClientConfigType::Windows(c) => c.selected_dll,
-                ClientConfigType::Wine(c) => c.selected_dll,
-            };
-            selected_dll.and_then(|idx| {
-                let dlls = match client {
-                    ClientConfigType::Windows(c) => &c.dlls,
-                    ClientConfigType::Wine(c) => &c.dlls,
-                };
-                dlls.get(idx)
-            })
-        })
+        self.clients
+            .get(client_idx)
+            .and_then(|client| client.selected_dll().and_then(|idx| client.dlls().get(idx)))
     }
 
     /// Add a DLL to a specific client
     pub fn add_dll_to_client(&mut self, client_idx: usize, inject_config: InjectConfig) -> bool {
         if let Some(client) = self.clients.get_mut(client_idx) {
-            let dlls = match client {
-                ClientConfigType::Windows(c) => &mut c.dlls,
-                ClientConfigType::Wine(c) => &mut c.dlls,
-            };
-            dlls.push(inject_config);
+            client.dlls_mut().push(inject_config);
             true
         } else {
             false
@@ -336,39 +316,21 @@ impl AlembicSettings {
     /// Remove a DLL from a specific client by index
     pub fn remove_dll_from_client(&mut self, client_idx: usize, dll_idx: usize) -> bool {
         if let Some(client) = self.clients.get_mut(client_idx) {
-            match client {
-                ClientConfigType::Windows(c) => {
-                    if dll_idx < c.dlls.len() {
-                        c.dlls.remove(dll_idx);
-                        // Adjust selected_dll if needed
-                        if let Some(selected) = c.selected_dll {
-                            if selected == dll_idx {
-                                c.selected_dll = None;
-                            } else if selected > dll_idx {
-                                c.selected_dll = Some(selected - 1);
-                            }
-                        }
-                        true
-                    } else {
-                        false
+            let dlls = client.dlls_mut();
+            if dll_idx < dlls.len() {
+                dlls.remove(dll_idx);
+                // Adjust selected_dll if needed
+                let selected_dll = client.selected_dll_mut();
+                if let Some(selected) = *selected_dll {
+                    if selected == dll_idx {
+                        *selected_dll = None;
+                    } else if selected > dll_idx {
+                        *selected_dll = Some(selected - 1);
                     }
                 }
-                ClientConfigType::Wine(c) => {
-                    if dll_idx < c.dlls.len() {
-                        c.dlls.remove(dll_idx);
-                        // Adjust selected_dll if needed
-                        if let Some(selected) = c.selected_dll {
-                            if selected == dll_idx {
-                                c.selected_dll = None;
-                            } else if selected > dll_idx {
-                                c.selected_dll = Some(selected - 1);
-                            }
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
+                true
+            } else {
+                false
             }
         } else {
             false
@@ -378,58 +340,22 @@ impl AlembicSettings {
     /// Set the selected DLL for a specific client
     pub fn select_dll_for_client(&mut self, client_idx: usize, dll_idx: Option<usize>) {
         if let Some(client) = self.clients.get_mut(client_idx) {
-            match client {
-                ClientConfigType::Windows(c) => c.selected_dll = dll_idx,
-                ClientConfigType::Wine(c) => c.selected_dll = dll_idx,
-            }
+            *client.selected_dll_mut() = dll_idx;
         }
     }
 }
 
 impl AlembicSettings {
     pub fn load(&mut self) -> anyhow::Result<()> {
-        let dir = ensure_settings_dir()?;
-        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
-
-        println!("Loading settings from {settings_file_path:?}");
-
-        // Just stop now if the file doesn't exist
-        if !settings_file_path.exists() {
-            println!("Settings file doesn't exist, not loading.");
-
-            return Ok(());
-        }
-
-        // Otherwise read in and merge
-        let file_contents = fs::read_to_string(settings_file_path)?;
-        let new_settings: AlembicSettings = serde_json::from_str(&file_contents)?;
-
-        // Top level
-        self.version = new_settings.version;
-        self.is_configured = new_settings.is_configured;
-
-        // Clients
-        self.clients = new_settings.clients;
-        self.selected_client = new_settings.selected_client;
-
-        // Servers
-        self.selected_server = new_settings.selected_server;
-        self.servers = new_settings.servers;
-
-        // Accounts
-        self.selected_account = new_settings.selected_account;
-        self.accounts = new_settings.accounts;
-
+        let path = ensure_settings_file()?;
+        let file_contents = fs::read_to_string(path)?;
+        *self = serde_json::from_str(&file_contents)?;
         Ok(())
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
-        let dir = ensure_settings_dir()?;
-        let settings_file_path = dir.join(SETTINGS_FILE_NAME);
+        let settings_file_path = ensure_settings_file()?;
         let serialized = serde_json::to_string_pretty(&self)?;
-
-        println!("Saving settings to {settings_file_path:?}");
-
         Ok(fs::write(&settings_file_path, serialized)?)
     }
 }
@@ -446,30 +372,6 @@ pub struct Account {
     pub server_index: usize,
     pub username: String,
     pub password: String,
-}
-
-// TODO
-pub fn merge_settings(target: &mut AlembicSettings, source: &AlembicSettings) {
-    println!("Source: {source:?}");
-    println!("Target: {target:?}");
-    println!("TODO: Merging");
-}
-
-#[allow(dead_code)]
-fn migrate_settings(settings: AlembicSettings) -> AlembicSettings {
-    // Doesn't do anything right now
-    // When migrations are needed, this function will be updated
-    match settings.version {
-        1 => {
-            println!("No-op");
-        }
-        _ => {
-            let bad_version = settings.version;
-            panic!("Unsupported settings file version: {bad_version}.")
-        }
-    }
-
-    settings
 }
 
 pub fn get_settings_dir() -> anyhow::Result<PathBuf> {

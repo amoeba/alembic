@@ -1,6 +1,6 @@
 use crate::client_config::{LaunchCommand, WindowsClientConfig, WineClientConfig};
 use crate::inject_config::{DllType, InjectConfig};
-use crate::settings::{ClientConfigType, SettingsManager};
+use crate::settings::ClientConfigType;
 use anyhow::Result;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -58,13 +58,7 @@ pub fn windows_to_unix_path(prefix: &Path, windows_path: &Path) -> Result<PathBu
 /// Check if acclient.exe exists anywhere in a Wine prefix
 fn prefix_has_acclient(prefix: &Path) -> bool {
     let drive_c = prefix.join("drive_c");
-    let search_paths = [
-        "Turbine/Asheron's Call",
-        "Program Files/Turbine/Asheron's Call",
-        "Program Files (x86)/Turbine/Asheron's Call",
-    ];
-
-    search_paths
+    AC_SEARCH_PATHS
         .iter()
         .any(|search_path| drive_c.join(search_path).join("acclient.exe").exists())
 }
@@ -114,6 +108,46 @@ pub fn discover_dlls_in_wine_prefix(prefix: &Path) -> Vec<InjectConfig> {
     inject_configs
 }
 
+/// Common AC installation search paths within a Wine prefix's drive_c
+const AC_SEARCH_PATHS: &[&str] = &[
+    "Turbine/Asheron's Call",
+    "Program Files/Turbine/Asheron's Call",
+    "Program Files (x86)/Turbine/Asheron's Call",
+];
+
+/// Scan a Wine prefix for AC client installations.
+/// Returns a list of discovered client configs using the given name and launch command.
+fn scan_prefix_for_ac(
+    wine_prefix_path: &Path,
+    name: &str,
+    launch_command: LaunchCommand,
+) -> Result<Vec<ClientConfigType>> {
+    let drive_c = wine_prefix_path.join("drive_c");
+    if !drive_c.exists() || !drive_c.is_dir() {
+        return Ok(vec![]);
+    }
+
+    for search_path in AC_SEARCH_PATHS {
+        let exe_path = drive_c.join(search_path).join("acclient.exe");
+
+        if exe_path.exists() {
+            let windows_exe_path = unix_to_windows_path(&exe_path)?;
+            let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
+            let selected_dll = if !dlls.is_empty() { Some(0) } else { None };
+
+            return Ok(vec![ClientConfigType::Wine(WineClientConfig {
+                name: name.to_string(),
+                client_path: windows_exe_path,
+                launch_command,
+                dlls,
+                selected_dll,
+            })]);
+        }
+    }
+
+    Ok(vec![])
+}
+
 pub struct WineScanner {
     wine_executable_path: PathBuf,
 }
@@ -126,47 +160,10 @@ impl WineScanner {
     }
 
     fn scan_prefix(&self, wine_prefix_path: &Path) -> Result<Vec<ClientConfigType>> {
-        let mut configs = vec![];
-
-        let drive_c = wine_prefix_path.join("drive_c");
-        if !drive_c.exists() || !drive_c.is_dir() {
-            return Ok(configs);
-        }
-
-        // Check common AC installation paths
-        let search_paths = [
-            "Turbine/Asheron's Call",
-            "Program Files/Turbine/Asheron's Call",
-            "Program Files (x86)/Turbine/Asheron's Call",
-        ];
-
-        for search_path in search_paths {
-            let ac_path = drive_c.join(search_path);
-            let exe_path = ac_path.join("acclient.exe");
-
-            if exe_path.exists() {
-                // Convert Unix path to Windows path for acclient.exe
-                let windows_exe_path = unix_to_windows_path(&exe_path)?;
-
-                let launch_command = LaunchCommand::new(&self.wine_executable_path)
-                    .env("WINEPREFIX", wine_prefix_path.display().to_string());
-
-                // Discover DLLs in this wine prefix
-                let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
-
-                configs.push(ClientConfigType::Wine(WineClientConfig {
-                    name: format!("Wine: {}", wine_prefix_path.display()),
-                    client_path: windows_exe_path,
-                    launch_command,
-                    dlls: dlls.clone(),
-                    selected_dll: if !dlls.is_empty() { Some(0) } else { None },
-                }));
-
-                break; // Only add once per prefix
-            }
-        }
-
-        Ok(configs)
+        let launch_command = LaunchCommand::new(&self.wine_executable_path)
+            .env("WINEPREFIX", wine_prefix_path.display().to_string());
+        let name = format!("Wine: {}", wine_prefix_path.display());
+        scan_prefix_for_ac(wine_prefix_path, &name, launch_command)
     }
 }
 
@@ -331,46 +328,10 @@ impl WhiskyScanner {
         wine_exe: &Path,
         bottle_name: &str,
     ) -> Result<Vec<ClientConfigType>> {
-        let mut configs = vec![];
-
-        let drive_c = wine_prefix_path.join("drive_c");
-        if !drive_c.exists() {
-            return Ok(configs);
-        }
-
-        // Check common AC paths
-        let search_paths = [
-            "Turbine/Asheron's Call",
-            "Program Files/Turbine/Asheron's Call",
-            "Program Files (x86)/Turbine/Asheron's Call",
-        ];
-
-        for search_path in search_paths {
-            let ac_path = drive_c.join(search_path);
-            let exe_path = ac_path.join("acclient.exe");
-
-            if exe_path.exists() {
-                let windows_exe_path = unix_to_windows_path(&exe_path)?;
-
-                let launch_command = LaunchCommand::new(wine_exe)
-                    .env("WINEPREFIX", wine_prefix_path.display().to_string());
-
-                // Discover DLLs in this whisky bottle
-                let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
-
-                configs.push(ClientConfigType::Wine(WineClientConfig {
-                    name: format!("Whisky: {}", bottle_name),
-                    client_path: windows_exe_path,
-                    launch_command,
-                    dlls: dlls.clone(),
-                    selected_dll: if !dlls.is_empty() { Some(0) } else { None },
-                }));
-
-                break;
-            }
-        }
-
-        Ok(configs)
+        let launch_command = LaunchCommand::new(wine_exe)
+            .env("WINEPREFIX", wine_prefix_path.display().to_string());
+        let name = format!("Whisky: {}", bottle_name);
+        scan_prefix_for_ac(wine_prefix_path, &name, launch_command)
     }
 }
 
@@ -510,49 +471,13 @@ impl LutrisFlatpakScanner {
         wine_prefix_path: &Path,
         game_name: &str,
     ) -> Result<Vec<ClientConfigType>> {
-        let mut configs = vec![];
-
-        let drive_c = wine_prefix_path.join("drive_c");
-        if !drive_c.exists() || !drive_c.is_dir() {
-            return Ok(configs);
-        }
-
-        // Check common AC installation paths
-        let search_paths = [
-            "Turbine/Asheron's Call",
-            "Program Files/Turbine/Asheron's Call",
-            "Program Files (x86)/Turbine/Asheron's Call",
-        ];
-
-        for search_path in search_paths {
-            let ac_path = drive_c.join(search_path);
-            let exe_path = ac_path.join("acclient.exe");
-
-            if exe_path.exists() {
-                let windows_exe_path = unix_to_windows_path(&exe_path)?;
-
-                let launch_command = LaunchCommand::new("flatpak")
-                    .arg("run")
-                    .arg("--command=wine")
-                    .arg("net.lutris.Lutris")
-                    .env("WINEPREFIX", wine_prefix_path.display().to_string());
-
-                // Discover DLLs in this lutris game's wine prefix
-                let dlls = discover_dlls_in_wine_prefix(wine_prefix_path);
-
-                configs.push(ClientConfigType::Wine(WineClientConfig {
-                    name: format!("Lutris: {}", game_name),
-                    client_path: windows_exe_path,
-                    launch_command,
-                    dlls: dlls.clone(),
-                    selected_dll: if !dlls.is_empty() { Some(0) } else { None },
-                }));
-
-                break; // Only add once per prefix
-            }
-        }
-
-        Ok(configs)
+        let launch_command = LaunchCommand::new("flatpak")
+            .arg("run")
+            .arg("--command=wine")
+            .arg("net.lutris.Lutris")
+            .env("WINEPREFIX", wine_prefix_path.display().to_string());
+        let name = format!("Lutris: {}", game_name);
+        scan_prefix_for_ac(wine_prefix_path, &name, launch_command)
     }
 }
 
@@ -771,29 +696,24 @@ pub fn discover_dlls_on_windows() -> Vec<InjectConfig> {
     vec![]
 }
 
-/// Scan specifically for Decal DLL installations
-pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
+/// Scan specifically for Decal DLL installations in the given client configs.
+pub fn scan_for_decal_dlls(clients: &[ClientConfigType]) -> Result<Vec<InjectConfig>> {
     let mut all_dlls = vec![];
 
     #[cfg(target_os = "windows")]
     {
+        let _ = clients; // suppress unused warning on windows
         all_dlls.append(&mut discover_dlls_on_windows());
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        // On non-Windows, scan wine prefixes from configured clients
-        let clients = SettingsManager::get(|s| s.clients.clone());
-
         for client in clients {
             if let ClientConfigType::Wine(wine_config) = client {
-                if let Some(prefix_str) = get_wineprefix(&wine_config) {
+                if let Some(prefix_str) = get_wineprefix(wine_config) {
                     let prefix = PathBuf::from(prefix_str);
                     if prefix.exists() {
-                        let dll_configs = discover_dlls_in_wine_prefix(&prefix);
-                        for dll_config in dll_configs {
-                            all_dlls.push(dll_config);
-                        }
+                        all_dlls.extend(discover_dlls_in_wine_prefix(&prefix));
                     }
                 }
             }
@@ -805,13 +725,12 @@ pub fn scan_for_decal_dlls() -> Result<Vec<InjectConfig>> {
 
 /// Get wine prefixes from configured clients (for DLL scanning reports)
 #[cfg(not(target_os = "windows"))]
-pub fn get_dll_scannable_prefixes() -> Vec<PathBuf> {
-    let clients = SettingsManager::get(|s| s.clients.clone());
+pub fn get_dll_scannable_prefixes(clients: &[ClientConfigType]) -> Vec<PathBuf> {
     let mut prefixes = vec![];
 
     for client in clients {
         if let ClientConfigType::Wine(wine_config) = client {
-            if let Some(prefix_str) = get_wineprefix(&wine_config) {
+            if let Some(prefix_str) = get_wineprefix(wine_config) {
                 let prefix = PathBuf::from(prefix_str);
                 if prefix.exists() {
                     prefixes.push(prefix);
@@ -821,84 +740,6 @@ pub fn get_dll_scannable_prefixes() -> Vec<PathBuf> {
     }
 
     prefixes
-}
-
-#[cfg(target_os = "macos")]
-fn scan_whisky_for_decal_dlls(scanner: &WhiskyScanner) -> Result<Vec<InjectConfig>> {
-    let mut all_dlls = vec![];
-
-    // Get list of bottles
-    let output = Command::new("whisky").arg("list").output()?;
-
-    if !output.status.success() {
-        anyhow::bail!("Failed to list Whisky bottles");
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut bottles = vec![];
-
-    // Parse table output
-    for line in stdout.lines() {
-        if line.starts_with('+') || (line.starts_with('|') && line.contains("Name")) {
-            continue;
-        }
-
-        if line.starts_with('|') {
-            let parts: Vec<&str> = line.split('|').map(|s| s.trim()).collect();
-            if parts.len() >= 2 && !parts[1].is_empty() {
-                bottles.push(parts[1].to_string());
-            }
-        }
-    }
-
-    // Scan each bottle for Decal
-    for bottle in bottles {
-        match scanner.get_bottle_info(&bottle) {
-            Ok((_wine_exe, prefix)) => {
-                // Find all DLLs in this prefix
-                let dll_configs = discover_dlls_in_wine_prefix(&prefix);
-
-                for dll_config in dll_configs {
-                    if dll_config.dll_type == DllType::Decal {
-                        all_dlls.push(dll_config);
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to get info for bottle '{}': {}", bottle, e);
-            }
-        }
-    }
-
-    Ok(all_dlls)
-}
-
-/// Find the AC installation directory in a Wine prefix
-#[allow(dead_code)]
-fn find_ac_in_prefix(wine_prefix_path: &Path) -> Option<PathBuf> {
-    let drive_c = wine_prefix_path.join("drive_c");
-    if !drive_c.exists() {
-        return None;
-    }
-
-    let search_paths = [
-        "Turbine/Asheron's Call",
-        "Program Files/Turbine/Asheron's Call",
-        "Program Files (x86)/Turbine/Asheron's Call",
-        "AC",
-        "Games/AC",
-    ];
-
-    for search_path in search_paths {
-        let ac_path = drive_c.join(search_path);
-        let exe_path = ac_path.join("acclient.exe");
-
-        if exe_path.exists() {
-            return Some(ac_path);
-        }
-    }
-
-    None
 }
 
 /// Find wine executable on the system

@@ -22,8 +22,6 @@ pub struct WineLauncherImpl {
     child: Option<Child>,
 }
 
-impl WineLauncherImpl {}
-
 impl ClientLauncher for WineLauncherImpl {
     fn new(
         client_config: ClientConfigType,

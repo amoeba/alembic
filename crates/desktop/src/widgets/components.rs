@@ -135,14 +135,10 @@ impl Widget for &mut DllPicker {
                     .map(|dlls| dlls.iter().map(|dll| format!("{}", dll.dll_type)).collect())
                     .unwrap_or_default();
 
-                let current_selected_dll =
-                    settings
-                        .clients
-                        .get(client_idx)
-                        .and_then(|client| match client {
-                            libalembic::settings::ClientConfigType::Windows(c) => c.selected_dll,
-                            libalembic::settings::ClientConfigType::Wine(c) => c.selected_dll,
-                        });
+                let current_selected_dll = settings
+                    .clients
+                    .get(client_idx)
+                    .and_then(|c| c.selected_dll());
 
                 let selected_text = if !dll_names.is_empty() {
                     current_selected_dll
@@ -414,7 +410,7 @@ impl Widget for &mut SettingsDLLPathEdit {
                 // Scan button
                 ui.horizontal(|ui| {
                     if ui.button("Discover DLLs").clicked() {
-                        match libalembic::scanner::scan_for_decal_dlls() {
+                        match libalembic::scanner::scan_for_decal_dlls(&settings.clients) {
                             Ok(discovered_dlls) => {
                                 if discovered_dlls.is_empty() {
                                     println!("No Decal installations found");
@@ -476,20 +472,8 @@ impl Widget for &mut SettingsDLLPathEdit {
 
                     // Clone dlls and current_selected_dll to avoid borrow conflicts
                     let (dlls_cloned, current_selected_dll) =
-                        if let Some(dlls) = settings.get_client_dlls(client_idx) {
-                            let selected =
-                                settings
-                                    .clients
-                                    .get(client_idx)
-                                    .and_then(|client| match client {
-                                        libalembic::settings::ClientConfigType::Windows(c) => {
-                                            c.selected_dll
-                                        }
-                                        libalembic::settings::ClientConfigType::Wine(c) => {
-                                            c.selected_dll
-                                        }
-                                    });
-                            (dlls.clone(), selected)
+                        if let Some(client) = settings.clients.get(client_idx) {
+                            (client.dlls().clone(), client.selected_dll())
                         } else {
                             (vec![], None)
                         };
