@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 use std::path::Path;
 
 #[cfg(not(all(target_os = "windows", target_env = "msvc")))]
+#[allow(unused_imports)]
 use std::process::Command;
 
 #[derive(Parser)]

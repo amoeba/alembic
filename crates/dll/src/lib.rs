@@ -22,7 +22,7 @@ use std::{
 };
 
 use libalembic::{
-    msg::client_server::ClientServerMessage, rpc::WorldClient, win::allocate_console,
+    msg::client_server::ClientServerMessage, rpc::WorldClient,
 };
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 use tokio::{
