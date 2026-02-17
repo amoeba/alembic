@@ -4,6 +4,12 @@ use crate::application::AppPage;
 
 pub struct About {}
 
+impl Default for About {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl About {
     pub fn new() -> Self {
         Self {}

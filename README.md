@@ -2,7 +2,64 @@
 
 ![Alembic Logo](./crates/desktop/assets/logo.png)
 
-Tiny demonstration of using the [dll-syringe](https://github.com/OpenByteDev/dll-syringe/) and [retour-rs](https://github.com/Hpmason/retour-rs) to hook Asheron's Call client functions and [egui](https://www.egui.rs) to give all of that a UI.
+Alembic is a cross-platform GUI and CLI Asheron's Call launcher supporting both [Decal](https://decaldev.com) and my own minimal Decal-lite reimplementation, [Alembic](#alembic).
+This is the first Asheron's Call client launcher that runs natively on Linux and macOS that can inject Decal into a game client running under Wine.
+
+## Status
+
+It's not feature complete so here's what works today:
+
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th colspan="3" style="text-align: center">CLI</th>
+      <th colspan="3" style="text-align: center">Desktop</th>
+    </tr>
+    <tr>
+      <th>&nbsp;</th>
+      <th>Launching</th>
+      <th>Decal</th>
+      <th>Alembic</th>
+      <th>Launching</th>
+      <th>Decal</th>
+      <th>Alembic</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Windows</th>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <th>Linux</th>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <th>macOS</th>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+    </tr>
+  </tbody>
+</table>
+
+## Alembic
+
+Tiny demonstration of using [retour-rs](https://github.com/Hpmason/retour-rs) to hook Asheron's Call client functions and [egui](https://www.egui.rs) to give all of that a UI.
 
 Built for my curiosity.
 This quickly got very out of hand.
@@ -31,6 +88,7 @@ See the [Alembic Walkthrough](https://www.youtube.com/watch?v=Q9_YcRT3qpg) to se
 The project is managed as a single Cargo Workspace with four subcrates:
 
 - **cli:** CLI for launching game clients and injecting
+- **cork:** Shim program to launch and inject game clients under Wine
 - **desktop:** Cross-platform egui desktop application for launching game clients and injecting
 - **dll:**: Source for for the injected DLL. Windows-only.
 - **libalembic:** Common and/shared functionality. Lots of code in here.
@@ -45,23 +103,70 @@ The project is managed as a single Cargo Workspace with four subcrates:
 - Refactor read-heavy shared state from Mutexes to RwLocks. Apparently this is better performance-wise.
 - Hook up tracing/opentelemetry crates instead of the current spotty use of `println!`
 
-## Building
+### Prerequisites
 
-The project is divided into subcrates,
+This project is written in Rust.
 
-- `desktop`: Desktop GUI (written in egui)
-- `cli`: Alternative option to the GUI
-- `dll`: The actual DLL that gets injected
-- `libalembic`: Common or shared functionality
-
-If you just want to get started, run:
+On Windows, you need the 32-bit MSVC target installed:
 
 ```sh
-cargo build --target i686-pc-windows-msvc -p dll
+rustup target add i686-pc-windows-msvc
+```
+
+On Linux, you need the MinGW toolchain for cross-compiling Windows binaries (cork, dll):
+
+```sh
+# Debian/Ubuntu
+sudo apt-get install gcc-mingw-w64-i686
+
+# Add the Rust target
+rustup target add i686-pc-windows-gnu
+```
+
+Install cargo-make for the build system:
+
+```sh
+cargo install cargo-make
+```
+
+## Building
+
+The workspace contains six crates:
+
+- `desktop`: Desktop GUI (written in egui) - builds for native architecture
+- `cli`: Command-line interface - builds for native architecture
+- `tui`: Terminal UI - builds for native architecture
+- `cork`: DLL injector utility - **always builds as 32-bit (i686-pc-windows-msvc)**
+- `dll`: The injectable DLL - **always builds as 32-bit (i686-pc-windows-msvc)**
+- `libalembic`: Common library code, used in the above crates
+
+### Quick Start
+
+Use cargo-make to build everything:
+
+```sh
+# Build all components (32-bit and native)
+cargo make build
+
+# Run the desktop app
 cargo run --bin desktop
 ```
 
-This will start the desktop GUI which you can then use to launch a game client and inject Alembic into it.
+The build task automatically:
+1. Builds cork and dll for 32-bit Windows (i686-pc-windows-msvc)
+2. Builds desktop and cli for your native architecture
+
+### Manual Build
+
+If you prefer to build manually:
+
+```sh
+# Build 32-bit components first
+cargo build --target i686-pc-windows-msvc -p cork -p dll
+
+# Then build native components
+cargo build -p desktop -p cli
+```
 
 ## Contributing
 

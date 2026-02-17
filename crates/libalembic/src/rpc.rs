@@ -1,13 +1,11 @@
 use std::{future::Future, sync::Arc};
 
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::sync::{Mutex, mpsc::Sender};
 
 use crate::msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage};
 
 #[tarpc::service]
 pub trait World {
-    async fn client_injected();
-    async fn client_ejected();
     async fn append_log(value: String) -> String;
     async fn handle_sendto(value: Vec<u8>) -> usize;
     async fn handle_recvfrom(value: Vec<u8>) -> usize;
@@ -15,37 +13,12 @@ pub trait World {
 }
 
 #[derive(Clone)]
-pub struct AlembicServer {
+pub struct HelloServer {
     pub server_gui_tx: Arc<Mutex<Sender<ServerGuiMessage>>>,
     pub client_server_tx: Arc<Mutex<Sender<ClientServerMessage>>>,
 }
 
-impl World for AlembicServer {
-    async fn client_injected(self, _context: ::tarpc::context::Context) {
-        match self
-            .client_server_tx
-            .lock()
-            .await
-            .send(ClientServerMessage::ClientInjected())
-            .await
-        {
-            Ok(()) => {}
-            Err(error) => eprintln!("tx error: {error}"),
-        }
-    }
-
-    async fn client_ejected(self, _context: ::tarpc::context::Context) {
-        match self
-            .client_server_tx
-            .lock()
-            .await
-            .send(ClientServerMessage::ClientEjected())
-            .await
-        {
-            Ok(()) => {}
-            Err(error) => eprintln!("tx error: {error}"),
-        }
-    }
+impl World for HelloServer {
     async fn append_log(self, _context: ::tarpc::context::Context, value: String) -> String {
         match self
             .client_server_tx

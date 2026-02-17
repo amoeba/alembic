@@ -4,16 +4,16 @@ use crate::tabs::AppTab;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use libalembic::msg::client_server::ClientServerMessage;
 use ratatui::{
+    DefaultTerminal, Frame,
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
     style::{Color, Stylize},
     widgets::{Tabs, Widget},
-    DefaultTerminal, Frame,
 };
 use strum::IntoEnumIterator;
 use tokio::sync::{
-    mpsc::{error::TryRecvError, Receiver},
     Mutex,
+    mpsc::{Receiver, error::TryRecvError},
 };
 
 pub struct App {

@@ -1,16 +1,12 @@
 [package]
 name = "libalembic"
-description = "Library for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "Library for Alembic"
 readme.workspace = true
-
-# TODO: Do I want to have feature flags in this crate?
-[features]
-full = []
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
@@ -18,13 +14,14 @@ ctor = "0.2.9"
 directories = "6.0.0"
 once_cell = { workspace = true }
 region = "3.0.2"
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0"
+serde_yml = "0.0.12"
 tarpc = { workspace = true }
 tokio = { workspace = true }
 
-[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
-dll-syringe = { version = "0.15.2", features = ["payload-utils"] }
+[target.'cfg(target_os = "windows")'.dependencies]
 retour = { workspace = true }
 widestring = "1.1.0"
 windows = { workspace = true }
+

@@ -9,6 +9,12 @@ use super::components::{SettingsDLLPathEdit, SettingsGameClientPathEdit};
 
 pub struct Wizard {}
 
+impl Default for Wizard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Wizard {
     pub fn new() -> Self {
         Self {}

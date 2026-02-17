@@ -9,8 +9,7 @@ pub unsafe fn log_message(message: &str) {
 
     let c_string = match std::ffi::CString::new(message) {
         Ok(s) => s,
-        Err(_) => return, // CString::new errors if any non-terminal bytes
-                          // are \0 so in that case we just don't log it.
+        Err(_) => return,
     };
 
     unsafe { OutputDebugStringA(windows::core::PCSTR(c_string.as_ptr() as _)) };

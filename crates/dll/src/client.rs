@@ -1,64 +1,57 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Once;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
 use libalembic::msg::client_server::ClientServerMessage;
 use libalembic::rpc::WorldClient;
-
-use tarpc::tokio_util::sync::CancellationToken;
-use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
+use tarpc::{client as tarpc_client, context, tokio_serde::formats::Json};
 use tokio::sync::mpsc::error::TryRecvError;
 
 use crate::channel::ensure_channel;
+use crate::logging::log_message;
 use crate::runtime::ensure_runtime;
 
-static mut SHUTDOWN_TOKEN: Option<CancellationToken> = None;
-static token_init: Once = Once::new();
+static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 pub fn ensure_client() -> anyhow::Result<()> {
     let (_tx, rx) = ensure_channel();
     let runtime = ensure_runtime();
-    let token = ensure_shutdown_token().clone();
+
+    SHUTDOWN.store(false, Ordering::SeqCst);
 
     runtime.spawn(async move {
-        let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
         let transport = tarpc::serde_transport::tcp::connect(&addr, Json::default);
         let client: WorldClient = WorldClient::new(
-            tarcp_client::Config::default(),
-            transport.await.expect("oops"),
+            tarpc_client::Config::default(),
+            transport.await.expect("Failed to connect to server"),
         )
         .spawn();
 
         loop {
-            // Check if shutdown was requested
-            if token.is_cancelled() {
+            if SHUTDOWN.load(Ordering::SeqCst) {
                 break;
             }
 
             match rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
                     ClientServerMessage::HandleSendTo(vec) => {
-                        match client.handle_sendto(context::current(), vec).await {
-                            Ok(_) => {}
-                            Err(_) => {}
+                        if let Err(e) = client.handle_sendto(context::current(), vec).await {
+                            unsafe { log_message(&format!("HandleSendTo error: {}", e)) };
                         }
                     }
                     ClientServerMessage::HandleRecvFrom(vec) => {
-                        match client.handle_recvfrom(context::current(), vec).await {
-                            Ok(_) => {}
-                            Err(_) => {}
+                        if let Err(e) = client.handle_recvfrom(context::current(), vec).await {
+                            unsafe { log_message(&format!("HandleRecvFrom error: {}", e)) };
                         }
                     }
                     ClientServerMessage::HandleAddTextToScroll(text) => {
-                        match client.handle_chat(context::current(), text).await {
-                            Ok(_) => {}
-                            Err(_) => {}
+                        if let Err(e) = client.handle_chat(context::current(), text).await {
+                            unsafe { log_message(&format!("HandleChat error: {}", e)) };
                         }
                     }
                     ClientServerMessage::AppendLog(_) => todo!(),
-                    ClientServerMessage::ClientInjected() => todo!(),
-                    ClientServerMessage::ClientEjected() => todo!(),
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
@@ -69,28 +62,14 @@ pub fn ensure_client() -> anyhow::Result<()> {
             thread::sleep(Duration::from_millis(16));
         }
 
-        // Clean up connection
+        unsafe { log_message("Client loop shutting down") };
         drop(client);
     });
 
     Ok(())
 }
 
-#[allow(static_mut_refs)]
 pub fn shutdown_client() -> anyhow::Result<()> {
-    if let Some(token) = unsafe { SHUTDOWN_TOKEN.as_ref() } {
-        token.cancel();
-    }
-
+    SHUTDOWN.store(true, Ordering::SeqCst);
     Ok(())
-}
-
-#[allow(static_mut_refs)]
-pub fn ensure_shutdown_token() -> &'static CancellationToken {
-    unsafe {
-        token_init.call_once(|| {
-            SHUTDOWN_TOKEN = Some(CancellationToken::new());
-        });
-        SHUTDOWN_TOKEN.as_ref().unwrap()
-    }
 }

@@ -1,21 +1,27 @@
-[workspace.package]
-version = "0.1.0"
-edition = "2024"
-authors = ["Bryce Mecum <brycemecum@gmail.com>"]
-description = "WIP"
-license = "MIT"
-repository = "https://github.com/amoeba/alembic"
-readme = "README.md"
-
 [workspace]
+resolver = "2"
 members = [
   "crates/cli",
-  "crates/libalembic",
+  "crates/cork",
   "crates/desktop",
   "crates/dll",
+  "crates/libalembic",
   "crates/tui",
 ]
-resolver = "2"
+default-members = [
+  "crates/cli",
+  "crates/desktop",
+  "crates/tui",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Bryce Mecum <brycemecum@gmail.com>"]
+edition = "2024"
+description = "WIP"
+readme = "README.md"
+repository = "https://github.com/amoeba/alembic"
+license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1.0.95"
@@ -28,7 +34,7 @@ tarpc = { version = "0.35.0", features = ["serde-transport-json", "tcp"] }
 tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread"] }
 
 [workspace.dependencies.retour]
-version = "0.3"
+version = "0.4.0-alpha.4"
 features = ["thiscall-abi"]
 
 [workspace.dependencies.windows]
@@ -36,13 +42,13 @@ version = "0.58.0"
 features = [
   "Win32_Foundation",
   "Win32_Security",
-  "Win32_System_SystemServices",
-  "Win32_UI_WindowsAndMessaging",
-  "Win32_System_LibraryLoader",
   "Win32_Storage_FileSystem",
   "Win32_System_Console",
   "Win32_System_Diagnostics_Debug",
+  "Win32_System_LibraryLoader",
   "Win32_System_Memory",
-  "Win32_System_Threading",
   "Win32_System_ProcessStatus",
+  "Win32_System_SystemServices",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
 ]

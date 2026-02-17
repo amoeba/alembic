@@ -1,14 +1,16 @@
 [package]
 name = "cli"
-description = "CLI for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "CLI for Alembic"
 readme.workspace = true
+repository.workspace = true
+license.workspace = true
+build = "build.rs"
 
 [dependencies]
 anyhow = { workspace = true }
-ctrlc = { version = "3.4.5", features = ["termination"] }
+clap = { version = "4.5", features = ["derive"] }
+comfy-table = "7.1"
 libalembic = { path = "../libalembic" }

@@ -1,7 +1,6 @@
-use std::{env, fs, path::Path};
-
 #[cfg(all(target_os = "windows", target_env = "msvc"))]
 fn main() {
+    use std::{env, fs, path::Path};
     use winresource::WindowsResource;
 
     let mut res = WindowsResource::new();
@@ -9,7 +8,7 @@ fn main() {
     res.set_icon(icon_path);
     res.compile().expect("Failed to build.");
 
-    // Copy loog.png
+    // Copy logo.png
     let out_dir = env::var("OUT_DIR").unwrap();
 
     // OUT_DIR is the build output directory for the desktop crate which is

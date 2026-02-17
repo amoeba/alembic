@@ -6,16 +6,16 @@ use std::{
 
 use app::App;
 
-use futures::{future, StreamExt};
+use futures::{StreamExt, future};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
-    rpc::{spawn, AlembicServer, World},
+    rpc::{HelloServer, World, spawn},
 };
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
 };
-use tokio::sync::{mpsc::channel, Mutex};
+use tokio::sync::{Mutex, mpsc::channel};
 
 pub mod app;
 pub mod tabs;
@@ -29,7 +29,7 @@ fn main() -> io::Result<()> {
     // Channel: Painting
     let (server_gui_tx, server_gui_rx) = channel::<ServerGuiMessage>(32);
     let server_gui_tx_ref = Arc::new(Mutex::new(server_gui_tx));
-    let server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
+    let _server_gui_rx_ref = Arc::new(Mutex::new(server_gui_rx));
 
     // tarpc
     let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -44,7 +44,7 @@ fn main() -> io::Result<()> {
             .filter_map(|r| future::ready(r.ok()))
             .map(server::BaseChannel::with_defaults)
             .map(|channel| {
-                let server = AlembicServer {
+                let server = HelloServer {
                     server_gui_tx: Arc::clone(&server_gui_tx_ref),
                     client_server_tx: Arc::clone(&client_server_tx_ref),
                 };
