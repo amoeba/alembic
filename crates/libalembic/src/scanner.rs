@@ -710,12 +710,12 @@ pub fn scan_for_decal_dlls(clients: &[ClientConfigType]) -> Result<Vec<InjectCon
     #[cfg(not(target_os = "windows"))]
     {
         for client in clients {
-            if let ClientConfigType::Wine(wine_config) = client {
-                if let Some(prefix_str) = get_wineprefix(wine_config) {
-                    let prefix = PathBuf::from(prefix_str);
-                    if prefix.exists() {
-                        all_dlls.extend(discover_dlls_in_wine_prefix(&prefix));
-                    }
+            if let ClientConfigType::Wine(wine_config) = client
+                && let Some(prefix_str) = get_wineprefix(wine_config)
+            {
+                let prefix = PathBuf::from(prefix_str);
+                if prefix.exists() {
+                    all_dlls.extend(discover_dlls_in_wine_prefix(&prefix));
                 }
             }
         }
@@ -730,12 +730,12 @@ pub fn get_dll_scannable_prefixes(clients: &[ClientConfigType]) -> Vec<PathBuf> 
     let mut prefixes = vec![];
 
     for client in clients {
-        if let ClientConfigType::Wine(wine_config) = client {
-            if let Some(prefix_str) = get_wineprefix(wine_config) {
-                let prefix = PathBuf::from(prefix_str);
-                if prefix.exists() {
-                    prefixes.push(prefix);
-                }
+        if let ClientConfigType::Wine(wine_config) = client
+            && let Some(prefix_str) = get_wineprefix(wine_config)
+        {
+            let prefix = PathBuf::from(prefix_str);
+            if prefix.exists() {
+                prefixes.push(prefix);
             }
         }
     }
@@ -762,13 +762,13 @@ fn find_wine_executable() -> Result<PathBuf> {
     }
 
     // Try PATH
-    if let Ok(output) = Command::new("which").arg("wine64").output() {
-        if output.status.success() {
-            let path_str = String::from_utf8_lossy(&output.stdout);
-            let path = PathBuf::from(path_str.trim());
-            if path.exists() {
-                return Ok(path);
-            }
+    if let Ok(output) = Command::new("which").arg("wine64").output()
+        && output.status.success()
+    {
+        let path_str = String::from_utf8_lossy(&output.stdout);
+        let path = PathBuf::from(path_str.trim());
+        if path.exists() {
+            return Ok(path);
         }
     }
 

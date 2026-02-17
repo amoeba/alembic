@@ -101,27 +101,27 @@ impl ClientLauncher for WineLauncherImpl {
         if let Some(prefix_str) = launch_cmd.env.get("WINEPREFIX") {
             let prefix = std::path::Path::new(prefix_str);
 
-            if let Ok(unix_client) = windows_to_unix_path(prefix, self.config.client_path()) {
-                if !unix_client.exists() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!(
-                            "Client executable not found in wine prefix: {}",
-                            unix_client.display()
-                        ),
-                    ));
-                }
+            if let Ok(unix_client) = windows_to_unix_path(prefix, self.config.client_path())
+                && !unix_client.exists()
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!(
+                        "Client executable not found in wine prefix: {}",
+                        unix_client.display()
+                    ),
+                ));
             }
 
-            if let Some(inject_config) = &self.inject_config {
-                if let Ok(unix_dll) = windows_to_unix_path(prefix, &inject_config.dll_path) {
-                    if !unix_dll.exists() {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            format!("DLL not found in wine prefix: {}", unix_dll.display()),
-                        ));
-                    }
-                }
+            if let Some(inject_config) = &self.inject_config
+                && let Ok(unix_dll) =
+                    windows_to_unix_path(prefix, &inject_config.dll_path)
+                && !unix_dll.exists()
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("DLL not found in wine prefix: {}", unix_dll.display()),
+                ));
             }
         }
 
