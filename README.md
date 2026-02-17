@@ -31,28 +31,28 @@ It's not feature complete so here's what works today:
       <th>Windows</th>
       <td>✅</td>
       <td>✅</td>
-      <td>❌</td>
       <td>✅</td>
-      <td>❌</td>
+      <td>✅</td>
+      <td>✅</td>
       <td>✅</td>
     </tr>
     <tr>
       <th>Linux</th>
       <td>✅</td>
       <td>✅</td>
-      <td>❌</td>
       <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
     </tr>
     <tr>
       <th>macOS</th>
       <td>✅</td>
       <td>✅</td>
-      <td>❌</td>
       <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
     </tr>
   </tbody>
 </table>

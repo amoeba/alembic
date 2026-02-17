@@ -138,6 +138,11 @@ impl ClientLauncher for WineLauncherImpl {
             cmd.env(key, value);
         }
 
+        // Suppress Wine fixme debug spam unless the user explicitly set WINEDEBUG
+        if !launch_cmd.env.contains_key("WINEDEBUG") {
+            cmd.env("WINEDEBUG", "-fixme");
+        }
+
         // Add cork.exe path
         cmd.arg(cork_path.to_str().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid cork path")

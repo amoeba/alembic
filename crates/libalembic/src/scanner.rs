@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Extract WINEPREFIX from a WineClientConfig's launch command.
+#[cfg(not(target_os = "windows"))]
 fn get_wineprefix(wine_config: &WineClientConfig) -> Option<String> {
     wine_config.launch_command.env.get("WINEPREFIX").cloned()
 }
@@ -772,9 +773,4 @@ fn find_wine_executable() -> Result<PathBuf> {
     }
 
     anyhow::bail!("Could not find wine executable")
-}
-
-#[cfg(target_os = "windows")]
-fn find_wine_executable() -> Result<PathBuf> {
-    anyhow::bail!("Wine is not available on Windows")
 }

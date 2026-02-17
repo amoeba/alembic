@@ -1,5 +1,5 @@
-// Enforce that the DLL can ONLY be built for 32-bit Windows (i686-pc-windows-msvc)
-#![cfg(all(target_arch = "x86", target_os = "windows", target_env = "msvc"))]
+// Enforce that the DLL can ONLY be built for 32-bit Windows (msvc or gnu)
+#![cfg(all(target_arch = "x86", target_os = "windows"))]
 #![allow(
     dead_code,
     non_upper_case_globals,
@@ -8,8 +8,8 @@
 )]
 
 // Additional compile-time check with helpful error message
-#[cfg(not(all(target_arch = "x86", target_os = "windows", target_env = "msvc")))]
-compile_error!("dll can only be built for i686-pc-windows-msvc target. Use: cargo build --target i686-pc-windows-msvc -p dll");
+#[cfg(not(all(target_arch = "x86", target_os = "windows")))]
+compile_error!("dll can only be built for 32-bit Windows targets (i686-pc-windows-msvc or i686-pc-windows-gnu)");
 
 mod hooks;
 

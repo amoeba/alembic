@@ -1,4 +1,4 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
+#![cfg(target_os = "windows")]
 
 use std::{ffi::CString, iter};
 
@@ -15,6 +15,10 @@ use windows::{
     },
 };
 
+/// Allocates a new console and redirects stdout/stderr to it.
+///
+/// # Safety
+/// This function calls Windows API functions that are unsafe.
 pub unsafe fn allocate_console() -> anyhow::Result<()> {
     unsafe {
         // Allocate a new console
@@ -61,9 +65,6 @@ pub fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
     let symbol = CString::new(symbol).unwrap();
     unsafe {
         let handle = GetModuleHandleW(PCWSTR(module.as_ptr() as _)).unwrap();
-        match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
-            Some(func) => Some(func as usize),
-            None => None,
-        }
+        GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)).map(|func| func as usize)
     }
 }

@@ -23,6 +23,7 @@ use windows::Win32::System::Threading::{
 struct MemoryGuard {
     process_handle: HANDLE,
     address: *mut std::ffi::c_void,
+    #[allow(dead_code)]
     size: usize,
 }
 
@@ -109,7 +110,7 @@ pub fn launch_suspended_inject_and_resume(
         )
     };
 
-    if !success.is_ok() {
+    if success.is_err() {
         return Err(anyhow::anyhow!("CreateProcessA failed"));
     }
 
@@ -162,7 +163,7 @@ pub fn launch_without_injection(executable_path: &str, executable_args: &str) ->
         )
     };
 
-    if !success.is_ok() {
+    if success.is_err() {
         return Err(anyhow::anyhow!("CreateProcessA failed"));
     }
 
@@ -232,7 +233,7 @@ pub fn inject_into_process(
         )
     };
 
-    if !success.is_ok() {
+    if success.is_err() {
         return Err(anyhow::anyhow!("WriteProcessMemory failed"));
     }
 
@@ -257,7 +258,10 @@ pub fn inject_into_process(
             process_handle,
             None,
             0,
-            Some(std::mem::transmute(load_library_addr)),
+            Some(std::mem::transmute::<
+                unsafe extern "system" fn() -> isize,
+                unsafe extern "system" fn(*mut std::ffi::c_void) -> u32,
+            >(load_library_addr)),
             Some(alloc_mem_address),
             0,
             None,
@@ -277,7 +281,7 @@ pub fn inject_into_process(
     let mut injected_dll_address: u32 = 0;
     let success = unsafe { GetExitCodeThread(remote_thread_handle, &mut injected_dll_address) };
 
-    if !success.is_ok() {
+    if success.is_err() {
         return Err(anyhow::anyhow!("GetExitCodeThread failed"));
     }
 
@@ -341,20 +345,23 @@ fn execute_function(
         function_name
     ))?;
 
-    println!("Local library base: 0x{:X}", library_address.0 as u64);
-    println!("Function address (local): 0x{:X}", function_address as u64);
+    println!("Local library base: 0x{:X}", library_address.0 as usize);
+    println!(
+        "Function address (local): 0x{:X}",
+        function_address as usize
+    );
 
     // Calculate the offset of the function from the DLL base
-    let function_offset = function_address as u64 - library_address.0 as u64;
+    let function_offset = function_address as usize - library_address.0 as usize;
 
     // Calculate the address to execute in the target process
-    let address_to_execute = injected_dll_address as u64 + function_offset;
+    let address_to_execute = injected_dll_address as usize + function_offset;
 
     println!(
         "DLL injection summary: function='{}' local_base=0x{:X} func_addr=0x{:X} offset=0x{:X} remote_base=0x{:X} remote_addr=0x{:X}",
         function_name,
-        library_address.0 as u64,
-        function_address as u64,
+        library_address.0 as usize,
+        function_address as usize,
         function_offset,
         injected_dll_address,
         address_to_execute
@@ -382,7 +389,10 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
             process_handle,
             None,
             0,
-            Some(std::mem::transmute(address_to_execute)),
+            Some(std::mem::transmute::<
+                *const (),
+                unsafe extern "system" fn(*mut std::ffi::c_void) -> u32,
+            >(address_to_execute)),
             None,
             0,
             None,
@@ -404,7 +414,7 @@ fn execute_at_address(process_handle: HANDLE, address_to_execute: *const ()) -> 
     let mut exit_code: u32 = 0;
     let success = unsafe { GetExitCodeThread(remote_thread_handle, &mut exit_code) };
 
-    if !success.is_ok() {
+    if success.is_err() {
         return Err(anyhow::anyhow!(
             "GetExitCodeThread failed for function execution"
         ));

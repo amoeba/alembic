@@ -356,6 +356,8 @@ impl Widget for &mut SettingsClientsTab {
                             };
 
                             if !dlls_cloned.is_empty() {
+                                let mut path_updates: Vec<(usize, String)> = Vec::new();
+
                                 TableBuilder::new(ui)
                                     .id_salt("dlls_table")
                                     .striped(true)
@@ -387,9 +389,13 @@ impl Widget for &mut SettingsClientsTab {
                                                     ui.label(index.to_string());
                                                 });
 
-                                                // Path column
+                                                // Path column (editable)
                                                 row.col(|ui| {
-                                                    ui.label(dll.dll_path.display().to_string());
+                                                    let mut path_str = dll.dll_path.display().to_string();
+                                                    let w = ui.available_width();
+                                                    if ui.add(egui::TextEdit::singleline(&mut path_str).desired_width(w)).changed() {
+                                                        path_updates.push((index, path_str));
+                                                    }
                                                 });
 
                                                 // Type column
@@ -406,6 +412,16 @@ impl Widget for &mut SettingsClientsTab {
                                             });
                                         }
                                     });
+
+                                // Apply path edits back to settings
+                                for (dll_idx, new_path) in path_updates {
+                                    if let Some(dlls) = settings.get_client_dlls_mut(idx) {
+                                        if let Some(dll) = dlls.get_mut(dll_idx) {
+                                            dll.dll_path = std::path::PathBuf::from(&new_path);
+                                            did_update = true;
+                                        }
+                                    }
+                                }
                             }
 
                             // Handle deletion

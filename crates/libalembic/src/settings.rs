@@ -303,9 +303,16 @@ impl AlembicSettings {
             .and_then(|client| client.selected_dll().and_then(|idx| client.dlls().get(idx)))
     }
 
-    /// Add a DLL to a specific client
+    /// Add a DLL to a specific client, skipping if a DLL with the same path already exists
     pub fn add_dll_to_client(&mut self, client_idx: usize, inject_config: InjectConfig) -> bool {
         if let Some(client) = self.clients.get_mut(client_idx) {
+            let already_exists = client
+                .dlls()
+                .iter()
+                .any(|existing| existing.dll_path == inject_config.dll_path);
+            if already_exists {
+                return false;
+            }
             client.dlls_mut().push(inject_config);
             true
         } else {
