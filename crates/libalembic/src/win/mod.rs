@@ -3,16 +3,16 @@
 use std::{ffi::CString, iter};
 
 use windows::{
-    core::PCSTR,
-    core::PCWSTR,
     Win32::{
         Foundation::HANDLE,
         Storage::FileSystem::{
             CreateFileA, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
         },
-        System::Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
+        System::Console::{AllocConsole, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle},
         System::LibraryLoader::{GetModuleHandleW, GetProcAddress},
     },
+    core::PCSTR,
+    core::PCWSTR,
 };
 
 /// Allocates a new console and redirects stdout/stderr to it.

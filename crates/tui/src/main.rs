@@ -6,16 +6,16 @@ use std::{
 
 use app::App;
 
-use futures::{future, StreamExt};
+use futures::{StreamExt, future};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
-    rpc::{spawn, HelloServer, World},
+    rpc::{HelloServer, World, spawn},
 };
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
 };
-use tokio::sync::{mpsc::channel, Mutex};
+use tokio::sync::{Mutex, mpsc::channel};
 
 pub mod app;
 pub mod tabs;
