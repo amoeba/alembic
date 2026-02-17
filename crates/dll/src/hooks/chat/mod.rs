@@ -24,7 +24,8 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr(
             .and_then(|p| p.to_string())
             .and_then(|text| {
                 let (tx, _rx) = ensure_channel();
-                let _ = tx.try_lock()
+                let _ = tx
+                    .try_lock()
                     .unwrap()
                     .send(ClientServerMessage::HandleAddTextToScroll(text));
 
@@ -62,7 +63,8 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_char_ptr_ptr(
             .and_then(|p| p.to_string())
             .and_then(|text| {
                 let (tx, _rx) = ensure_channel();
-                let _ = tx.try_lock()
+                let _ = tx
+                    .try_lock()
                     .unwrap()
                     .send(ClientServerMessage::HandleAddTextToScroll(text));
 
@@ -100,7 +102,8 @@ extern "thiscall" fn Hook_AddTextToScroll_Impl_ushort_ptr_ptr(
             .and_then(|p| p.to_string())
             .and_then(|text| {
                 let (tx, _rx) = ensure_channel();
-                let _ = tx.try_lock()
+                let _ = tx
+                    .try_lock()
                     .unwrap()
                     .send(ClientServerMessage::HandleAddTextToScroll(
                         text.trim().to_string(),

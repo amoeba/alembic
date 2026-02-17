@@ -1,7 +1,6 @@
 #![cfg(all(target_os = "windows", target_env = "msvc", feature = "alembic"))]
 
 use std::{
-    error::Error,
     ffi::OsString,
     fs,
     num::NonZero,
@@ -25,7 +24,8 @@ use windows::{
 
 use crate::{
     client_config::WindowsClientConfig,
-    inject_config::InjectConfig,
+    inject::InjectionKit,
+    inject_config::{DllType, InjectConfig},
     launcher::traits::ClientLauncher,
     settings::{Account, ClientConfigType, ServerInfo},
 };
@@ -36,6 +36,7 @@ pub struct WindowsLauncherImpl {
     server_info: ServerInfo,
     account_info: Account,
     client: Option<OwnedProcess>,
+    injector: Option<InjectionKit>,
 }
 
 impl ClientLauncher for WindowsLauncherImpl {
@@ -56,6 +57,7 @@ impl ClientLauncher for WindowsLauncherImpl {
             server_info,
             account_info,
             client: None,
+            injector: None,
         }
     }
 
@@ -166,9 +168,9 @@ impl ClientLauncher for WindowsLauncherImpl {
 
     fn inject(&mut self) -> Result<(), anyhow::Error> {
         if let Some(inject_config) = &self.inject_config {
-            let dll_path = inject_config.dll_path;
+            let dll_path = &inject_config.dll_path;
 
-            if !fs::exists(&dll_path)? {
+            if !fs::exists(dll_path)? {
                 bail!(
                     "Can't find DLL to inject at path {}. Bailing.",
                     dll_path.display()
@@ -181,28 +183,47 @@ impl ClientLauncher for WindowsLauncherImpl {
                 dll_path.display()
             );
 
-            let client = self
-                .client
-                .as_ref()
-                .expect("No client process to inject into");
+            match inject_config.dll_type {
+                DllType::Alembic => {
+                    // Alembic DLL initializes via DllMain (DLL_PROCESS_ATTACH).
+                    // Use dll-syringe which properly triggers DllMain on inject.
+                    let client = self
+                        .client
+                        .take()
+                        .expect("No client process to inject into");
 
-            // Use the injector module to inject and optionally call the startup function
-            let handle = HANDLE(client.as_handle().as_raw_handle() as *mut std::ffi::c_void);
-            crate::injector::inject_into_process(
-                handle,
-                dll_path.to_str().unwrap(),
-                inject_config.startup_function.as_deref(),
-            )?;
+                    let mut kit = InjectionKit::new(client);
+                    kit.inject(dll_path.to_str().unwrap())?;
+                    self.injector = Some(kit);
 
-            println!(
-                "Successfully injected {} DLL{}",
-                inject_config.dll_type,
-                if inject_config.startup_function.is_some() {
-                    " and called startup function"
-                } else {
-                    ""
+                    println!("Successfully injected Alembic DLL via dll-syringe");
                 }
-            );
+                DllType::Decal => {
+                    // Decal DLL uses a named export (e.g. DecalStartup) called after loading.
+                    // Use the custom injector with LoadLibraryA + CreateRemoteThread.
+                    let client = self
+                        .client
+                        .as_ref()
+                        .expect("No client process to inject into");
+
+                    let handle =
+                        HANDLE(client.as_handle().as_raw_handle() as *mut std::ffi::c_void);
+                    crate::injector::inject_into_process(
+                        handle,
+                        dll_path.to_str().unwrap(),
+                        inject_config.startup_function.as_deref(),
+                    )?;
+
+                    println!(
+                        "Successfully injected Decal DLL{}",
+                        if inject_config.startup_function.is_some() {
+                            " and called startup function"
+                        } else {
+                            ""
+                        }
+                    );
+                }
+            }
         } else {
             println!("No DLL injection configured.");
         }
@@ -211,8 +232,12 @@ impl ClientLauncher for WindowsLauncherImpl {
     }
 
     fn eject(&mut self) -> Result<(), anyhow::Error> {
-        // TODO: Implement DLL ejection
-        println!("DLL ejection not yet implemented for Windows");
+        if let Some(mut kit) = self.injector.take() {
+            kit.eject()?;
+            println!("Successfully ejected Alembic DLL");
+        } else {
+            println!("DLL ejection not yet implemented for Decal");
+        }
         Ok(())
     }
 }

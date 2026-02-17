@@ -1,7 +1,11 @@
 #![cfg(all(target_os = "windows", target_env = "msvc"))]
 
 use dll_syringe::{
-    error::EjectError, process::BorrowedProcessModule, process::OwnedProcess, Syringe,
+    error::EjectError,
+    process::BorrowedProcessModule,
+    process::OwnedProcess,
+    rpc::PayloadRpcError,
+    Syringe,
 };
 
 pub struct InjectionKit {
@@ -29,6 +33,26 @@ impl InjectionKit {
         self.payload = Some(unsafe { std::mem::transmute(payload) });
 
         Ok(())
+    }
+
+    pub fn call_startup(&mut self) -> Result<(), PayloadRpcError> {
+        let remote_startup = unsafe {
+            self.syringe
+                .get_payload_procedure::<fn()>(self.payload.unwrap_unchecked(), "dll_startup")
+        }
+        .unwrap()
+        .unwrap();
+        Ok(remote_startup.call()?)
+    }
+
+    pub fn call_shutdown(&mut self) -> Result<(), PayloadRpcError> {
+        let remote_shutdown = unsafe {
+            self.syringe
+                .get_payload_procedure::<fn()>(self.payload.unwrap_unchecked(), "dll_shutdown")
+        }
+        .unwrap()
+        .unwrap();
+        Ok(remote_shutdown.call()?)
     }
 
     pub fn eject(&mut self) -> Result<(), EjectError> {

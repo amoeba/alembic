@@ -21,9 +21,7 @@ use std::{
     time::Duration,
 };
 
-use libalembic::{
-    msg::client_server::ClientServerMessage, rpc::WorldClient,
-};
+use libalembic::{msg::client_server::ClientServerMessage, rpc::WorldClient};
 use tarpc::{client as tarcp_client, context, tokio_serde::formats::Json};
 use tokio::{
     runtime::Runtime,
