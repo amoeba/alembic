@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-This project is written in Rust and requires a nightly toolchain.
+This project is written in Rust.
 
 ### Windows
 

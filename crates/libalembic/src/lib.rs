@@ -1,8 +1,6 @@
 pub mod acclient;
 pub mod async_runtime;
 pub mod client_config;
-#[cfg(feature = "alembic")]
-pub mod inject;
 pub mod inject_config;
 pub mod injector;
 pub mod launcher;

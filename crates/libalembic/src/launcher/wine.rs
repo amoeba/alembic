@@ -1,4 +1,4 @@
-#![cfg(not(all(target_os = "windows", target_env = "msvc", feature = "alembic")))]
+#![cfg(not(all(target_os = "windows", target_env = "msvc")))]
 
 use std::{
     num::NonZero,

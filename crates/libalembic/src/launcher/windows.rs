@@ -1,31 +1,13 @@
-#![cfg(all(target_os = "windows", target_env = "msvc", feature = "alembic"))]
+#![cfg(all(target_os = "windows", target_env = "msvc"))]
 
 use std::{
-    ffi::OsString,
-    fs,
     num::NonZero,
-    os::windows::{
-        ffi::OsStrExt,
-        io::{AsHandle, AsRawHandle},
-    },
-};
-
-use anyhow::bail;
-use dll_syringe::process::{OwnedProcess, Process};
-use windows::{
-    core::PWSTR,
-    Win32::{
-        Foundation::{CloseHandle, GetLastError, HANDLE},
-        System::Threading::{
-            CreateProcessW, ResumeThread, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOW,
-        },
-    },
+    process::{Child, Command, Stdio},
 };
 
 use crate::{
     client_config::WindowsClientConfig,
-    inject::InjectionKit,
-    inject_config::{DllType, InjectConfig},
+    inject_config::InjectConfig,
     launcher::traits::ClientLauncher,
     settings::{Account, ClientConfigType, ServerInfo},
 };
@@ -35,8 +17,60 @@ pub struct WindowsLauncherImpl {
     inject_config: Option<InjectConfig>,
     server_info: ServerInfo,
     account_info: Account,
-    client: Option<OwnedProcess>,
-    injector: Option<InjectionKit>,
+    child: Option<Child>,
+}
+
+/// Find cork.exe for native Windows.
+/// Looks for the i686-pc-windows-msvc build since cork must be 32-bit
+/// to inject into 32-bit acclient.exe.
+fn find_cork() -> Result<std::path::PathBuf, std::io::Error> {
+    let exe_path = std::env::current_exe()?;
+    let parent = exe_path.parent().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Cannot determine exe directory",
+        )
+    })?;
+
+    // Strategy 1: Same directory as executable (release/installed)
+    let same_dir = parent.join("cork.exe");
+    if same_dir.exists() {
+        return Ok(same_dir);
+    }
+
+    // Strategy 2: Development mode - look in cargo target directory
+    // e.g., if exe is at target/debug/desktop.exe, look for target/i686-pc-windows-msvc/debug/cork.exe
+    if let Some(target_dir) = parent.parent() {
+        if let Some(build_type) = parent.file_name() {
+            // Try same build type first (debug/release)
+            let same_type_path = target_dir
+                .join("i686-pc-windows-msvc")
+                .join(build_type)
+                .join("cork.exe");
+            if same_type_path.exists() {
+                return Ok(same_type_path);
+            }
+
+            // Fall back to opposite build type
+            let other_type = if build_type == "debug" {
+                "release"
+            } else {
+                "debug"
+            };
+            let other_type_path = target_dir
+                .join("i686-pc-windows-msvc")
+                .join(other_type)
+                .join("cork.exe");
+            if other_type_path.exists() {
+                return Ok(other_type_path);
+            }
+        }
+    }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "cork.exe not found. Expected in same directory as executable or target/i686-pc-windows-msvc/[debug|release]/",
+    ))
 }
 
 impl ClientLauncher for WindowsLauncherImpl {
@@ -56,188 +90,81 @@ impl ClientLauncher for WindowsLauncherImpl {
             inject_config,
             server_info,
             account_info,
-            client: None,
-            injector: None,
+            child: None,
         }
     }
 
     fn launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        let mut process_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
-        let mut startup_info: STARTUPINFOW = unsafe { std::mem::zeroed() };
-        startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        let cork_path = find_cork()?;
 
-        let cmd_line = format!(
-            "{} -h {} -p {} -a {} -v {}",
-            self.config.client_path.display(),
-            self.server_info.hostname,
-            self.server_info.port,
-            self.account_info.username,
-            self.account_info.password,
-        );
+        println!("Using cork: {}", cork_path.display());
 
-        // Get the parent directory of acclient.exe as the working directory
-        let current_dir = self
-            .config
-            .client_path
-            .parent()
-            .map(|p| format!("{}\\", p.display()))
-            .unwrap_or_else(|| String::from(".\\"));
+        let mut cmd = Command::new(&cork_path);
 
-        let cmd_line_wide: Vec<u16> = OsString::from(&cmd_line)
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
+        cmd.arg("launch")
+            .arg("--client")
+            .arg(self.config.client_path.display().to_string())
+            .arg("--hostname")
+            .arg(&self.server_info.hostname)
+            .arg("--port")
+            .arg(&self.server_info.port)
+            .arg("--account")
+            .arg(&self.account_info.username)
+            .arg("--password")
+            .arg(&self.account_info.password);
 
-        let current_dir_wide: Vec<u16> = OsString::from(&current_dir)
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
+        // Add DLL injection parameters if configured
+        if let Some(inject_config) = &self.inject_config {
+            cmd.arg("--dll")
+                .arg(inject_config.dll_path.display().to_string());
 
-        unsafe {
-            let result = CreateProcessW(
-                None,
-                PWSTR(cmd_line_wide.as_ptr() as *mut _),
-                None,
-                None,
-                false,
-                CREATE_SUSPENDED,
-                None,
-                PWSTR(current_dir_wide.as_ptr() as *mut _),
-                &startup_info,
-                &mut process_info,
-            );
-
-            match result {
-                Ok(_) => {
-                    println!("Process created with ID: {}", process_info.dwProcessId);
-                    let resume_result = ResumeThread(process_info.hThread);
-                    if resume_result == u32::MAX {
-                        println!("Failed to resume thread. Last error: {:?}", GetLastError());
-                    }
-
-                    let _ = CloseHandle(process_info.hThread);
-                    let _ = CloseHandle(process_info.hProcess);
-
-                    self.client = Some(OwnedProcess::from_pid(process_info.dwProcessId).unwrap());
-                    let pid = NonZero::new(process_info.dwProcessId).unwrap();
-
-                    // Inject if we have an inject config
-                    if self.inject_config.is_some() {
-                        if let Err(e) = self.inject() {
-                            eprintln!("Warning: Failed to inject DLL: {}", e);
-                        }
-                    }
-
-                    Ok(pid)
-                }
-                Err(error) => {
-                    eprintln!("CreateProcessW failure: {error:?}");
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        error.to_string(),
-                    ))
-                }
+            if let Some(func) = &inject_config.startup_function {
+                cmd.arg("--function").arg(func);
             }
         }
+
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+
+        // Print launch info
+        println!("Launching via cork...");
+        println!("  Cork: {}", cork_path.display());
+        println!("  Client: {}", self.config.client_path.display());
+        println!(
+            "  Server: {}:{}",
+            self.server_info.hostname, self.server_info.port
+        );
+        println!("  Account: {}", self.account_info.username);
+        if let Some(inject_config) = &self.inject_config {
+            println!(
+                "  DLL: {} ({})",
+                inject_config.dll_path.display(),
+                inject_config.dll_type
+            );
+            if let Some(func) = &inject_config.startup_function {
+                println!("  Function: {}", func);
+            }
+        }
+
+        let child = cmd.spawn()?;
+        let pid = child.id();
+        self.child = Some(child);
+
+        Ok(NonZero::new(pid).unwrap())
     }
 
     fn find_or_launch(&mut self) -> Result<NonZero<u32>, std::io::Error> {
-        // Try to find existing acclient process
-        if let Some(target) = OwnedProcess::find_first_by_name("acclient") {
-            self.client = Some(target);
-            let pid = match self.client.as_ref().unwrap().pid() {
-                Ok(val) => val,
-                Err(err) => return Err(err),
-            };
-
-            // Inject if we have an inject config
-            if self.inject_config.is_some() {
-                if let Err(e) = self.inject() {
-                    eprintln!("Warning: Failed to inject DLL: {}", e);
-                }
-            }
-
-            return Ok(pid);
-        }
-
-        println!("Couldn't find existing client to inject into. Launching instead.");
-
-        // Launch new process (which will handle injection internally)
+        // Cork handles process creation, so just launch
         self.launch()
     }
 
     fn inject(&mut self) -> Result<(), anyhow::Error> {
-        if let Some(inject_config) = &self.inject_config {
-            let dll_path = &inject_config.dll_path;
-
-            if !fs::exists(dll_path)? {
-                bail!(
-                    "Can't find DLL to inject at path {}. Bailing.",
-                    dll_path.display()
-                );
-            }
-
-            println!(
-                "Injecting {} DLL from: {}",
-                inject_config.dll_type,
-                dll_path.display()
-            );
-
-            match inject_config.dll_type {
-                DllType::Alembic => {
-                    // Alembic DLL initializes via DllMain (DLL_PROCESS_ATTACH).
-                    // Use dll-syringe which properly triggers DllMain on inject.
-                    let client = self
-                        .client
-                        .take()
-                        .expect("No client process to inject into");
-
-                    let mut kit = InjectionKit::new(client);
-                    kit.inject(dll_path.to_str().unwrap())?;
-                    self.injector = Some(kit);
-
-                    println!("Successfully injected Alembic DLL via dll-syringe");
-                }
-                DllType::Decal => {
-                    // Decal DLL uses a named export (e.g. DecalStartup) called after loading.
-                    // Use the custom injector with LoadLibraryA + CreateRemoteThread.
-                    let client = self
-                        .client
-                        .as_ref()
-                        .expect("No client process to inject into");
-
-                    let handle =
-                        HANDLE(client.as_handle().as_raw_handle() as *mut std::ffi::c_void);
-                    crate::injector::inject_into_process(
-                        handle,
-                        dll_path.to_str().unwrap(),
-                        inject_config.startup_function.as_deref(),
-                    )?;
-
-                    println!(
-                        "Successfully injected Decal DLL{}",
-                        if inject_config.startup_function.is_some() {
-                            " and called startup function"
-                        } else {
-                            ""
-                        }
-                    );
-                }
-            }
-        } else {
-            println!("No DLL injection configured.");
-        }
-
+        println!("Windows DLL injection is handled via cork during launch");
         Ok(())
     }
 
     fn eject(&mut self) -> Result<(), anyhow::Error> {
-        if let Some(mut kit) = self.injector.take() {
-            kit.eject()?;
-            println!("Successfully ejected Alembic DLL");
-        } else {
-            println!("DLL ejection not yet implemented for Decal");
-        }
+        println!("DLL ejection not yet implemented for Windows cork mode");
         Ok(())
     }
 }

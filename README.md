@@ -59,7 +59,7 @@ It's not feature complete so here's what works today:
 
 ## Alembic
 
-Tiny demonstration of using the [dll-syringe](https://github.com/OpenByteDev/dll-syringe/) and [retour-rs](https://github.com/Hpmason/retour-rs) to hook Asheron's Call client functions and [egui](https://www.egui.rs) to give all of that a UI.
+Tiny demonstration of using [retour-rs](https://github.com/Hpmason/retour-rs) to hook Asheron's Call client functions and [egui](https://www.egui.rs) to give all of that a UI.
 
 Built for my curiosity.
 This quickly got very out of hand.
@@ -105,7 +105,7 @@ The project is managed as a single Cargo Workspace with four subcrates:
 
 ### Prerequisites
 
-This project is written in Rust and requires a nightly toolchain.
+This project is written in Rust.
 
 On Windows, you need the 32-bit MSVC target installed:
 

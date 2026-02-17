@@ -16,6 +16,3 @@ ratatui = "0.29.0"
 strum = { version = "0.27.0", features = ["derive", "strum_macros"] }
 tarpc = { workspace = true }
 tokio = { workspace = true }
-
-[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
-libalembic = { path = "../libalembic", features = ["alembic"] }
