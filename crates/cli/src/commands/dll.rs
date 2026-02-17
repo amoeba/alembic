@@ -262,38 +262,38 @@ pub fn client_dll_edit(
     );
 
     SettingsManager::modify(|settings| {
-        if let Some(dlls) = settings.get_client_dlls_mut(client_idx) {
-            if let Some(dll) = dlls.get_mut(dll_idx) {
-                if let Some(t) = &dll_type {
-                    match t.to_lowercase().as_str() {
-                        "alembic" => {
-                            println!("  Updated type to: Alembic");
-                            dll.dll_type = DllType::Alembic;
-                        }
-                        "decal" => {
-                            println!("  Updated type to: Decal");
-                            dll.dll_type = DllType::Decal;
-                        }
-                        _ => {
-                            println!(
-                                "  Warning: Invalid DLL type '{}', ignoring. Use 'alembic' or 'decal'.",
-                                t
-                            );
-                        }
+        if let Some(dlls) = settings.get_client_dlls_mut(client_idx)
+            && let Some(dll) = dlls.get_mut(dll_idx)
+        {
+            if let Some(t) = &dll_type {
+                match t.to_lowercase().as_str() {
+                    "alembic" => {
+                        println!("  Updated type to: Alembic");
+                        dll.dll_type = DllType::Alembic;
+                    }
+                    "decal" => {
+                        println!("  Updated type to: Decal");
+                        dll.dll_type = DllType::Decal;
+                    }
+                    _ => {
+                        println!(
+                            "  Warning: Invalid DLL type '{}', ignoring. Use 'alembic' or 'decal'.",
+                            t
+                        );
                     }
                 }
-                if let Some(p) = &path {
-                    println!("  Updated path to: {}", p);
-                    dll.dll_path = PathBuf::from(p);
-                }
-                if let Some(f) = &startup_function {
-                    if f.is_empty() || f == "none" {
-                        println!("  Removed startup function");
-                        dll.startup_function = None;
-                    } else {
-                        println!("  Updated startup function to: {}", f);
-                        dll.startup_function = Some(f.clone());
-                    }
+            }
+            if let Some(p) = &path {
+                println!("  Updated path to: {}", p);
+                dll.dll_path = PathBuf::from(p);
+            }
+            if let Some(f) = &startup_function {
+                if f.is_empty() || f == "none" {
+                    println!("  Removed startup function");
+                    dll.startup_function = None;
+                } else {
+                    println!("  Updated startup function to: {}", f);
+                    dll.startup_function = Some(f.clone());
                 }
             }
         }
