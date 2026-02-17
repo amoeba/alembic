@@ -7,17 +7,17 @@
 use anyhow::{Context, Result};
 use std::ffi::CString;
 use std::path::Path;
-use windows::core::{PCSTR, PSTR};
 use windows::Win32::Foundation::{CloseHandle, FreeLibrary, HANDLE, HMODULE, WAIT_OBJECT_0};
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
 use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress, LoadLibraryA};
 use windows::Win32::System::Memory::{
-    VirtualAllocEx, VirtualFreeEx, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE,
+    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAllocEx, VirtualFreeEx,
 };
 use windows::Win32::System::Threading::{
-    CreateProcessA, CreateRemoteThread, GetExitCodeThread, ResumeThread, WaitForSingleObject,
-    CREATE_SUSPENDED, INFINITE, PROCESS_INFORMATION, STARTUPINFOA,
+    CREATE_SUSPENDED, CreateProcessA, CreateRemoteThread, GetExitCodeThread, INFINITE,
+    PROCESS_INFORMATION, ResumeThread, STARTUPINFOA, WaitForSingleObject,
 };
+use windows::core::{PCSTR, PSTR};
 
 /// MemoryGuard automatically calls VirtualFreeEx on Drop
 struct MemoryGuard {

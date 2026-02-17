@@ -18,21 +18,21 @@ use application::Application;
 use backend::News;
 use eframe::egui::IconData;
 use fetching::{
-    fetch_community_servers_list, fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage,
-    FetchWrapper,
+    BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper,
+    fetch_community_servers_list, fetch_news,
 };
-use futures::{future, StreamExt};
+use futures::{StreamExt, future};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
-    rpc::{spawn, HelloServer, World},
+    rpc::{HelloServer, World, spawn},
 };
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
 };
 use tokio::sync::{
-    mpsc::{channel, error::TryRecvError},
     Mutex,
+    mpsc::{channel, error::TryRecvError},
 };
 
 fn main() -> eframe::Result {

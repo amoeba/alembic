@@ -1,6 +1,6 @@
 use std::{future::Future, sync::Arc};
 
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::sync::{Mutex, mpsc::Sender};
 
 use crate::msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage};
 

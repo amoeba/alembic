@@ -1,7 +1,7 @@
 use super::traits::{ClientConfig, LaunchCommand};
 use crate::inject_config::InjectConfig;
 use crate::validation::{
-    is_windows_path, validate_native_path, validate_wine_path, ValidationResult,
+    ValidationResult, is_windows_path, validate_native_path, validate_wine_path,
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

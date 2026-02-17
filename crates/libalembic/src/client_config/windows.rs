@@ -1,6 +1,6 @@
 use super::traits::{ClientConfig, LaunchCommand};
 use crate::inject_config::InjectConfig;
-use crate::validation::{validate_native_path, ValidationResult};
+use crate::validation::{ValidationResult, validate_native_path};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 

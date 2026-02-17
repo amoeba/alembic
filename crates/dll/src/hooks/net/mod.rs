@@ -5,8 +5,8 @@ use libalembic::msg::client_server::ClientServerMessage;
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::{
-    core::PCSTR,
     Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA},
+    core::PCSTR,
 };
 
 type fn_WinSock_SendTo = extern "system" fn(

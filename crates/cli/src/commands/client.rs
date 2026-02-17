@@ -86,7 +86,9 @@ pub fn client_edit(
         && env_vars.is_empty()
         && unset_env_vars.is_empty()
     {
-        println!("No changes specified. Use --name, --client-path, --wrapper-program, --arg, --clear-args, --env, or --unset-env to modify the client.");
+        println!(
+            "No changes specified. Use --name, --client-path, --wrapper-program, --arg, --clear-args, --env, or --unset-env to modify the client."
+        );
         return Ok(());
     }
 

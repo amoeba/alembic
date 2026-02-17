@@ -9,10 +9,10 @@ use crate::{
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 
-use eframe::egui::{self, vec2, Align, Align2, Layout};
+use eframe::egui::{self, Align, Align2, Layout, vec2};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use ringbuffer::RingBuffer;
-use tokio::sync::mpsc::{error::TryRecvError, Receiver};
+use tokio::sync::mpsc::{Receiver, error::TryRecvError};
 
 // Main tabs
 #[derive(Clone)]

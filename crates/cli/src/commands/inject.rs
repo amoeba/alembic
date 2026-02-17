@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use libalembic::settings::SettingsManager;
 
 pub fn inject() -> anyhow::Result<()> {
@@ -50,7 +50,10 @@ pub fn inject() -> anyhow::Result<()> {
         .join("cork.exe");
 
     if !cork_path.exists() {
-        bail!("cork.exe not found at {:?}. Make sure it's built with: cargo build --package cork --target i686-pc-windows-gnu", cork_path);
+        bail!(
+            "cork.exe not found at {:?}. Make sure it's built with: cargo build --package cork --target i686-pc-windows-gnu",
+            cork_path
+        );
     }
 
     println!("Client: {}", wine_config.name);

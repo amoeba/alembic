@@ -9,7 +9,9 @@
 
 // Additional compile-time check with helpful error message
 #[cfg(not(all(target_arch = "x86", target_os = "windows")))]
-compile_error!("dll can only be built for 32-bit Windows targets (i686-pc-windows-msvc or i686-pc-windows-gnu)");
+compile_error!(
+    "dll can only be built for 32-bit Windows targets (i686-pc-windows-msvc or i686-pc-windows-gnu)"
+);
 
 mod channel;
 mod client;

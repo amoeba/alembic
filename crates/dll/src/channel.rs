@@ -1,7 +1,7 @@
 use std::sync::{Arc, Once};
 
 use libalembic::msg::client_server::ClientServerMessage;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 static mut DLL_TX: Option<Arc<Mutex<mpsc::UnboundedSender<ClientServerMessage>>>> = None;
 static mut DLL_RX: Option<Arc<Mutex<mpsc::UnboundedReceiver<ClientServerMessage>>>> = None;

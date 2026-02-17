@@ -1,6 +1,6 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use libalembic::{
-    launcher::{traits::ClientLauncher, Launcher},
+    launcher::{Launcher, traits::ClientLauncher},
     settings::{Account, ServerInfo, SettingsManager},
 };
 
