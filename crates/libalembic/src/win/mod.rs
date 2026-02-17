@@ -26,7 +26,7 @@ pub unsafe fn allocate_console() -> anyhow::Result<()> {
 
         // Redirect stdout
         let stdout_handle = CreateFileA(
-            PCSTR("CONOUT$\0".as_ptr()),
+            PCSTR(c"CONOUT$".as_ptr().cast()),
             FILE_GENERIC_WRITE.0,
             FILE_SHARE_WRITE,
             None,
@@ -39,7 +39,7 @@ pub unsafe fn allocate_console() -> anyhow::Result<()> {
 
         // Redirect stderr
         let stderr_handle = CreateFileA(
-            PCSTR("CONOUT$\0".as_ptr()),
+            PCSTR(c"CONOUT$".as_ptr().cast()),
             FILE_GENERIC_WRITE.0,
             FILE_SHARE_WRITE,
             None,

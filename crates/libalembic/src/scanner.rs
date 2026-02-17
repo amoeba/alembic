@@ -81,28 +81,28 @@ pub fn discover_dlls_in_wine_prefix(prefix: &Path) -> Vec<InjectConfig> {
     let alembic_search_paths = ["Alembic.dll"];
     for search_path in alembic_search_paths {
         let path = drive_c.join(search_path);
-        if path.exists() {
-            if let Ok(windows_path) = unix_to_windows_path(&path) {
-                inject_configs.push(InjectConfig {
-                    dll_type: DllType::Alembic,
-                    dll_path: windows_path,
-                    startup_function: None,
-                });
-            }
+        if path.exists()
+            && let Ok(windows_path) = unix_to_windows_path(&path)
+        {
+            inject_configs.push(InjectConfig {
+                dll_type: DllType::Alembic,
+                dll_path: windows_path,
+                startup_function: None,
+            });
         }
     }
 
     let decal_search_paths = ["Program Files/Decal 3.0", "Program Files (x86)/Decal 3.0"];
     for search_path in decal_search_paths {
         let inject_dll_path = drive_c.join(search_path).join("Inject.dll");
-        if inject_dll_path.exists() {
-            if let Ok(dll_path) = unix_to_windows_path(&inject_dll_path) {
-                inject_configs.push(InjectConfig {
-                    dll_type: DllType::Decal,
-                    dll_path,
-                    startup_function: Some("DecalStartup".to_string()),
-                });
-            }
+        if inject_dll_path.exists()
+            && let Ok(dll_path) = unix_to_windows_path(&inject_dll_path)
+        {
+            inject_configs.push(InjectConfig {
+                dll_type: DllType::Decal,
+                dll_path,
+                startup_function: Some("DecalStartup".to_string()),
+            });
         }
     }
 

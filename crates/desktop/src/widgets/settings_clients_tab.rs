@@ -94,10 +94,10 @@ impl Widget for &mut SettingsClientsTab {
                 }
 
                 // Clamp selected_index (early return above guarantees non-empty)
-                if let Some(idx) = self.selected_index {
-                    if idx >= settings.clients.len() {
-                        self.selected_index = Some(settings.clients.len() - 1);
-                    }
+                if let Some(idx) = self.selected_index
+                    && idx >= settings.clients.len()
+                {
+                    self.selected_index = Some(settings.clients.len() - 1);
                 }
 
                 let mut did_update = false;
@@ -415,11 +415,11 @@ impl Widget for &mut SettingsClientsTab {
 
                                 // Apply path edits back to settings
                                 for (dll_idx, new_path) in path_updates {
-                                    if let Some(dlls) = settings.get_client_dlls_mut(idx) {
-                                        if let Some(dll) = dlls.get_mut(dll_idx) {
-                                            dll.dll_path = std::path::PathBuf::from(&new_path);
-                                            did_update = true;
-                                        }
+                                    if let Some(dlls) = settings.get_client_dlls_mut(idx)
+                                        && let Some(dll) = dlls.get_mut(dll_idx)
+                                    {
+                                        dll.dll_path = std::path::PathBuf::from(&new_path);
+                                        did_update = true;
                                     }
                                 }
                             }
@@ -437,18 +437,17 @@ impl Widget for &mut SettingsClientsTab {
                 settings.selected_client = self.selected_index;
 
                 // Handle deletion
-                if delete_client {
-                    if let Some(idx) = self.selected_index {
-                        if idx < settings.clients.len() {
-                            settings.clients.remove(idx);
-                            self.selected_index = if settings.clients.is_empty() {
-                                None
-                            } else {
-                                Some(idx.min(settings.clients.len() - 1))
-                            };
-                            did_update = true;
-                        }
-                    }
+                if delete_client
+                    && let Some(idx) = self.selected_index
+                    && idx < settings.clients.len()
+                {
+                    settings.clients.remove(idx);
+                    self.selected_index = if settings.clients.is_empty() {
+                        None
+                    } else {
+                        Some(idx.min(settings.clients.len() - 1))
+                    };
+                    did_update = true;
                 }
 
                 if did_update {

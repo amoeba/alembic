@@ -47,10 +47,10 @@ pub fn windows_path_parent(path: &Path) -> PathBuf {
     let path_str = path.to_string_lossy();
 
     // If the path contains backslashes, treat it as a Windows path
-    if path_str.contains('\\') {
-        if let Some(idx) = path_str.rfind('\\') {
-            return PathBuf::from(&path_str[..idx]);
-        }
+    if path_str.contains('\\')
+        && let Some(idx) = path_str.rfind('\\')
+    {
+        return PathBuf::from(&path_str[..idx]);
     }
 
     // Fall back to standard parent() for Unix paths

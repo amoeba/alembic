@@ -40,30 +40,30 @@ fn find_cork() -> Result<std::path::PathBuf, std::io::Error> {
 
     // Strategy 2: Development mode - look in cargo target directory
     // e.g., if exe is at target/debug/desktop.exe, look for target/i686-pc-windows-msvc/debug/cork.exe
-    if let Some(target_dir) = parent.parent() {
-        if let Some(build_type) = parent.file_name() {
-            // Try same build type first (debug/release)
-            let same_type_path = target_dir
-                .join("i686-pc-windows-msvc")
-                .join(build_type)
-                .join("cork.exe");
-            if same_type_path.exists() {
-                return Ok(same_type_path);
-            }
+    if let Some(target_dir) = parent.parent()
+        && let Some(build_type) = parent.file_name()
+    {
+        // Try same build type first (debug/release)
+        let same_type_path = target_dir
+            .join("i686-pc-windows-msvc")
+            .join(build_type)
+            .join("cork.exe");
+        if same_type_path.exists() {
+            return Ok(same_type_path);
+        }
 
-            // Fall back to opposite build type
-            let other_type = if build_type == "debug" {
-                "release"
-            } else {
-                "debug"
-            };
-            let other_type_path = target_dir
-                .join("i686-pc-windows-msvc")
-                .join(other_type)
-                .join("cork.exe");
-            if other_type_path.exists() {
-                return Ok(other_type_path);
-            }
+        // Fall back to opposite build type
+        let other_type = if build_type == "debug" {
+            "release"
+        } else {
+            "debug"
+        };
+        let other_type_path = target_dir
+            .join("i686-pc-windows-msvc")
+            .join(other_type)
+            .join("cork.exe");
+        if other_type_path.exists() {
+            return Ok(other_type_path);
         }
     }
 

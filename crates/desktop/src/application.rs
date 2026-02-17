@@ -234,16 +234,16 @@ impl Application {
                         ui.label(modal.text);
                         ui.add_space(16.0);
                         ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                            if ui.button("Close").clicked() {
-                                if let Some(backend_ref) = ctx.data_mut(|data| {
+                            if ui.button("Close").clicked()
+                                && let Some(backend_ref) = ctx.data_mut(|data| {
                                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
                                         "backend",
                                     ))
-                                }) {
-                                    let mut backend = backend_ref.lock().unwrap();
+                                })
+                            {
+                                let mut backend = backend_ref.lock().unwrap();
 
-                                    backend.current_modal = None;
-                                }
+                                backend.current_modal = None;
                             }
                         });
                     });
@@ -269,10 +269,9 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    backend.logs.push(log);
-                                }
+                                backend.logs.push(log);
                             }
                         });
                     }
@@ -280,22 +279,21 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    // Increment statistics
-                                    backend.statistics.network.outgoing_count += 1;
+                                // Increment statistics
+                                backend.statistics.network.outgoing_count += 1;
 
-                                    // Append new packet
-                                    let packet = PacketInfo {
-                                        index: backend.statistics.network.outgoing_count,
-                                        timestamp: SystemTime::now()
-                                            .duration_since(UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                        data: vec,
-                                    };
-                                    backend.packets_outgoing.push(packet);
-                                }
+                                // Append new packet
+                                let packet = PacketInfo {
+                                    index: backend.statistics.network.outgoing_count,
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    data: vec,
+                                };
+                                backend.packets_outgoing.push(packet);
                             }
                         });
                     }
@@ -303,22 +301,21 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    // Increment statistics
-                                    backend.statistics.network.incoming_count += 1;
+                                // Increment statistics
+                                backend.statistics.network.incoming_count += 1;
 
-                                    // Append new packet
-                                    let packet = PacketInfo {
-                                        index: backend.statistics.network.incoming_count,
-                                        timestamp: SystemTime::now()
-                                            .duration_since(UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                        data: vec,
-                                    };
-                                    backend.packets_incoming.push(packet);
-                                }
+                                // Append new packet
+                                let packet = PacketInfo {
+                                    index: backend.statistics.network.incoming_count,
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    data: vec,
+                                };
+                                backend.packets_incoming.push(packet);
                             }
                         });
                     }
@@ -326,18 +323,17 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    let message = ChatMessage {
-                                        index: backend.chat_messages.len(),
-                                        timestamp: SystemTime::now()
-                                            .duration_since(UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                        text,
-                                    };
-                                    backend.chat_messages.push(message);
-                                }
+                                let message = ChatMessage {
+                                    index: backend.chat_messages.len(),
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    text,
+                                };
+                                backend.chat_messages.push(message);
                             }
                         });
                     }
