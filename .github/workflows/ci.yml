@@ -63,11 +63,21 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Build (Debug)
+      - name: Build (Debug, Windows)
+        if: runner.os == 'Windows'
         run: cargo make build
 
-      - name: Build (Release)
+      - name: Build (Debug, macOS/Linux)
+        if: runner.os != 'Windows'
+        run: cargo make build-native
+
+      - name: Build (Release, Windows)
+        if: runner.os == 'Windows'
         run: cargo make build --profile release
+
+      - name: Build (Release, macOS/Linux)
+        if: runner.os != 'Windows'
+        run: cargo make build-native --profile release
 
       - name: Run tests
         run: cargo test --verbose
