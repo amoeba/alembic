@@ -438,7 +438,7 @@ impl LutrisFlatpakScanner {
 
     fn parse_game_config(path: &Path) -> Result<(PathBuf, PathBuf, String)> {
         let content = std::fs::read_to_string(path)?;
-        let config: LutrisGameConfig = serde_yml::from_str(&content)?;
+        let config: LutrisGameConfig = serde_yaml::from_str(&content)?;
 
         // Get the game name
         let name = config
@@ -773,4 +773,50 @@ fn find_wine_executable() -> Result<PathBuf> {
     }
 
     anyhow::bail!("Could not find wine executable")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LutrisFlatpakScanner;
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn parse_lutris_game_config_with_yaml() {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "alembic-lutris-config-{}-{}.yml",
+            std::process::id(),
+            timestamp
+        ));
+
+        fs::write(
+            &path,
+            r#"
+name: Test Game
+game:
+  prefix: /tmp/prefix
+script:
+  installer:
+    - task:
+        wine_path: /usr/bin/wine
+"#,
+        )
+        .expect("test config should be written");
+
+        let (prefix, wine_path, name) =
+            LutrisFlatpakScanner::parse_game_config(&path).expect("yaml should parse");
+
+        assert_eq!(prefix, PathBuf::from("/tmp/prefix"));
+        assert_eq!(wine_path, PathBuf::from("/usr/bin/wine"));
+        assert_eq!(name, "Test Game");
+
+        let _ = fs::remove_file(path);
+    }
 }
