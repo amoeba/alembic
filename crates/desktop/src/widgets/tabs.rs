@@ -29,6 +29,12 @@ pub struct TabContainer {
     selected_tab: usize,
 }
 
+impl Default for TabContainer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TabContainer {
     pub fn new() -> Self {
         Self {

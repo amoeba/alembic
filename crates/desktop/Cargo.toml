@@ -1,12 +1,13 @@
 [package]
 name = "desktop"
-description = "Desktop application for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "Desktop application for Alembic"
 readme.workspace = true
+repository.workspace = true
+license.workspace = true
+default-run = "desktop"
 
 [[bin]]
 name = "desktop"
@@ -20,9 +21,9 @@ path = "src/simulator.rs"
 anyhow = { workspace = true }
 chrono = "0.4.39"
 ctrlc = "3.4.5"
-eframe = "0.31.0"
-egui_commonmark = "0.20.0"
-egui_extras = { version = "0.31.0", features = ["image"] }
+eframe = "0.33.2"
+egui_commonmark = "0.22.0"
+egui_extras = { version = "0.33.2", features = ["image"] }
 env_logger = { workspace = true }
 futures = { workspace = true }
 image = "0.25.5"
@@ -31,10 +32,10 @@ log = { workspace = true }
 rand = { workspace = true }
 reqwest = { version = "0.12.12", features = ["blocking"] }
 ringbuffer = "0.15.0"
-serde = "1.0.228"
-serde-xml-rs = "0.6.0"
+serde = "1.0.217"
 serde_json = "1.0.138"
 serde_with = "3.12.0"
+serde-xml-rs = "0.6.0"
 tarpc = { workspace = true }
 tokio = { workspace = true }
 

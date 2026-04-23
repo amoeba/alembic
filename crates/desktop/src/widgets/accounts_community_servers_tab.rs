@@ -97,7 +97,7 @@ impl Widget for &mut AccountsCommunityServersTab {
                             ui.label("Retrying...");
                         }
                         FetchWrapper::Success(servers) => {
-                            if servers.servers.len() <= 0 {
+                            if servers.servers.is_empty() {
                                 ui.label("No servers to show");
                             } else {
                                 let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
@@ -161,31 +161,29 @@ impl Widget for &mut AccountsCommunityServersTab {
                                         for server in &servers.servers {
                                             body.row(text_height, |mut table_row| {
                                                 table_row.col(|ui| {
-                                                    if ui.button("Import").clicked() {
-                                                        if let Some(s) = ui.data_mut(|data: &mut egui::util::IdTypeMap| {
+                                                    if ui.button("Import").clicked()
+                                                        && let Some(s) = ui.data_mut(|data: &mut egui::util::IdTypeMap| {
                                                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
-                                                        }) {
-                                                            let mut settings = s.lock().unwrap();
+                                                        })
+                                                    {
+                                                        let mut settings = s.lock().unwrap();
 
-                                                            let to_import = ServerInfo {
-                                                                name: server.name.clone(),
-                                                                hostname: server.server_host.clone(),
-                                                                port: server.server_port.clone(),
-                                                            };
+                                                        let to_import = ServerInfo {
+                                                            name: server.name.clone(),
+                                                            hostname: server.server_host.clone(),
+                                                            port: server.server_port.clone(),
+                                                        };
 
-                                                            match settings.servers.iter().position(|s| s.name == server.name) {
-                                                                Some(idx) => {
-                                                                    settings.servers[idx] = to_import;
-                                                                },
-                                                                None =>  {
-                                                                    settings.servers.push(to_import);
-                                                                }
+                                                        match settings.servers.iter().position(|s| s.name == server.name) {
+                                                            Some(idx) => {
+                                                                settings.servers[idx] = to_import;
+                                                            },
+                                                            None =>  {
+                                                                settings.servers.push(to_import);
                                                             }
-
-                                                            let _ = settings.save();
-                                                        } else {
-
                                                         }
+
+                                                        let _ = settings.save();
                                                     }
                                                 });
 
@@ -223,7 +221,7 @@ impl Widget for &mut AccountsCommunityServersTab {
 
                                                 table_row.col(|ui| {
                                                     ui.hyperlink(
-                                                        &server
+                                                        server
                                                             .website_url
                                                             .clone()
                                                             .unwrap_or_else(|| "None".to_string()),
@@ -232,7 +230,7 @@ impl Widget for &mut AccountsCommunityServersTab {
 
                                                 table_row.col(|ui| {
                                                     ui.hyperlink(
-                                                        &server
+                                                        server
                                                             .discord_url
                                                             .clone()
                                                             .unwrap_or_else(|| "None".to_string()),

@@ -8,11 +8,7 @@ pub struct BinaryViewer {
 
 impl BinaryViewer {
     pub fn new(id: String, data: Vec<u8>) -> Self {
-        Self {
-            id: id,
-            data: data,
-            width: 8,
-        }
+        Self { id, data, width: 8 }
     }
 }
 
@@ -33,7 +29,7 @@ impl Widget for &mut BinaryViewer {
                                             .family(FontFamily::Monospace),
                                     );
 
-                                    if (i + 1) % (self.width as usize) == 0 {
+                                    if (i + 1) % self.width == 0 {
                                         ui.end_row();
                                     }
                                 }
@@ -51,7 +47,7 @@ impl Widget for &mut BinaryViewer {
                                         ui.label(".");
                                     }
 
-                                    if (i + 1) % (self.width as usize) == 0 {
+                                    if (i + 1) % self.width == 0 {
                                         ui.end_row();
                                     }
                                 }

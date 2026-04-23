@@ -18,21 +18,21 @@ use application::Application;
 use backend::News;
 use eframe::egui::IconData;
 use fetching::{
-    fetch_community_servers_list, fetch_news, BackgroundFetchRequest, BackgroundFetchUpdateMessage,
-    FetchWrapper,
+    BackgroundFetchRequest, BackgroundFetchUpdateMessage, FetchWrapper,
+    fetch_community_servers_list, fetch_news,
 };
-use futures::{future, StreamExt};
+use futures::{StreamExt, future};
 use libalembic::{
     msg::{client_server::ClientServerMessage, server_gui::ServerGuiMessage},
-    rpc::{spawn, AlembicServer, World},
+    rpc::{HelloServer, World, spawn},
 };
 use tarpc::{
     server::{self, Channel},
     tokio_serde::formats::Json,
 };
 use tokio::sync::{
-    mpsc::{channel, error::TryRecvError},
     Mutex,
+    mpsc::{channel, error::TryRecvError},
 };
 
 fn main() -> eframe::Result {
@@ -116,7 +116,7 @@ fn main() -> eframe::Result {
             .filter_map(|r| future::ready(r.ok()))
             .map(server::BaseChannel::with_defaults)
             .map(|channel| {
-                let server = AlembicServer {
+                let server = HelloServer {
                     server_gui_tx: Arc::clone(&server_gui_tx_ref),
                     client_server_tx: Arc::clone(&client_server_tx_ref),
                 };

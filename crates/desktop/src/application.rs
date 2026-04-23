@@ -9,10 +9,10 @@ use crate::{
     widgets::{about::About, settings::Settings, tabs::TabContainer, wizard::Wizard},
 };
 
-use eframe::egui::{self, vec2, Align, Align2, Layout};
+use eframe::egui::{self, Align, Align2, Layout, vec2};
 use libalembic::{msg::client_server::ClientServerMessage, settings::AlembicSettings};
 use ringbuffer::RingBuffer;
-use tokio::sync::mpsc::{error::TryRecvError, Receiver};
+use tokio::sync::mpsc::{Receiver, error::TryRecvError};
 
 // Main tabs
 #[derive(Clone)]
@@ -35,7 +35,8 @@ pub struct Application {
     about: About,
     settings: Settings,
     client_server_rx: Arc<tokio::sync::Mutex<Receiver<ClientServerMessage>>>,
-    _background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
+    #[allow(dead_code)]
+    background_fetch_sender: std::sync::mpsc::Sender<BackgroundFetchRequest>,
     background_update_receiver: std::sync::mpsc::Receiver<BackgroundFetchUpdateMessage>,
 }
 
@@ -122,8 +123,8 @@ impl Application {
             wizard: Wizard::new(),
             about: About::new(),
             settings: Settings::new(),
-            client_server_rx: client_server_rx,
-            _background_fetch_sender: background_fetch_sender,
+            client_server_rx,
+            background_fetch_sender,
             background_update_receiver,
         }
     }
@@ -140,7 +141,7 @@ impl Application {
         match current_app_page {
             AppPage::Main => {
                 egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-                    egui::menu::bar(ui, |ui| {
+                    egui::MenuBar::new().ui(ui, |ui| {
                         ui.menu_button("File", |ui| {
                             if ui.add(egui::Button::new("Settings")).clicked() {
                                 ui.memory_mut(|mem| {
@@ -149,17 +150,17 @@ impl Application {
                                         AppPage::Settings,
                                     )
                                 });
-                                ui.close_menu();
+                                ui.close();
                             }
                             if ui.add(egui::Button::new("Exit")).clicked() {
-                                ui.close_menu();
+                                ui.close();
                                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                             }
                         });
 
                         ui.menu_button("Help", |ui: &mut egui::Ui| {
                             if ui.add(egui::Button::new("About")).clicked() {
-                                ui.close_menu();
+                                ui.close();
                                 ui.memory_mut(|mem| {
                                     mem.data
                                         .insert_persisted(egui::Id::new("app_page"), AppPage::About)
@@ -220,9 +221,7 @@ impl Application {
             None
         };
 
-        if current_modal.is_some() {
-            let modal = current_modal.unwrap();
-
+        if let Some(modal) = current_modal {
             egui::Window::new(modal.title)
                 .enabled(true)
                 .collapsible(false)
@@ -235,16 +234,16 @@ impl Application {
                         ui.label(modal.text);
                         ui.add_space(16.0);
                         ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                            if ui.button("Close").clicked() {
-                                if let Some(backend_ref) = ctx.data_mut(|data| {
+                            if ui.button("Close").clicked()
+                                && let Some(backend_ref) = ctx.data_mut(|data| {
                                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
                                         "backend",
                                     ))
-                                }) {
-                                    let mut backend = backend_ref.lock().unwrap();
+                                })
+                            {
+                                let mut backend = backend_ref.lock().unwrap();
 
-                                    backend.current_modal = None;
-                                }
+                                backend.current_modal = None;
                             }
                         });
                     });
@@ -259,29 +258,6 @@ impl eframe::App for Application {
         loop {
             match self.client_server_rx.try_lock().unwrap().try_recv() {
                 Ok(msg) => match msg {
-                    ClientServerMessage::ClientInjected() => {
-                        ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
-                            {
-                                if let Ok(mut backend) = backend.lock() {
-                                    backend.injected = true;
-                                }
-                            }
-                        });
-                    }
-                    ClientServerMessage::ClientEjected() => {
-                        ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
-                            {
-                                if let Ok(mut backend) = backend.lock() {
-                                    backend.is_injected = false;
-                                }
-                            }
-                        });
-                    }
-
                     ClientServerMessage::AppendLog(value) => {
                         let log = LogEntry {
                             timestamp: SystemTime::now()
@@ -293,10 +269,9 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    backend.logs.push(log);
-                                }
+                                backend.logs.push(log);
                             }
                         });
                     }
@@ -304,22 +279,21 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    // Increment statistics
-                                    backend.statistics.network.outgoing_count += 1;
+                                // Increment statistics
+                                backend.statistics.network.outgoing_count += 1;
 
-                                    // Append new packet
-                                    let packet = PacketInfo {
-                                        index: backend.statistics.network.outgoing_count,
-                                        timestamp: SystemTime::now()
-                                            .duration_since(UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                        data: vec,
-                                    };
-                                    backend.packets_outgoing.push(packet);
-                                }
+                                // Append new packet
+                                let packet = PacketInfo {
+                                    index: backend.statistics.network.outgoing_count,
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    data: vec,
+                                };
+                                backend.packets_outgoing.push(packet);
                             }
                         });
                     }
@@ -327,22 +301,21 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    // Increment statistics
-                                    backend.statistics.network.incoming_count += 1;
+                                // Increment statistics
+                                backend.statistics.network.incoming_count += 1;
 
-                                    // Append new packet
-                                    let packet = PacketInfo {
-                                        index: backend.statistics.network.incoming_count,
-                                        timestamp: SystemTime::now()
-                                            .duration_since(UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                        data: vec,
-                                    };
-                                    backend.packets_incoming.push(packet);
-                                }
+                                // Append new packet
+                                let packet = PacketInfo {
+                                    index: backend.statistics.network.incoming_count,
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    data: vec,
+                                };
+                                backend.packets_incoming.push(packet);
                             }
                         });
                     }
@@ -350,18 +323,17 @@ impl eframe::App for Application {
                         ctx.data_mut(|data| {
                             if let Some(backend) =
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                && let Ok(mut backend) = backend.lock()
                             {
-                                if let Ok(mut backend) = backend.lock() {
-                                    let message = ChatMessage {
-                                        index: backend.chat_messages.len(),
-                                        timestamp: SystemTime::now()
-                                            .duration_since(UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                        text,
-                                    };
-                                    backend.chat_messages.push(message);
-                                }
+                                let message = ChatMessage {
+                                    index: backend.chat_messages.len(),
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    text,
+                                };
+                                backend.chat_messages.push(message);
                             }
                         });
                     }

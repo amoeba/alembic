@@ -65,9 +65,9 @@ impl Widget for &mut AccountsServersTab {
                             });
                         })
                         .body(|mut body| {
-                            let indices: Vec<usize> = (0..settings.servers.len()).collect();
+                            let mut delete_index = None;
 
-                            for i in indices {
+                            for i in 0..settings.servers.len() {
                                 n_accounts += 1;
 
                                 body.row(text_height, |mut table_row| {
@@ -95,11 +95,15 @@ impl Widget for &mut AccountsServersTab {
 
                                     table_row.col(|ui| {
                                         if ui.button("Delete").clicked() {
-                                            settings.servers.remove(i);
-                                            did_update = true;
+                                            delete_index = Some(i);
                                         }
                                     });
                                 });
+                            }
+
+                            if let Some(i) = delete_index {
+                                settings.servers.remove(i);
+                                did_update = true;
                             }
                         });
 

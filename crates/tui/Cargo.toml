@@ -1,17 +1,17 @@
 [package]
 name = "tui"
-description = "TUI for Alembic"
 version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
+description = "TUI for Alembic"
 readme.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 crossterm = "0.28.1"
-libalembic = { path = "../libalembic" }
 futures = { workspace = true }
+libalembic = { path = "../libalembic" }
 ratatui = "0.29.0"
 strum = { version = "0.27.0", features = ["derive", "strum_macros"] }
 tarpc = { workspace = true }

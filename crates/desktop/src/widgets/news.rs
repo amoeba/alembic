@@ -90,7 +90,7 @@ impl Widget for &mut News {
                         ui.label("Retrying...");
                     }
                     FetchWrapper::Success(news) => {
-                        if news.entries.len() <= 0 {
+                        if news.entries.is_empty() {
                             ui.label("No news to show");
                         } else {
                             ScrollArea::vertical().auto_shrink(true).show(ui, |ui| {

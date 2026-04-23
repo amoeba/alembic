@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main, wine] # TODO: remove wine on merge
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always # TODO: Not sure I need this
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Add 32-bit Windows target
+        if: runner.os == 'Windows'
+        run: rustup target add i686-pc-windows-msvc
+
+      - name: Install cargo-make
+        run: cargo install --locked cargo-make
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build (Debug)
+        run: cargo make build
+
+      - name: Build (Release)
+        run: cargo make build --profile release
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Verify 32-bit artifacts exist
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dllPath = "target/i686-pc-windows-msvc/debug/alembic.dll"
+          $corkPath = "target/i686-pc-windows-msvc/debug/cork.exe"
+
+          if (!(Test-Path $dllPath)) {
+            Write-Error "32-bit DLL not found at $dllPath"
+            exit 1
+          }
+
+          if (!(Test-Path $corkPath)) {
+            Write-Error "32-bit cork.exe not found at $corkPath"
+            exit 1
+          }
+
+          Write-Host "✓ 32-bit artifacts verified"
+          Write-Host "  - $dllPath"
+          Write-Host "  - $corkPath"

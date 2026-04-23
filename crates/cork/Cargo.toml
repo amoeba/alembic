@@ -1,0 +1,18 @@
+[package]
+name = "cork"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description = "Windows-only DLL injection utility for Alembic"
+readme.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "cork"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+libalembic = { path = "../libalembic" }

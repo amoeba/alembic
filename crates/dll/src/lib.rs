@@ -1,4 +1,5 @@
-#![cfg(all(target_os = "windows", target_env = "msvc"))]
+// Enforce that the DLL can ONLY be built for 32-bit Windows (msvc or gnu)
+#![cfg(all(target_arch = "x86", target_os = "windows"))]
 #![allow(
     dead_code,
     non_upper_case_globals,
@@ -6,89 +7,97 @@
     non_camel_case_types
 )]
 
-mod hooks;
-mod logging;
-
-use std::time::Duration;
-use std::{ffi::c_void, thread};
-
-use channel::ensure_channel;
-use client::{ensure_client, shutdown_client};
-use dll_syringe::payload_procedure;
-use logging::log_message;
-
-use runtime::{ensure_runtime, shutdown_runtime};
-use windows::Win32::Foundation::{BOOL, HANDLE};
-use windows::Win32::System::SystemServices::{
-    DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
-};
+// Additional compile-time check with helpful error message
+#[cfg(not(all(target_arch = "x86", target_os = "windows")))]
+compile_error!(
+    "dll can only be built for 32-bit Windows targets (i686-pc-windows-msvc or i686-pc-windows-gnu)"
+);
 
 mod channel;
 mod client;
+mod hooks;
+mod logging;
 mod runtime;
 
-fn on_attach() -> Result<(), anyhow::Error> {
-    attach_hooks()?;
+use std::{ffi::c_void, thread, time::Duration};
 
-    ensure_runtime();
+use channel::ensure_channel;
+use client::{ensure_client, shutdown_client};
+use logging::log_message;
+use runtime::shutdown_runtime;
+
+pub(crate) use windows::Win32::{
+    Foundation::{BOOL, HANDLE},
+    System::{
+        Console::FreeConsole,
+        SystemServices::{
+            DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
+        },
+    },
+};
+
+fn on_attach() -> Result<(), anyhow::Error> {
     ensure_channel();
     ensure_client()?;
+
+    unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable().unwrap() }
+    unsafe { crate::hooks::net::Hook_Network_SendTo.enable().unwrap() }
+    unsafe {
+        crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr
+            .enable()
+            .unwrap()
+    }
 
     Ok(())
 }
 
 fn on_detach() -> anyhow::Result<()> {
-    detach_hooks()?;
+    unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable().unwrap() }
+    unsafe { crate::hooks::net::Hook_Network_SendTo.disable().unwrap() }
+    unsafe {
+        crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr
+            .disable()
+            .unwrap()
+    }
+
     shutdown_client()?;
 
-    // Give tasks time to cleanup
+    // Give async tasks time to clean up
     thread::sleep(Duration::from_millis(100));
     shutdown_runtime()?;
 
-    Ok(())
-}
-
-fn attach_hooks() -> anyhow::Result<()> {
-    unsafe { crate::hooks::net::Hook_Network_RecvFrom.enable()? }
-    unsafe { crate::hooks::net::Hook_Network_SendTo.enable()? }
-    unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.enable()? }
-
-    Ok(())
-}
-
-fn detach_hooks() -> anyhow::Result<()> {
-    unsafe { crate::hooks::net::Hook_Network_RecvFrom.disable()? }
-    unsafe { crate::hooks::net::Hook_Network_SendTo.disable()? }
-    unsafe { crate::hooks::chat::Hook_AddTextToScroll_ushort_ptr_ptr.disable()? }
-
-    Ok(())
-}
-
-payload_procedure! {
-    pub fn dll_startup() {
-        match on_attach() {
-            Ok(_) => unsafe { log_message("Alembic Startup succeeded.") },
-            Err(_) => unsafe { log_message("Alembic Startup failed.") },
+    unsafe {
+        match FreeConsole() {
+            Ok(_) => log_message("Call to FreeConsole succeeded"),
+            Err(error) => log_message(&format!("Call to FreeConsole failed: {error:?}")),
         }
     }
-}
 
-payload_procedure! {
-    pub fn dll_shutdown() {
-        match on_detach() {
-            Ok(_) => unsafe { log_message("Alembic Shutdown succeeded.") },
-            Err(_) => unsafe { log_message("Alembic Shutdown failed.") },
-        }
-    }
+    Ok(())
 }
 
 #[unsafe(no_mangle)]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
-    match reason {
-        DLL_PROCESS_ATTACH => BOOL::from(true),
-        DLL_PROCESS_DETACH => BOOL::from(true),
-        DLL_THREAD_ATTACH => BOOL::from(true),
-        DLL_THREAD_DETACH => BOOL::from(true),
-        _ => BOOL::from(true),
+    unsafe {
+        match reason {
+            DLL_PROCESS_ATTACH => {
+                log_message("DllMain: DLL_PROCESS_ATTACH, initializing hooks");
+                match on_attach() {
+                    Ok(_) => log_message("on_attach succeeded"),
+                    Err(error) => log_message(&format!("on_attach failed: {error}")),
+                }
+            }
+            DLL_PROCESS_DETACH => {
+                log_message("DllMain: DLL_PROCESS_DETACH, cleaning up");
+                match on_detach() {
+                    Ok(_) => log_message("on_detach succeeded"),
+                    Err(error) => log_message(&format!("on_detach failed: {error}")),
+                }
+            }
+            DLL_THREAD_ATTACH => {}
+            DLL_THREAD_DETACH => {}
+            _ => {}
+        };
+        BOOL::from(true)
     }
 }

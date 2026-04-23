@@ -32,6 +32,17 @@ pub struct PacketInfo {
     pub data: Vec<u8>,
 }
 
+#[allow(dead_code)]
+impl PacketInfo {
+    fn default() -> PacketInfo {
+        Self {
+            index: 0,
+            timestamp: 0,
+            data: vec![],
+        }
+    }
+}
+
 impl Display for PacketInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.data)
@@ -55,9 +66,9 @@ pub struct News {
 }
 
 // Community Servers list structures
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct CommunityServersServerItem {
+    #[allow(dead_code)]
     pub id: String,
     pub name: String,
     pub description: String,
@@ -76,9 +87,9 @@ pub struct CommunityServers {
     pub servers: Vec<CommunityServersServerItem>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct Client {
+    #[allow(dead_code)]
     pub pid: NonZero<u32>,
 }
 
@@ -110,7 +121,6 @@ pub struct AppModal {
 }
 
 pub struct Backend {
-    pub injected: bool,
     pub current_modal: Option<AppModal>,
     pub status_message: Option<String>,
     pub news: FetchWrapper<News>,
@@ -127,7 +137,6 @@ pub struct Backend {
 impl Backend {
     pub fn new() -> Self {
         Self {
-            injected: false,
             current_modal: None,
             status_message: None,
             news: FetchWrapper::NotStarted,

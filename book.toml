@@ -1,0 +1,13 @@
+[book]
+title = "Alembic"
+authors = ["Bryce Mecum"]
+language = "en"
+src = "docs/book"
+
+[build]
+build-dir = "target/book"
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "rust"
+mathjax-support = false

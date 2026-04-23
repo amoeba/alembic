@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add 32-bit Windows target
+        run: rustup target add i686-pc-windows-msvc
+
+      - name: Install cargo-make
+        run: cargo install --locked cargo-make
+
+      - name: Build release
+        run: cargo make build --profile release
+
+      - name: Create release directory
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "release" -Force
+          Copy-Item "target/release/desktop.exe" "release/"
+          Copy-Item "target/release/cli.exe" "release/"
+          Copy-Item "target/i686-pc-windows-msvc/release/cork.exe" "release/"
+          Copy-Item "target/i686-pc-windows-msvc/release/alembic.dll" "release/"
+          Copy-Item "README.md" "release/"
+          Copy-Item "LICENSE" "release/"
+
+      - name: Create Windows archive
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          Compress-Archive -Path "release/*" -DestinationPath "alembic-$version-windows-x86_64.zip"
+
+      # - name: Upload release asset
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     files: alembic-*-windows-x86_64.zip
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release
+        run: cargo build --release --verbose -p desktop -p cli
+
+      - name: Create release directory
+        run: |
+          mkdir -p release
+          cp target/release/desktop release/
+          cp target/release/cli release/
+          cp README.md release/
+          cp LICENSE release/
+
+      - name: Create macOS archive
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          cd release
+          tar -czf ../alembic-$version-macos-universal.tar.gz *
+          cd ..
+
+      # - name: Upload release asset
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     files: alembic-*-macos-universal.tar.gz
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release
+        run: cargo build --release --verbose -p desktop -p cli
+
+      - name: Create release directory
+        run: |
+          mkdir -p release
+          cp target/release/desktop release/
+          cp target/release/cli release/
+          cp README.md release/
+          cp LICENSE release/
+
+      - name: Create Linux archive
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          cd release
+          tar -czf ../alembic-$version-linux-x86_64.tar.gz *
+          cd ..
+
+      # - name: Upload release asset
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     files: alembic-*-linux-x86_64.tar.gz
