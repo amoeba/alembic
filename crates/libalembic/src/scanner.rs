@@ -817,6 +817,6 @@ script:
         assert_eq!(wine_path, PathBuf::from("/usr/bin/wine"));
         assert_eq!(name, "Test Game");
 
-        let _ = fs::remove_file(path);
+        fs::remove_file(path).ok();
     }
 }
