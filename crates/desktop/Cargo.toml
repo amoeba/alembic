@@ -35,7 +35,7 @@ ringbuffer = "0.15.0"
 serde = "1.0.217"
 serde_json = "1.0.138"
 serde_with = "3.12.0"
-serde-xml-rs = "0.6.0"
+serde-xml-rs = "0.8.2"
 tarpc = { workspace = true }
 tokio = { workspace = true }
 
