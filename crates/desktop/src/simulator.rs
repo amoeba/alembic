@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     })
     .expect("Error setting Ctrl-C handler");
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5000);
     let transport = tarpc::serde_transport::tcp::connect(&addr, Json::default);
