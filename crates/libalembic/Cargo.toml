@@ -10,7 +10,7 @@ license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-ctor = "0.2.9"
+ctor = "0.10.1"
 directories = "6.0.0"
 once_cell = { workspace = true }
 region = "3.0.2"
