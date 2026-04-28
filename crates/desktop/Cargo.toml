@@ -19,8 +19,8 @@ path = "src/simulator.rs"
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = "0.4.39"
-ctrlc = "3.4.5"
+chrono = "0.4.44"
+ctrlc = "3.5.2"
 eframe = "0.33.2"
 egui_commonmark = "0.22.0"
 egui_extras = { version = "0.33.2", features = ["image"] }
