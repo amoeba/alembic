@@ -271,7 +271,7 @@ impl eframe::App for Application {
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
                                 && let Ok(mut backend) = backend.lock()
                             {
-                                backend.logs.push(log);
+                                backend.logs.enqueue(log);
                             }
                         });
                     }
@@ -293,7 +293,7 @@ impl eframe::App for Application {
                                         .as_secs(),
                                     data: vec,
                                 };
-                                backend.packets_outgoing.push(packet);
+                                backend.packets_outgoing.enqueue(packet);
                             }
                         });
                     }
@@ -315,7 +315,7 @@ impl eframe::App for Application {
                                         .as_secs(),
                                     data: vec,
                                 };
-                                backend.packets_incoming.push(packet);
+                                backend.packets_incoming.enqueue(packet);
                             }
                         });
                     }
@@ -333,7 +333,7 @@ impl eframe::App for Application {
                                         .as_secs(),
                                     text,
                                 };
-                                backend.chat_messages.push(message);
+                                backend.chat_messages.enqueue(message);
                             }
                         });
                     }

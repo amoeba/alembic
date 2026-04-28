@@ -98,7 +98,7 @@ pub fn launch_suspended_inject_and_resume(
     let success = unsafe {
         CreateProcessA(
             PCSTR::null(),
-            PSTR(command_line_cstring.as_ptr() as *mut u8),
+            Some(PSTR(command_line_cstring.as_ptr() as *mut u8)),
             None,
             None,
             false,
@@ -151,7 +151,7 @@ pub fn launch_without_injection(executable_path: &str, executable_args: &str) ->
     let success = unsafe {
         CreateProcessA(
             PCSTR::null(),
-            PSTR(command_line_cstring.as_ptr() as *mut u8),
+            Some(PSTR(command_line_cstring.as_ptr() as *mut u8)),
             None,
             None,
             false,

@@ -32,7 +32,7 @@ pub unsafe fn allocate_console() -> anyhow::Result<()> {
             None,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL,
-            HANDLE::default(),
+            Some(HANDLE::default()),
         )?;
 
         SetStdHandle(STD_OUTPUT_HANDLE, stdout_handle)?;
@@ -45,7 +45,7 @@ pub unsafe fn allocate_console() -> anyhow::Result<()> {
             None,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL,
-            HANDLE::default(),
+            Some(HANDLE::default()),
         )?;
 
         SetStdHandle(STD_ERROR_HANDLE, stderr_handle)?;

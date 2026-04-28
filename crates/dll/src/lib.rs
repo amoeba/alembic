@@ -27,7 +27,7 @@ use logging::log_message;
 use runtime::shutdown_runtime;
 
 pub(crate) use windows::Win32::{
-    Foundation::{BOOL, HANDLE},
+    Foundation::HANDLE,
     System::{
         Console::FreeConsole,
         SystemServices::{
@@ -77,7 +77,7 @@ fn on_detach() -> anyhow::Result<()> {
 }
 
 #[unsafe(no_mangle)]
-unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
+unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> i32 {
     unsafe {
         match reason {
             DLL_PROCESS_ATTACH => {
@@ -98,6 +98,6 @@ unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c
             DLL_THREAD_DETACH => {}
             _ => {}
         };
-        BOOL::from(true)
+        1
     }
 }

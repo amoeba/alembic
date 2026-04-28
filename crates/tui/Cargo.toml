@@ -9,7 +9,7 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-crossterm = "0.28.1"
+crossterm = "0.29.0"
 futures = { workspace = true }
 libalembic = { path = "../libalembic" }
 ratatui = "0.29.0"
