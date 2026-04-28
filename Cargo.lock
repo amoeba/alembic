@@ -1351,7 +1351,7 @@ dependencies = [
  "retour",
  "tarpc",
  "tokio",
- "windows 0.58.0",
+ "windows 0.61.3",
 ]
 
 [[package]]
@@ -2791,7 +2791,7 @@ dependencies = [
  "tarpc",
  "tokio",
  "widestring",
- "windows 0.58.0",
+ "windows 0.61.3",
 ]
 
 [[package]]
@@ -2817,7 +2817,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
