@@ -1,5 +1,5 @@
 use libalembic::rpc::WorldClient;
-use rand::Rng;
+use rand::RngExt;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
