@@ -33,7 +33,7 @@ rand = { workspace = true }
 reqwest = { version = "0.13.3", features = ["blocking"] }
 ringbuffer = "0.16.0"
 serde = "1.0.217"
-serde_json = "1.0.138"
+serde_json = "1.0.150"
 serde_with = "3.20.0"
 serde-xml-rs = "0.8.2"
 tarpc = { workspace = true }
