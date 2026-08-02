@@ -129,10 +129,10 @@ impl Application {
         }
     }
 
-    fn ui(&mut self, ctx: &egui::Context) {
+    fn render(&mut self, ui: &mut egui::Ui) {
         let mut current_app_page = AppPage::Wizard;
 
-        ctx.memory_mut(|mem| {
+        ui.memory_mut(|mem| {
             if let Some(val) = mem.data.get_persisted::<AppPage>(egui::Id::new("app_page")) {
                 current_app_page = val;
             }
@@ -140,7 +140,7 @@ impl Application {
 
         match current_app_page {
             AppPage::Main => {
-                egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+                egui::Panel::top("menu_bar").show(ui, |ui| {
                     egui::MenuBar::new().ui(ui, |ui| {
                         ui.menu_button("File", |ui| {
                             if ui.add(egui::Button::new("Settings")).clicked() {
@@ -170,9 +170,9 @@ impl Application {
                     });
                 });
 
-                egui::TopBottomPanel::bottom("status")
+                egui::Panel::bottom("status")
                     .resizable(false)
-                    .show(ctx, |ui| {
+                    .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             if let Some(backend) = ui.data_mut(|data| {
                                 data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
@@ -190,29 +190,29 @@ impl Application {
                         });
                     });
 
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.add(&mut self.tab_container);
                 });
             }
             AppPage::Settings => {
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.add(&mut self.settings);
                 });
             }
             AppPage::Wizard => {
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.add(&mut self.wizard);
                 });
             }
             AppPage::About => {
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.add(&mut self.about);
                 });
             }
         }
 
         let current_modal = if let Some(backend_ref) =
-            ctx.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
+            ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
         {
             let backend = backend_ref.lock().unwrap();
 
@@ -227,7 +227,7 @@ impl Application {
                 .collapsible(false)
                 .resizable(false)
                 .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-                .show(ctx, |ui| {
+                .show(ui, |ui| {
                     ui.set_max_width(240.0); // Adjust this value as needed
 
                     ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
@@ -235,7 +235,7 @@ impl Application {
                         ui.add_space(16.0);
                         ui.with_layout(Layout::top_down(Align::Center), |ui| {
                             if ui.button("Close").clicked()
-                                && let Some(backend_ref) = ctx.data_mut(|data| {
+                                && let Some(backend_ref) = ui.data_mut(|data| {
                                     data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
                                         "backend",
                                     ))
@@ -253,7 +253,7 @@ impl Application {
 }
 
 impl eframe::App for Application {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Handle channel
         loop {
             match self.client_server_rx.try_lock().unwrap().try_recv() {
@@ -375,7 +375,9 @@ impl eframe::App for Application {
                 }
             }
         }
+    }
 
-        self.ui(ctx);
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.render(ui);
     }
 }

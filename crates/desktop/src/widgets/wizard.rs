@@ -36,10 +36,10 @@ impl Widget for &mut Wizard {
 
         ui.vertical(|ui| match current_wizard_page {
             WizardPage::Start => {
-                egui::TopBottomPanel::bottom("wizard_controls")
+                egui::Panel::bottom("wizard_controls")
                     .resizable(false)
                     .show_separator_line(false)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
                                 // Save is_configured
@@ -61,7 +61,7 @@ impl Widget for &mut Wizard {
                         });
                     });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.with_layout(Layout::top_down(Align::Center), |ui| {
                         // TODO: Is this really as good as egui can do to center things?
                         ui.add_space(ui.available_height() / 2.0);
@@ -79,10 +79,10 @@ impl Widget for &mut Wizard {
                 });
             }
             WizardPage::Client => {
-                egui::TopBottomPanel::bottom("wizard_controls")
+                egui::Panel::bottom("wizard_controls")
                     .resizable(false)
                     .show_separator_line(false)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                                 if ui.button("Exit Setup").clicked() {
@@ -121,7 +121,7 @@ impl Widget for &mut Wizard {
                         });
                     });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.heading("Setup");
                     ui.add_space(16.0);
                     ui.add(&mut SettingsGameClientPathEdit {});
@@ -130,10 +130,10 @@ impl Widget for &mut Wizard {
                 });
             }
             WizardPage::Done => {
-                egui::TopBottomPanel::bottom("wizard_controls")
+                egui::Panel::bottom("wizard_controls")
                     .resizable(false)
                     .show_separator_line(false)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             if ui.button("Exit Setup").clicked() {
                                 // Save is_configured
@@ -155,7 +155,7 @@ impl Widget for &mut Wizard {
                         });
                     });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.heading("Setup");
                     ui.add_space(16.0);
 

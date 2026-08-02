@@ -65,7 +65,6 @@ impl Widget for &mut GameChatTab {
                     ui.horizontal(|ui| {
                         ui.add(
                             TextEdit::singleline(&mut self.current_message)
-                                .frame(true)
                                 .hint_text("Type to chat... (currently disabled)"),
                         );
                         ui.add_enabled(false, Button::new("Send"))

@@ -30,10 +30,10 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
                 if backend.lock().unwrap().packets_outgoing.is_empty() {
                     centered_text(ui, "No outgoing packets yet.");
                 } else {
-                    egui::SidePanel::left("left_panel")
+                    egui::Panel::left("left_panel")
                         .resizable(true)
-                        .default_width(self.left_panel_width)
-                        .show_inside(ui, |ui| {
+                        .default_size(self.left_panel_width)
+                        .show(ui, |ui| {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 for (index, item) in
                                     backend.lock().unwrap().packets_outgoing.iter().enumerate()
@@ -46,7 +46,7 @@ impl Widget for &mut DeveloperNetworkOutgoingTab {
                             self.left_panel_width = ui.available_width();
                         });
 
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         if let Some(item) = &self.selected_item {
                             ui.add(&mut BinaryViewer::new(
                                 "packets_outgoing".to_string(),
