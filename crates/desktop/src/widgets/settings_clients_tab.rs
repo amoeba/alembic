@@ -103,10 +103,10 @@ impl Widget for &mut SettingsClientsTab {
                 let mut did_update = false;
                 let mut delete_client = false;
 
-                egui::SidePanel::left("clients_list")
+                egui::Panel::left("clients_list")
                     .resizable(true)
-                    .default_width(180.0)
-                    .show_inside(ui, |ui| {
+                    .default_size(180.0)
+                    .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             for i in 0..settings.clients.len() {
                                 let client = &settings.clients[i];
@@ -120,7 +120,7 @@ impl Widget for &mut SettingsClientsTab {
                         });
                     });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     let Some(idx) = self.selected_index else {
                         ui.centered_and_justified(|ui| {
                             ui.label("Select a client from the list");

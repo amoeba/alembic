@@ -115,10 +115,10 @@ impl Widget for &mut SettingsDllsTab {
                 let mut delete_dll = false;
 
                 // Two-pane layout
-                egui::SidePanel::left("dlls_list")
+                egui::Panel::left("dlls_list")
                     .resizable(true)
                     .default_width(180.0)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             let dll_count = settings.get_client_dlls(client_idx).map(|d| d.len()).unwrap_or(0);
                             for i in 0..dll_count {
@@ -137,7 +137,7 @@ impl Widget for &mut SettingsDllsTab {
                     });
 
                 // Right pane: detail editor
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     let Some(idx) = self.selected_index else {
                         ui.centered_and_justified(|ui| {
                             ui.label("Select a DLL from the list");
