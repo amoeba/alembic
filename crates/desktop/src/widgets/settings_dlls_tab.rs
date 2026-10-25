@@ -20,7 +20,7 @@ impl Widget for &mut SettingsDllsTab {
             ui.add_space(8.0);
 
             if let Some(s) = ui.data_mut(|data| {
-                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
             }) {
                 let mut settings = s.lock().unwrap();
 

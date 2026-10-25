@@ -17,7 +17,7 @@ impl Widget for &mut WizardStart {
             if ui.button("Exit").clicked() {
                 ui.memory_mut(|mem| {
                     mem.data
-                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                        .insert_persisted(egui::Id::unique("app_page"), AppPage::Main)
                 });
             }
         })

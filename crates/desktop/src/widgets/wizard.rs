@@ -28,7 +28,7 @@ impl Widget for &mut Wizard {
         ui.memory_mut(|mem| {
             if let Some(val) = mem
                 .data
-                .get_persisted::<WizardPage>(egui::Id::new("wizard_page"))
+                .get_persisted::<WizardPage>(egui::Id::unique("wizard_page"))
             {
                 current_wizard_page = val;
             }
@@ -45,7 +45,7 @@ impl Widget for &mut Wizard {
                                 // Save is_configured
                                 if let Some(s) = ui.data_mut(|data| {
                                     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(
-                                        egui::Id::new("settings"),
+                                        egui::Id::unique("settings"),
                                     )
                                 }) {
                                     let mut settings = s.lock().unwrap();
@@ -55,7 +55,7 @@ impl Widget for &mut Wizard {
 
                                 ui.memory_mut(|mem| {
                                     mem.data
-                                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                                        .insert_persisted(egui::Id::unique("app_page"), AppPage::Main)
                                 });
                             }
                         });
@@ -70,7 +70,7 @@ impl Widget for &mut Wizard {
                         if ui.button("Get started...").clicked() {
                             ui.memory_mut(|mem| {
                                 mem.data.insert_persisted(
-                                    egui::Id::new("wizard_page"),
+                                    egui::Id::unique("wizard_page"),
                                     WizardPage::Client,
                                 )
                             });
@@ -89,7 +89,7 @@ impl Widget for &mut Wizard {
                                     // Save is_configured
                                     if let Some(s) = ui.data_mut(|data| {
                                         data.get_persisted::<Arc<Mutex<AlembicSettings>>>(
-                                            egui::Id::new("settings"),
+                                            egui::Id::unique("settings"),
                                         )
                                     }) {
                                         let mut settings = s.lock().unwrap();
@@ -99,7 +99,7 @@ impl Widget for &mut Wizard {
 
                                     ui.memory_mut(|mem| {
                                         mem.data.insert_persisted(
-                                            egui::Id::new("app_page"),
+                                            egui::Id::unique("app_page"),
                                             AppPage::Main,
                                         )
                                     });
@@ -112,7 +112,7 @@ impl Widget for &mut Wizard {
                                 if ui.button("Continue").clicked() {
                                     ui.memory_mut(|mem| {
                                         mem.data.insert_persisted(
-                                            egui::Id::new("wizard_page"),
+                                            egui::Id::unique("wizard_page"),
                                             WizardPage::Done,
                                         )
                                     });
@@ -139,7 +139,7 @@ impl Widget for &mut Wizard {
                                 // Save is_configured
                                 if let Some(s) = ui.data_mut(|data| {
                                     data.get_persisted::<Arc<Mutex<AlembicSettings>>>(
-                                        egui::Id::new("settings"),
+                                        egui::Id::unique("settings"),
                                     )
                                 }) {
                                     let mut settings = s.lock().unwrap();
@@ -149,7 +149,7 @@ impl Widget for &mut Wizard {
 
                                 ui.memory_mut(|mem| {
                                     mem.data
-                                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                                        .insert_persisted(egui::Id::unique("app_page"), AppPage::Main)
                                 });
                             }
                         });
@@ -164,7 +164,7 @@ impl Widget for &mut Wizard {
                     if ui.button("Finish").clicked() {
                         // Save is_configured
                         if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique(
                                 "settings",
                             ))
                         }) {
@@ -175,7 +175,7 @@ impl Widget for &mut Wizard {
 
                         ui.memory_mut(|mem| {
                             mem.data
-                                .insert_persisted(egui::Id::new("app_page"), AppPage::Main)
+                                .insert_persisted(egui::Id::unique("app_page"), AppPage::Main)
                         });
                     }
                 });
