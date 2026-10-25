@@ -41,7 +41,7 @@ impl Widget for &mut MainTab {
             ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
                 ui.set_max_width(self.sidebar_width);
                 let _have_client = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                 }) {
                     let backend = s.lock().unwrap();
 
@@ -50,7 +50,7 @@ impl Widget for &mut MainTab {
                     false
                 };
                 let _is_injected = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                 }) {
                     let backend = s.lock().unwrap();
 
@@ -60,7 +60,7 @@ impl Widget for &mut MainTab {
                 };
 
                 let can_launch = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
                 }) {
                     let settings = s.lock().unwrap();
 
@@ -76,7 +76,7 @@ impl Widget for &mut MainTab {
                     {
                         // Client Info
                         let client_info = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique(
                                 "settings",
                             ))
                         }) {
@@ -92,7 +92,7 @@ impl Widget for &mut MainTab {
 
                         // Server Info
                         let server_info = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique(
                                 "settings",
                             ))
                         }) {
@@ -105,7 +105,7 @@ impl Widget for &mut MainTab {
 
                         // Account Info
                         let account_info = if let Some(s) = ui.data_mut(|data| {
-                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique(
                                 "settings",
                             ))
                         }) {
@@ -118,7 +118,7 @@ impl Widget for &mut MainTab {
 
                         // Alembic DLL Path
                          let dll_config = if let Some(s) = ui.data_mut(|data| {
-                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new(
+                             data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique(
                                  "settings",
                              ))
                          }) {
@@ -148,7 +148,7 @@ impl Widget for &mut MainTab {
                                 println!("Launch succeeded. Launched pid is {val}!");
 
                                 if let Some(backend_ref) = ui.data_mut(|data| {
-                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique(
                                         "backend",
                                     ))
                                 }) {
@@ -162,7 +162,7 @@ impl Widget for &mut MainTab {
                                 println!("Launch failed with error: {error}");
 
                                 if let Some(backend_ref) = ui.data_mut(|data| {
-                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique(
                                         "backend",
                                     ))
                                 }) {
@@ -181,7 +181,7 @@ impl Widget for &mut MainTab {
                 });
 
                 let selected_server = if let Some(s) = ui.data_mut(|data| {
-                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                    data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
                 }) {
                     s.lock().unwrap().selected_server
                 } else {

@@ -41,7 +41,7 @@ impl Widget for &mut AccountsCommunityServersTab {
             if !self.is_resolved {
                 // First we check if the were were resolved externally
                 if let Some(b) = ui
-                    .data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::new("backend")))
+                    .data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::unique("backend")))
                 {
                     let backend = b.lock().unwrap();
 
@@ -63,7 +63,7 @@ impl Widget for &mut AccountsCommunityServersTab {
 
                     if let Some(sender) = ui.data_mut(|data| -> _ {
                         data.get_persisted::<std::sync::mpsc::Sender<BackgroundFetchRequest>>(
-                            Id::new("background_fetch_sender"),
+                            Id::unique("background_fetch_sender"),
                         )
                     }) {
                         println!("Requesting we fetch servers list...");
@@ -82,7 +82,7 @@ impl Widget for &mut AccountsCommunityServersTab {
                 ui.add_space(8.0);
 
                 if let Some(b) = ui.data_mut(|data: &mut egui::util::IdTypeMap| {
-                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                 }) {
                     let backend = b.lock().unwrap();
 
@@ -163,7 +163,7 @@ impl Widget for &mut AccountsCommunityServersTab {
                                                 table_row.col(|ui| {
                                                     if ui.button("Import").clicked()
                                                         && let Some(s) = ui.data_mut(|data: &mut egui::util::IdTypeMap| {
-                                                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                                                            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
                                                         })
                                                     {
                                                         let mut settings = s.lock().unwrap();

@@ -24,7 +24,7 @@ impl Widget for &mut DeveloperNetworkTab {
         ui.vertical(|ui| {
             // Statistics
             if let Some(backend) = ui.data_mut(|data| {
-                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
             }) {
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::top_down(Align::TOP), |ui| {

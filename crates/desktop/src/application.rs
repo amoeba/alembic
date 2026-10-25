@@ -50,7 +50,7 @@ impl Application {
         // Inject a new, shared Backend object into the egui_ctx (Context)
         let backend: Arc<Mutex<Backend>> = Arc::new(Mutex::new(Backend::new()));
         cc.egui_ctx
-            .data_mut(|data| data.insert_persisted(egui::Id::new("backend"), backend));
+            .data_mut(|data| data.insert_persisted(egui::Id::unique("backend"), backend));
 
         // Inject a new, shared Settings object into the egui_ctx (Context)
         let alembic_settings: Arc<Mutex<AlembicSettings>> =
@@ -61,12 +61,12 @@ impl Application {
         }
 
         cc.egui_ctx
-            .data_mut(|data| data.insert_persisted(egui::Id::new("settings"), alembic_settings));
+            .data_mut(|data| data.insert_persisted(egui::Id::unique("settings"), alembic_settings));
 
         // Background data fetching
         cc.egui_ctx.data_mut(|data| {
             data.insert_persisted(
-                egui::Id::new("background_fetch_sender"),
+                egui::Id::unique("background_fetch_sender"),
                 background_fetch_sender.clone(),
             );
         });
@@ -78,7 +78,7 @@ impl Application {
         // ends up giving me borrow-checker errors
         let is_configured = cc.egui_ctx.data_mut(|data| {
             if let Some(val) =
-                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
             {
                 val.lock().unwrap().is_configured
             } else {
@@ -90,15 +90,15 @@ impl Application {
             true => {
                 cc.egui_ctx.memory_mut(|mem| {
                     mem.data
-                        .insert_persisted(egui::Id::new("app_page"), AppPage::Main);
+                        .insert_persisted(egui::Id::unique("app_page"), AppPage::Main);
                 });
             }
             false => {
                 cc.egui_ctx.memory_mut(|mem| {
                     mem.data
-                        .insert_persisted(egui::Id::new("app_page"), AppPage::Wizard);
+                        .insert_persisted(egui::Id::unique("app_page"), AppPage::Wizard);
                     mem.data
-                        .insert_persisted(egui::Id::new("wizard_page"), WizardPage::Start);
+                        .insert_persisted(egui::Id::unique("wizard_page"), WizardPage::Start);
                 });
             }
         }
@@ -133,7 +133,10 @@ impl Application {
         let mut current_app_page = AppPage::Wizard;
 
         ui.memory_mut(|mem| {
-            if let Some(val) = mem.data.get_persisted::<AppPage>(egui::Id::new("app_page")) {
+            if let Some(val) = mem
+                .data
+                .get_persisted::<AppPage>(egui::Id::unique("app_page"))
+            {
                 current_app_page = val;
             }
         });
@@ -146,7 +149,7 @@ impl Application {
                             if ui.add(egui::Button::new("Settings")).clicked() {
                                 ui.memory_mut(|mem| {
                                     mem.data.insert_persisted(
-                                        egui::Id::new("app_page"),
+                                        egui::Id::unique("app_page"),
                                         AppPage::Settings,
                                     )
                                 });
@@ -162,8 +165,10 @@ impl Application {
                             if ui.add(egui::Button::new("About")).clicked() {
                                 ui.close();
                                 ui.memory_mut(|mem| {
-                                    mem.data
-                                        .insert_persisted(egui::Id::new("app_page"), AppPage::About)
+                                    mem.data.insert_persisted(
+                                        egui::Id::unique("app_page"),
+                                        AppPage::About,
+                                    )
                                 });
                             }
                         });
@@ -175,7 +180,9 @@ impl Application {
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             if let Some(backend) = ui.data_mut(|data| {
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique(
+                                    "backend",
+                                ))
                             }) {
                                 let b = backend.lock().unwrap();
 
@@ -211,8 +218,8 @@ impl Application {
             }
         }
 
-        let current_modal = if let Some(backend_ref) =
-            ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
+        let current_modal = if let Some(backend_ref) = ui
+            .data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend")))
         {
             let backend = backend_ref.lock().unwrap();
 
@@ -236,7 +243,7 @@ impl Application {
                         ui.with_layout(Layout::top_down(Align::Center), |ui| {
                             if ui.button("Close").clicked()
                                 && let Some(backend_ref) = ui.data_mut(|data| {
-                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new(
+                                    data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique(
                                         "backend",
                                     ))
                                 })
@@ -267,8 +274,8 @@ impl eframe::App for Application {
                             message: value,
                         };
                         ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            if let Some(backend) = data
+                                .get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                                 && let Ok(mut backend) = backend.lock()
                             {
                                 backend.logs.enqueue(log);
@@ -277,8 +284,8 @@ impl eframe::App for Application {
                     }
                     ClientServerMessage::HandleSendTo(vec) => {
                         ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            if let Some(backend) = data
+                                .get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                                 && let Ok(mut backend) = backend.lock()
                             {
                                 // Increment statistics
@@ -299,8 +306,8 @@ impl eframe::App for Application {
                     }
                     ClientServerMessage::HandleRecvFrom(vec) => {
                         ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            if let Some(backend) = data
+                                .get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                                 && let Ok(mut backend) = backend.lock()
                             {
                                 // Increment statistics
@@ -321,8 +328,8 @@ impl eframe::App for Application {
                     }
                     ClientServerMessage::HandleAddTextToScroll(text) => {
                         ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            if let Some(backend) = data
+                                .get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                                 && let Ok(mut backend) = backend.lock()
                             {
                                 let message = ChatMessage {
@@ -351,8 +358,8 @@ impl eframe::App for Application {
                 Ok(update) => match update {
                     BackgroundFetchUpdateMessage::NewsUpdate(wrapper) => {
                         ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            if let Some(backend) = data
+                                .get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                             {
                                 backend.lock().unwrap().news = wrapper;
                             }
@@ -360,8 +367,8 @@ impl eframe::App for Application {
                     }
                     BackgroundFetchUpdateMessage::CommunityServersUpdate(wrapper) => {
                         ctx.data_mut(|data| {
-                            if let Some(backend) =
-                                data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend"))
+                            if let Some(backend) = data
+                                .get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend"))
                             {
                                 backend.lock().unwrap().community_servers = wrapper;
                             }

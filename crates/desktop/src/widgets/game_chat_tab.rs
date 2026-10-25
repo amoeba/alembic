@@ -20,8 +20,8 @@ impl GameChatTab {
 
 impl Widget for &mut GameChatTab {
     fn ui(self, ui: &mut Ui) -> Response {
-        if let Some(backend) =
-            ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::new("backend")))
+        if let Some(backend) = ui
+            .data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(egui::Id::unique("backend")))
         {
             if backend.lock().unwrap().chat_messages.is_empty() {
                 centered_text(ui, "No chat messages yet.")

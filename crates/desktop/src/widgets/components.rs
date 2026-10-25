@@ -19,7 +19,7 @@ pub struct AccountPicker {
 impl Widget for &mut AccountPicker {
     fn ui(self, ui: &mut Ui) -> Response {
         if let Some(s) = ui.data_mut(|data| {
-            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
         }) {
             let mut settings = s.lock().unwrap();
 
@@ -70,7 +70,7 @@ pub struct ClientPicker {}
 impl Widget for &mut ClientPicker {
     fn ui(self, ui: &mut Ui) -> Response {
         if let Some(s) = ui.data_mut(|data| {
-            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
         }) {
             let mut settings = s.lock().unwrap();
 
@@ -123,7 +123,7 @@ pub struct DllPicker {}
 impl Widget for &mut DllPicker {
     fn ui(self, ui: &mut Ui) -> Response {
         if let Some(s) = ui.data_mut(|data| {
-            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
         }) {
             let mut settings = s.lock().unwrap();
 
@@ -187,7 +187,7 @@ pub struct ServerPicker {}
 impl Widget for &mut ServerPicker {
     fn ui(self, ui: &mut Ui) -> Response {
         if let Some(s) = ui.data_mut(|data| {
-            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+            data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
         }) {
             let mut settings = s.lock().unwrap();
 
@@ -240,7 +240,7 @@ impl Widget for &mut SettingsGameClientPathEdit {
             ui.add_space(8.0);
 
             if let Some(s) = ui.data_mut(|data| {
-                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
             }) {
                 let mut settings = s.lock().unwrap();
                 let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
@@ -390,7 +390,7 @@ impl Widget for &mut SettingsDLLPathEdit {
 
         ui.vertical(|ui| {
             if let Some(s) = ui.data_mut(|data| {
-                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::new("settings"))
+                data.get_persisted::<Arc<Mutex<AlembicSettings>>>(egui::Id::unique("settings"))
             }) {
                 let mut settings = s.lock().unwrap();
 

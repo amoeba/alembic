@@ -39,7 +39,7 @@ impl Widget for &mut News {
         if !self.is_resolved {
             // First we check if the were were resolved externally
             if let Some(b) =
-                ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::new("backend")))
+                ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::unique("backend")))
             {
                 let backend = b.lock().unwrap();
 
@@ -57,9 +57,9 @@ impl Widget for &mut News {
                 self.last_fetched = Some(SystemTime::now());
 
                 if let Some(sender) = ui.data_mut(|data| -> _ {
-                    data.get_persisted::<std::sync::mpsc::Sender<BackgroundFetchRequest>>(Id::new(
-                        "background_fetch_sender",
-                    ))
+                    data.get_persisted::<std::sync::mpsc::Sender<BackgroundFetchRequest>>(
+                        Id::unique("background_fetch_sender"),
+                    )
                 }) {
                     sender
                         .send(BackgroundFetchRequest::FetchNews)
@@ -75,7 +75,7 @@ impl Widget for &mut News {
             ui.heading("Community Updates");
             ui.add_space(8.0);
             if let Some(b) =
-                ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::new("backend")))
+                ui.data_mut(|data| data.get_persisted::<Arc<Mutex<Backend>>>(Id::unique("backend")))
             {
                 let backend = b.lock().unwrap();
 
