@@ -108,8 +108,7 @@ impl Widget for &mut SettingsClientsTab {
                     .default_size(180.0)
                     .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| {
-                            for i in 0..settings.clients.len() {
-                                let client = &settings.clients[i];
+                            for (i, client) in settings.clients.iter().enumerate() {
                                 let type_str = if client.is_wine() { "Wine" } else { "Windows" };
                                 let selected = self.selected_index == Some(i);
                                 let label = format!("{} ({})", client.name(), type_str);
